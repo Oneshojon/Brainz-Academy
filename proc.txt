@@ -1,0 +1,4 @@
+# Set up for scalable project
+# Install the helper
+pip install dj-database-url python-decouple
+

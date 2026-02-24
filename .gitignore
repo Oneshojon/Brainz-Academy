@@ -1,0 +1,39 @@
+# Files/folders
+src7/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Database / PostgreSQL
+*.sql.log
+*.dump
+.pgpass
+
+# OS specific (especially for WSL/Windows users)
+.DS_Store
+Thumbs.db
+
+# Environment variables (Crucial for psycopg2)
+.env
