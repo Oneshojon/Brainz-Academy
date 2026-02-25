@@ -93,7 +93,7 @@ class Choice(models.Model):
     choice_text = models.TextField()
     is_correct = models.BooleanField(default=False)
     explanation = models.TextField(null=True, blank=True)
-
+    video_url = models.URLField(null=True, blank=True, help_text="Link to a video explaining this answer")
     class Meta:
         unique_together = ('question', 'label')
 
@@ -111,6 +111,7 @@ class TheoryAnswer(models.Model):
         null=True, blank=True,
         help_text="Notes for teachers on how marks should be awarded"
     )
+    video_url = models.URLField(null=True, blank=True, help_text="Link to a video walkthrough of this answer")
 
     def __str__(self):
         return f"Answer for {self.question}"
