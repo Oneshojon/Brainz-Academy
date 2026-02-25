@@ -1,72 +1,123 @@
-{% extends 'Users/layout.html' %}
+{% extends 'Users/layout.html' %} {% block body %}
+<div
+  class="container d-flex justify-content-center align-items-center"
+  style="min-height: 80vh"
+>
+  <div
+    class="card shadow-sm"
+    style="max-width: 400px; width: 100%; border-radius: 15px"
+  >
+    <div class="card-body p-4">
+      <h3 class="card-title text-center mb-4">Verify Identity</h3>
 
-{% block body %}
-<div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh">
- <div class="card shadow-sm" style="max-width: 400px; width: 100%; border-radius: 15px">
- <div class="card-body p-4">
+      {% if error %}
+      <div class="alert alert-danger py-2 small text-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
+      </div>
+      {% endif %}
 
- <h3 class="card-title text-center mb-4">Verify Identity</h3>
+      <p class="text-muted text-center small">
+        We've sent a code to your email.
+      </p>
 
- {% if error %}
- <div class="alert alert-danger py-2 small text-center" role="alert">
- <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
- </div>
- {% endif %}
+      <form action="{% url 'Users:verify_otp' %}" method="post">
+        {% csrf_token %}
 
- <p class="text-muted text-center small">We've sent a code to your email.</p>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Email Address</label>
+          <input
+            type="email"
+            name="email"
+            value="{{ email }}"
+            class="form-control bg-light"
+            readonly
+          />
+        </div>
 
- <form action="{% url 'Users:verify_otp' %}" method="post">
- {% csrf_token %}
+        {% if messages %} {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" role="alert">
+          {{ message }}
+        </div>
+        {% endfor %} {% endif %}
 
- <div class="mb-3">
- <label class="form-label small fw-bold">Email Address</label>
- <input type="email" name="email" value="{{ email }}" class="form-control bg-light" readonly />
- </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between">
+            <label class="form-label small fw-bold text-primary"
+              >6-Digit OTP</label
+            >
 
- {% if messages %}
-  {% for message in messages %}
-    <div class="alert {{ message.tags }}">
-        {{ message }}
+            <a
+              href="javascript:document.getElementById('resend-form').submit();"
+              class="small text-decoration-none"
+              >Resend Code?</a
+            >
+          </div>
+          <input
+            type="text"
+            name="otp"
+            id="otp"
+            placeholder="000000"
+            class="form-control form-control-lg text-center fw-bold"
+            style="letter-spacing: 5px"
+            autofocus
+            required
+          />
+        </div>
+
+        {% if new_user %}
+        <div class="alert alert-info py-2 small">
+          <strong>New Student!</strong> Please enter your name to finish
+          registration.
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <input
+              type="text"
+              name="first_name"
+              class="form-control"
+              placeholder="First Name"
+              required
+            />
+          </div>
+          <div class="col">
+            <input
+              type="text"
+              name="last_name"
+              class="form-control"
+              placeholder="Last Name"
+              required
+            />
+          </div>
+          <select name="role" required>
+            <option value="">I am a...</option>
+            <option value="STUDENT">Student</option>
+            <option value="TEACHER">Teacher</option>
+          </select>
+        </div>
+
+        {% endif %}
+
+        <div class="d-grid mt-4">
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg"
+            style="border-radius: 8px"
+          >
+            Verify
+          </button>
+        </div>
+      </form>
+
+      <form
+        id="resend-form"
+        action="{% url 'Users:request_otp' %}"
+        method="post"
+        style="display: none"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="email" value="{{ email }}" />
+      </form>
     </div>
-  {% endfor %}
-{% endif %}
-
- <div class="mb-3">
- <div class="d-flex justify-content-between">
- <label class="form-label small fw-bold text-primary">6-Digit OTP</label>
-
- <a href="javascript:document.getElementById('resend-form').submit();" class="small text-decoration-none">Resend Code?</a>
- </div>
- <input type="text" name="otp" id="otp" placeholder="000000" class="form-control form-control-lg text-center fw-bold" style="letter-spacing: 5px" autofocus required />
- </div>
-
- {% if new_user %}
- <div class="alert alert-info py-2 small">
- <strong>New Student!</strong> Please enter your name to finish registration.
- </div>
- <div class="row g-2 mb-3">
- <div class="col">
- <input type="text" name="first_name" class="form-control" placeholder="First Name" required />
- </div>
- <div class="col">
- <input type="text" name="last_name" class="form-control" placeholder="Last Name" required />
- </div>
- </div>
- {% endif %}
-
- <div class="d-grid mt-4">
- <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 8px">
- Verify
- </button>
- </div>
- </form>
-
- <form id="resend-form" action="{% url 'Users:request_otp' %}" method="post" style="display:none;">
- {% csrf_token %}
- <input type="hidden" name="email" value="{{ email }}">
- </form>
-
- </div>
- </div>
+  </div>
 </div>
 {% endblock %}

@@ -2,87 +2,126 @@ from django.shortcuts import render, redirect
 from django.core.mail import send_mail
 from .models import CustomUser
 from django.contrib.auth import login, logout
-import random
+from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
-from datetime import datetime, timedelta
-from django.contrib import messages
+from datetime import timedelta
+import hashlib
+import secrets
+
 
 def index(request):
     return render(request, 'Users/index.html')
+
 
 def request_otp(request):
     if request.method == "POST":
         email = request.POST.get('email')
         user_exists = CustomUser.objects.filter(email=email).exists()
-        otp = str(random.randint(100000, 999999))
 
-        request.session['otp_code'] = otp
+        # Cryptographically secure OTP
+        otp = str(secrets.randbelow(900000) + 100000)
+
+        # Store hashed OTP in session, never plain text
+        otp_hash = hashlib.sha256(otp.encode()).hexdigest()
+        request.session['otp_code'] = otp_hash
         request.session['otp_email'] = email
         request.session['otp_created'] = timezone.now().isoformat()
+        request.session['otp_attempts'] = 0  # reset attempt counter on fresh OTP
 
         send_mail(
-        'Your Login Code', 
-        f'Your OTP code is: {otp}\nExpires in 10 minutes', 
-        'noreply@exam.com', 
-        [email], fail_silently=False
+            'Your Login Code',
+            f'Your OTP code is: {otp}\nExpires in 10 minutes.',
+            'noreply@exam.com',
+            [email],
+            fail_silently=False
         )
+
         messages.success(request, "OTP has been sent to your email.")
-        return render(request, 'Users/verify_otp.html', {'email': email, 'new_user': not user_exists})
+        return render(request, 'Users/verify_otp.html', {
+            'email': email,
+            'new_user': not user_exists
+        })
+
     return render(request, 'Users/login.html')
+
 
 def verify_otp(request):
     email = request.session.get('otp_email')
-    stored_otp = str(request.session.get('otp_code', '')).strip()
-
-    # If session is empty, redirect back to login
+    stored_otp = request.session.get('otp_code', '')
     otp_created_str = request.session.get('otp_created')
 
-    if not otp_created_str:
-        messages.error(request, "OTP Failed")
+    # Guard: session data must be present
+    if not otp_created_str or not stored_otp or not email:
+        messages.error(request, "Session expired or invalid. Please request a new OTP.")
         return redirect('Users:request_otp')
 
     otp_created = parse_datetime(otp_created_str)
 
     if not otp_created:
-        messages.error(request, "Parsing Error, try agin later!")
+        messages.error(request, "Parsing error, please try again.")
         return redirect('Users:request_otp')
 
+    # Guard: OTP must not be expired
     if timezone.now() - otp_created > timedelta(minutes=10):
-        for key in ['otp_code', 'otp_email', 'otp_created']:
+        for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
             request.session.pop(key, None)
-        messages.error(request, "OTP has expired!")
+        messages.error(request, "OTP has expired. Please request a new one.")
         return redirect('Users:request_otp')
-    
+
+    # Guard: brute force protection
+    attempts = request.session.get('otp_attempts', 0)
+    if attempts >= 3:
+        for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
+            request.session.pop(key, None)
+        messages.error(request, "Too many failed attempts. Please request a new OTP.")
+        return redirect('Users:request_otp')
+
     if request.method == "POST":
         otp_entered = str(request.POST.get('otp', '')).strip()
+        entered_hash = hashlib.sha256(otp_entered.encode()).hexdigest()
 
-
-        if otp_entered == stored_otp and stored_otp != '':
+        if entered_hash == stored_otp:
             user = CustomUser.objects.filter(email=email).first()
+
             if not user:
-                f_name=request.POST.get('first_name')
-                l_name=request.POST.get('last_name')
+                role = request.POST.get('role', 'STUDENT')
+
+                # Validate it to prevent arbitrary values being passed in
+                if role not in ['STUDENT', 'TEACHER']:
+                    role = 'STUDENT'
 
                 user = CustomUser.objects.create_user(
-                email=email,first_name=f_name,
-                last_name=l_name                
+                    email=email,
+                    first_name=request.POST.get('first_name', ''),
+                    last_name=request.POST.get('last_name', ''),
+                    role=role
                 )
-            if user:
-                login(request, user)
-                # Delete only the OTP, don't flush the whole session!
-                for key in ['otp_code', 'otp_email', 'otp_created']:
-                    request.session.pop(key, None)
-                messages.success(request, "Logged in successfully.")
-                return redirect('Users:index')
 
-        # If OTP is wrong, we MUST send 'email' and 'new_user' back to the template
-        user_exists = CustomUser.objects.filter(email=email).exists()
-        return render(request, 'Users/verify_otp.html', {
+            # Clear OTP session data before logging in
+            for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
+                request.session.pop(key, None)
+
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(request, "Logged in successfully.")
+            return redirect('Users:index')
+
+        else:
+            request.session['otp_attempts'] = attempts + 1
+            remaining = 3 - (attempts + 1)
+            if remaining > 0:
+                messages.error(request, f"Invalid OTP. {remaining} attempt(s) remaining.")
+            else:
+                messages.error(request, "Too many failed attempts. Please request a new OTP.")
+            # Fall through to re-render the form
+
+    user_exists = CustomUser.objects.filter(email=email).exists()
+    return render(request, 'Users/verify_otp.html', {
         'email': email,
         'new_user': not user_exists
-        })
-    
+    })
+
+
 def logout_view(request):
     logout(request)
     return redirect('Users:index')

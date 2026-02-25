@@ -31,6 +31,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'practice',
+    'catalog',
     'Users',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -136,3 +138,9 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 600
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 AUTH_USER_MODEL = 'Users.CustomUser'
+# messages set up
+from django.contrib.messages import constants as messages
+
+MESSAGE_TAGS = {
+    messages.ERROR: "danger",
+}

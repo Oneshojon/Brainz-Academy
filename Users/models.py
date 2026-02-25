@@ -27,14 +27,27 @@ class CustomUserManager(BaseUserManager):
     
 
 class CustomUser(AbstractUser):
+    ROLE_CHOICES = [
+        ('STUDENT', 'Student'),
+        ('TEACHER', 'Teacher'),
+    ]
+
     username = None
     email = models.EmailField('Email address', unique=True)
-    #phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='STUDENT')
+    
     objects = CustomUserManager()
-
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-    
+
     def __str__(self):
-        return f"{self.first_name}, {self.last_name} {self.email}"
+        return f"{self.first_name} {self.last_name} ({self.email})"
+
+    @property
+    def is_teacher(self):
+        return self.role == 'TEACHER'
+
+    @property
+    def is_student(self):
+        return self.role == 'STUDENT'
     
