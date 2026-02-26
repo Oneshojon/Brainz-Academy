@@ -1,0 +1,201 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+
+<style>
+  .revision-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.75rem; align-items: start; }
+
+  /* Sidebar filters */
+  .revision-sidebar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; position: sticky; top: 80px; }
+  .sidebar-section { margin-bottom: 1.25rem; }
+  .sidebar-section:last-child { margin-bottom: 0; }
+  .sidebar-section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.6rem; }
+  .rev-select { width: 100%; background: var(--deep); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 0.85rem; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; outline: none; cursor: pointer; appearance: none; }
+  .rev-select:focus { border-color: rgba(156,213,255,0.4); }
+  .rev-select option { background: #1e3347; }
+
+  .topic-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 300px; overflow-y: auto; }
+  .topic-link { display: block; padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.85rem; text-decoration: none; color: var(--muted-light); transition: all 0.15s; border: 1px solid transparent; }
+  .topic-link:hover { background: var(--deep); color: var(--text); }
+  .topic-link.active { background: var(--accent-dim); border-color: rgba(156,213,255,0.25); color: var(--accent); }
+
+  /* Question cards */
+  .revision-question { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 0.85rem; transition: border-color 0.2s; }
+  .revision-question:hover { border-color: var(--border-hover); }
+  .rev-q-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; }
+  .rev-q-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem; color: var(--muted); background: var(--deep); border: 1px solid var(--border); padding: 0.2rem 0.55rem; border-radius: 6px; flex-shrink: 0; }
+  .rev-q-type { font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+  .rev-q-type.obj { background: var(--accent-dim); color: var(--accent); }
+  .rev-q-type.theory { background: var(--gold-dim); color: var(--gold); }
+  .rev-q-preview { flex: 1; font-size: 0.875rem; color: var(--muted-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rev-bm-btn { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted); transition: color 0.15s; padding: 0.2rem; flex-shrink: 0; }
+  .rev-bm-btn:hover { color: var(--gold); }
+  .rev-bm-btn.bookmarked { color: var(--gold); }
+  .rev-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; flex-shrink: 0; }
+  .revision-question.expanded .rev-chevron { transform: rotate(180deg); }
+
+  .rev-q-body { padding: 0 1.25rem 1.25rem; display: none; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .revision-question.expanded .rev-q-body { display: block; }
+
+  .rev-q-content { font-size: 0.975rem; line-height: 1.75; margin-bottom: 1.25rem; }
+  .rev-choices { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+  .rev-choice { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--deep); font-size: 0.875rem; }
+  .rev-choice.correct { background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
+  .rev-choice-label { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.75rem; background: var(--card); border: 1px solid var(--border); flex-shrink: 0; }
+  .rev-choice.correct .rev-choice-label { background: var(--green); color: #000; border-color: var(--green); }
+
+  .rev-no-topics { font-size: 0.825rem; color: var(--muted); font-style: italic; }
+
+  @media (max-width: 768px) {
+    .revision-layout { grid-template-columns: 1fr; }
+    .revision-sidebar { position: static; }
+  }
+</style>
+
+<div class="page-body" style="max-width:1100px;">
+
+  <div class="page-eyebrow">Practice</div>
+  <h1 class="page-title">Revision</h1>
+  <p class="page-sub">Browse questions by topic without a timer. Perfect for focused revision.</p>
+
+  <div class="revision-layout">
+
+    <!-- Sidebar -->
+    <aside class="revision-sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Subject</div>
+        <form method="get">
+          <select class="rev-select" name="subject" onchange="this.form.submit()">
+            <option value="">— Select Subject —</option>
+            {% for subject in subjects %}
+            <option value="{{ subject.id }}" {% if selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+
+      {% if topics %}
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Topic</div>
+        <div class="topic-list">
+          {% for topic in topics %}
+          <a href="?subject={{ selected_subject.id }}&topic={{ topic.id }}"
+             class="topic-link {% if selected_topic.id == topic.id %}active{% endif %}">
+            {{ topic.name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if selected_subject %}
+      <div class="sidebar-section">
+        <a href="{% url 'practice:practice_home' %}?subject={{ selected_subject.id }}" class="btn btn-primary" style="width:100%; justify-content:center;">
+          ⚡ Practice {{ selected_subject.name }}
+        </a>
+      </div>
+      {% endif %}
+    </aside>
+
+    <!-- Questions -->
+    <div>
+      {% if selected_topic %}
+        <div style="margin-bottom:1rem;">
+          <div class="section-label">{{ selected_subject.name }}</div>
+          <div class="section-title">{{ selected_topic.name }} <span style="font-size:0.85rem; color:var(--muted); font-family:'DM Sans',sans-serif; font-weight:400;">({{ questions|length }} question{{ questions|length|pluralize }})</span></div>
+        </div>
+
+        {% if questions %}
+          {% for item in questions %}
+          <div class="revision-question" id="rev-q-{{ item.question.id }}">
+            <div class="rev-q-header" onclick="toggleRevQ({{ item.question.id }})">
+              <span class="rev-q-num">Q{{ item.question.question_number }}</span>
+              <span class="rev-q-type {% if item.question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">{% if item.question.question_type == 'OBJ' %}OBJ{% else %}Theory{% endif %}</span>
+              <span class="rev-q-preview">{{ item.question.content|truncatechars:80 }}</span>
+              <button class="rev-bm-btn {% if item.is_bookmarked %}bookmarked{% endif %}" onclick="event.stopPropagation(); toggleRevBookmark({{ item.question.id }}, this)">{% if item.is_bookmarked %}🔖{% else %}🏷️{% endif %}</button>
+              <span class="rev-chevron">▼</span>
+            </div>
+            <div class="rev-q-body">
+              <p class="rev-q-content">{{ item.question.content }}</p>
+              {% if item.question.image %}<img src="{{ item.question.image.url }}" style="max-width:100%; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);">{% endif %}
+
+              {% if item.question.question_type == 'OBJ' %}
+              <ul class="rev-choices">
+                {% for choice in item.question.choices.all %}
+                <li class="rev-choice {% if choice.is_correct %}correct{% endif %}">
+                  <span class="rev-choice-label">{{ choice.label }}</span>
+                  <span>{{ choice.choice_text }}</span>
+                  {% if choice.is_correct %}<span style="margin-left:auto; font-size:0.72rem; color:var(--green); font-weight:700;">✓ Correct</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% if item.question.choices.filter %}
+                {% for choice in item.question.choices.all %}{% if choice.is_correct and choice.explanation %}<p style="font-size:0.8rem; color:var(--muted); font-style:italic; margin-top:0.75rem;">💡 {{ choice.explanation }}</p>{% endif %}{% endfor %}
+              {% endif %}
+              {% else %}
+              {% if item.question.theory_answer %}
+              <div style="background:rgba(245,200,66,0.06); border:1px solid rgba(245,200,66,0.15); border-radius:8px; padding:1rem;">
+                <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:0.5rem;">Model Answer</div>
+                <p style="font-size:0.875rem; color:var(--muted-light); line-height:1.7;">{{ item.question.theory_answer.content }}</p>
+              </div>
+              {% endif %}
+              {% endif %}
+
+              {% if item.question.theory_answer.video_url or item.question.choices.all %}
+                {% for choice in item.question.choices.all %}{% if choice.is_correct and choice.video_url %}<a href="{{ choice.video_url }}" target="_blank" rel="noreferrer" style="display:inline-flex; align-items:center; gap:0.4rem; margin-top:0.85rem; font-size:0.8rem; font-weight:600; color:var(--mid); text-decoration:none; padding:0.35rem 0.8rem; background:var(--mid-dim); border:1px solid rgba(122,170,206,0.2); border-radius:6px;">▶ Watch explanation</a>{% endif %}{% endfor %}
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+        {% else %}
+        <div class="empty-state">
+          <span class="empty-icon">📖</span>
+          <div class="empty-title">No questions for this topic</div>
+          <div class="empty-desc">Questions haven't been added to this topic yet.</div>
+        </div>
+        {% endif %}
+
+      {% elif selected_subject %}
+      <div class="empty-state">
+        <span class="empty-icon">📖</span>
+        <div class="empty-title">Select a topic</div>
+        <div class="empty-desc">Choose a topic from the sidebar to start revising.</div>
+      </div>
+
+      {% else %}
+      <div class="empty-state">
+        <span class="empty-icon">📖</span>
+        <div class="empty-title">Select a subject</div>
+        <div class="empty-desc">Choose a subject from the sidebar to see its topics.</div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const CSRF = '{{ csrf_token }}';
+  const BOOKMARK_URL = '{% url "practice:toggle_bookmark" %}';
+
+  function toggleRevQ(id) {
+    document.getElementById(`rev-q-${id}`)?.classList.toggle('expanded');
+  }
+
+  function toggleRevBookmark(questionId, btn) {
+    fetch(BOOKMARK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ question_id: questionId })
+    })
+    .then(r => r.json())
+    .then(res => {
+      btn.classList.toggle('bookmarked', res.bookmarked);
+      btn.textContent = res.bookmarked ? '🔖' : '🏷️';
+    });
+  }
+</script>
+{% endblock %}

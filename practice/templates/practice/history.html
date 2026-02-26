@@ -1,0 +1,82 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/history.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Practice</div>
+      <h1 class="page-title">History</h1>
+      <p class="page-sub" style="margin-bottom:0">All your completed practice sessions.</p>
+    </div>
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary">+ New Session</a>
+  </div>
+
+  {% if sessions %}
+  <div class="filter-bar">
+    <select class="filter-select" onchange="filterSessions(this.value)">
+      <option value="">All Types</option>
+      <option value="EXAM">Full Exam</option>
+      <option value="TOPIC">Topic Practice</option>
+      <option value="CUSTOM">Custom</option>
+    </select>
+  </div>
+
+  <table class="history-table" id="historyTable">
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th>Exam / Series</th>
+        <th>Type</th>
+        <th>Date</th>
+        <th>Score</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for session in sessions %}
+      <tr class="history-row" data-type="{{ session.session_type }}" onclick="window.location='{% url 'practice:results_page' session.id %}'">
+        <td><strong>{{ session.subject|default:"—" }}</strong></td>
+        <td style="color:var(--muted-light)">{{ session.exam_series|default:"—" }}</td>
+        <td>
+          <span class="session-type-chip {% if session.session_type == 'EXAM' %}chip-exam{% elif session.session_type == 'TOPIC' %}chip-topic{% else %}chip-custom{% endif %}">
+            {{ session.get_session_type_display }}
+          </span>
+        </td>
+        <td style="color:var(--muted-light)">{{ session.started_at|date:"M j, Y" }}</td>
+        <td>
+          {% if session.score_percentage is not None %}
+            {% if session.score_percentage >= 70 %}<span class="score-cell score-high">{{ session.score_percentage }}%</span>
+            {% elif session.score_percentage >= 50 %}<span class="score-cell score-mid">{{ session.score_percentage }}%</span>
+            {% else %}<span class="score-cell score-low">{{ session.score_percentage }}%</span>{% endif %}
+          {% else %}<span class="score-na">—</span>{% endif %}
+        </td>
+        <td style="text-align:right; color:var(--muted)">→</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon">📋</span>
+    <div class="empty-title">No sessions yet</div>
+    <div class="empty-desc">Complete your first practice session to see it here.</div>
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary" style="margin-top:1.25rem">Start Practicing</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function filterSessions(type) {
+  document.querySelectorAll('.history-row').forEach(row => {
+    row.style.display = (!type || row.dataset.type === type) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

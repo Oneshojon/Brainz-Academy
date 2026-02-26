@@ -1,0 +1,1005 @@
+{% extends 'Users/layout.html' %} {% block body %}
+
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap");
+
+  :root {
+    --black: #080c10;
+    --deep: #0d1520;
+    --card: #111c2a;
+    --border: rgba(255, 255, 255, 0.07);
+    --green: #00e87a;
+    --gold: #f5c842;
+    --blue: #3b82f6;
+    --text: #e8edf3;
+    --muted: #6b7f94;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: "DM Sans", sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  .lp-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 5vw;
+    background: rgba(8, 12, 16, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .lp-logo {
+    font-family: "Syne", sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .lp-logo span {
+    color: var(--green);
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover {
+    color: #fff;
+  }
+  .nav-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-ghost:hover {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .btn-primary-sm {
+    background: var(--green);
+    border: none;
+    color: #000;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary-sm:hover {
+    background: #00ff88;
+    transform: translateY(-1px);
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 8rem 5vw 5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .hero-glow {
+    position: absolute;
+    top: -200px;
+    left: -200px;
+    width: 700px;
+    height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(0, 232, 122, 0.08) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .hero-glow-2 {
+    position: absolute;
+    bottom: -100px;
+    right: 10%;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(59, 130, 246, 0.07) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 232, 122, 0.1);
+    border: 1px solid rgba(0, 232, 122, 0.2);
+    color: var(--green);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    width: fit-content;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: block;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .hero-title {
+    font-family: "Syne", sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.8rem, 6vw, 5.5rem);
+    line-height: 1.05;
+    letter-spacing: -2px;
+    max-width: 800px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero-title .accent {
+    color: var(--green);
+  }
+  .hero-title .gold {
+    color: var(--gold);
+  }
+  .hero-sub {
+    margin-top: 1.5rem;
+    font-size: 1.15rem;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 520px;
+    line-height: 1.7;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  .hero-boards {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .board-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .board-chip:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .board-chip.coming {
+    opacity: 0.5;
+    font-style: italic;
+  }
+  .hero-ctas {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .btn-hero-main {
+    background: var(--green);
+    color: #000;
+    border: none;
+    padding: 0.9rem 2rem;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-hero-main:hover {
+    background: #00ff88;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(0, 232, 122, 0.25);
+  }
+  .btn-hero-sec {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.9rem 2rem;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-weight: 500;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-hero-sec:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 4rem;
+    flex-wrap: wrap;
+    padding: 2.5rem 5vw;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--deep);
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-num {
+    font-family: "Syne", sans-serif;
+    font-weight: 800;
+    font-size: 2rem;
+    color: #fff;
+    letter-spacing: -1px;
+  }
+  .stat-num span {
+    color: var(--green);
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 0.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* SECTIONS */
+  section {
+    padding: 6rem 5vw;
+  }
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: "Syne", sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  .section-sub {
+    color: var(--muted);
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.7;
+    max-width: 540px;
+    margin-top: 0.75rem;
+  }
+
+  /* PORTAL CARDS */
+  .portals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin-top: 3rem;
+  }
+  .portal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: block;
+  }
+  .portal-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    transition: opacity 0.3s;
+  }
+  .portal-card.student::before {
+    background: linear-gradient(90deg, var(--blue), #60a5fa);
+  }
+  .portal-card.teacher::before {
+    background: linear-gradient(90deg, var(--gold), #fbbf24);
+  }
+  .portal-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .portal-card.student:hover {
+    box-shadow: 0 20px 50px rgba(59, 130, 246, 0.1);
+  }
+  .portal-card.teacher:hover {
+    box-shadow: 0 20px 50px rgba(245, 200, 66, 0.1);
+  }
+  .portal-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .portal-card.student .portal-icon {
+    background: rgba(59, 130, 246, 0.15);
+  }
+  .portal-card.teacher .portal-icon {
+    background: rgba(245, 200, 66, 0.15);
+  }
+  .portal-title {
+    font-family: "Syne", sans-serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .portal-desc {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .portal-badge {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.3rem 0.7rem;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .student .portal-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+  }
+  .teacher .portal-badge {
+    background: rgba(245, 200, 66, 0.15);
+    color: var(--gold);
+  }
+
+  /* SERVICES */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+    margin-top: 3rem;
+  }
+  .service-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .service-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .service-card.featured {
+    border-color: rgba(0, 232, 122, 0.2);
+  }
+  .service-card.featured:hover {
+    box-shadow: 0 20px 50px rgba(0, 232, 122, 0.08);
+  }
+  .svc-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.7rem;
+    border-radius: 100px;
+    margin-bottom: 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .svc-tag.free {
+    background: rgba(0, 232, 122, 0.12);
+    color: var(--green);
+    border: 1px solid rgba(0, 232, 122, 0.2);
+  }
+  .svc-tag.teacher-only {
+    background: rgba(245, 200, 66, 0.12);
+    color: var(--gold);
+    border: 1px solid rgba(245, 200, 66, 0.2);
+  }
+  .svc-tag.premium {
+    background: rgba(168, 85, 247, 0.12);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.2);
+  }
+  .svc-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .svc-title {
+    font-family: "Syne", sans-serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+  .svc-desc {
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  .svc-arrow {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    color: var(--muted);
+    font-size: 1.2rem;
+    transition: all 0.2s;
+  }
+  .service-card:hover .svc-arrow {
+    color: var(--green);
+    transform: translateX(4px);
+  }
+
+  /* ABOUT */
+  .about-section {
+    background: var(--deep);
+  }
+  .about-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+    max-width: 1100px;
+  }
+  .about-visual {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.5rem;
+    position: relative;
+  }
+  .about-visual-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .mini-card {
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .mini-card-icon {
+    font-size: 1.4rem;
+  }
+  .mini-card-text strong {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: block;
+  }
+  .mini-card-text span {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .about-features {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+  .about-feat {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .feat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .feat-text strong {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  .feat-text span {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* FOOTER */
+  .lp-footer {
+    padding: 3rem 5vw;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .footer-copy {
+    font-size: 0.825rem;
+    color: var(--muted);
+  }
+
+  /* ROLE SWITCH BANNER (for logged in users) */
+  .role-banner {
+    background: linear-gradient(135deg, var(--deep) 0%, #0a1628 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2rem;
+    max-width: 800px;
+    gap: 1rem;
+    flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.5s ease both;
+  }
+  .role-banner-text strong {
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .role-banner-text span {
+    font-size: 0.825rem;
+    color: var(--muted);
+  }
+  .role-banner-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .portals {
+      grid-template-columns: 1fr;
+    }
+    .about-inner {
+      grid-template-columns: 1fr;
+    }
+    .nav-links {
+      display: none;
+    }
+    .hero-title {
+      font-size: 2.4rem;
+      letter-spacing: -1px;
+    }
+  }
+</style>
+
+<!-- NAV -->
+<nav class="lp-nav">
+  <div class="lp-logo">Exam<span>Prep</span></div>
+  <div class="nav-links">
+    <a href="#services">Services</a>
+    <a href="#portals">Portals</a>
+    <a href="#about">About</a>
+  </div>
+  <div class="nav-actions">
+    {% if user.is_authenticated %}
+    <span class="btn-ghost" style="cursor: default; color: var(--green)">
+      👋 {{ user.first_name|default:user.email }}
+    </span>
+    <a href="{% url 'Users:logout' %}" class="btn-ghost">Log out</a>
+    {% else %}
+    <a href="{% url 'Users:request_otp' %}" class="btn-ghost">Log in</a>
+    <a href="{% url 'Users:request_otp' %}" class="btn-primary-sm"
+      >Get Started →</a
+    >
+    {% endif %}
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+
+  <div class="hero-eyebrow"><span></span> Nigeria's Exam Prep Platform</div>
+
+  <h1 class="hero-title">
+    Ace <span class="accent">WAEC.</span> Crush <span class="gold">JAMB.</span
+    ><br />
+    Own Your Future.
+  </h1>
+
+  <p class="hero-sub">
+    Practice thousands of real past questions, get instant feedback, and track
+    your progress — built for Nigerian secondary school and university students.
+  </p>
+
+  <div class="hero-boards">
+    <span class="board-chip">WAEC</span>
+    <span class="board-chip">NECO</span>
+    <span class="board-chip">JAMB</span>
+    <span class="board-chip coming">IGCSE (coming soon)</span>
+  </div>
+
+  <div class="hero-ctas">
+    <a href="#portals" class="btn-hero-main">Start Practicing →</a>
+    <a href="#services" class="btn-hero-sec">Explore Services</a>
+  </div>
+
+  {% if user.is_authenticated %}
+  <div class="role-banner">
+    <div class="role-banner-text">
+      <strong>Welcome back, {{ user.first_name|default:"there" }} 👋</strong>
+      <span>Where would you like to go today?</span>
+    </div>
+    <div class="role-banner-actions">
+      <a href="/app/?mode=student" class="btn-ghost">Student Mode</a>
+      {% if user.role == 'TEACHER' %}
+      <a href="/app/?mode=teacher" class="btn-primary-sm">Teacher Mode ✦</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-num">10<span>K+</span></div>
+    <div class="stat-label">Past Questions</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">15<span>+</span></div>
+    <div class="stat-label">Subjects</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">3</div>
+    <div class="stat-label">Exam Bodies</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">5<span>K+</span></div>
+    <div class="stat-label">Students</div>
+  </div>
+</div>
+
+<!-- PORTALS -->
+<section id="portals">
+  <div class="section-label">Access</div>
+  <h2 class="section-title">Choose Your Portal</h2>
+  <p class="section-sub">
+    Two tailored experiences — one platform. Students practice, teachers build
+    and manage.
+  </p>
+
+  <div class="portals">
+    <a
+      href="{% if user.is_authenticated %}/app/?mode=student{% else %}{% url 'Users:request_otp' %}{% endif %}"
+      class="portal-card student"
+      onclick="handlePortalClick(event, 'student')"
+    >
+      <span class="portal-badge">Open</span>
+      <div class="portal-icon">🎓</div>
+      <div class="portal-title">Student Portal</div>
+      <div class="portal-desc">
+        Practice past questions, attempt timed exams, review answers, and track
+        your performance over time.
+      </div>
+    </a>
+
+    <a
+      href="{% if user.role == 'TEACHER' %}/app/?mode=teacher{% else %}#{% endif %}"
+      class="portal-card teacher"
+      onclick="handlePortalClick(event, 'teacher')"
+    >
+      <span class="portal-badge">Teachers Only</span>
+      <div class="portal-icon">🏫</div>
+      <div class="portal-title">Teacher Portal</div>
+      <div class="portal-desc">
+        Build custom test papers, select questions by topic, year, and exam
+        board, and generate printable question sets.
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services" style="background: var(--deep)">
+  <div class="section-label">What We Offer</div>
+  <h2 class="section-title">Everything You Need to Pass</h2>
+  <p class="section-sub">
+    Tools built around the Nigerian curriculum and exam structure.
+  </p>
+
+  <div class="services-grid">
+    <!-- Practice — for everyone -->
+    <div
+      class="service-card featured"
+      onclick="requireAuth('/app/?mode=student&tab=practice')"
+    >
+      <span class="svc-tag free">Free</span>
+      <span class="svc-icon">⚡</span>
+      <div class="svc-title">Exam Practice</div>
+      <div class="svc-desc">
+        Work through real past questions from WAEC, NECO, and JAMB. Timed
+        sessions that mirror actual exam conditions.
+      </div>
+      <span class="svc-arrow">→</span>
+    </div>
+
+    <!-- Test Builder — teacher only -->
+    <div
+      class="service-card"
+      onclick="requireTeacher('/app/?mode=teacher&tab=builder')"
+    >
+      <span class="svc-tag teacher-only">Teachers Only</span>
+      <span class="svc-icon">🛠️</span>
+      <div class="svc-title">Test Builder</div>
+      <div class="svc-desc">
+        Select exam board, subject, year, topic, and difficulty. Generate
+        objective or theory question sets instantly.
+      </div>
+      <span class="svc-arrow">→</span>
+    </div>
+
+    <!-- Video lessons — for everyone -->
+    <div
+      class="service-card"
+      onclick="requireAuth('/app/?mode=student&tab=videos')"
+    >
+      <span class="svc-tag free">Free</span>
+      <span class="svc-icon">🎬</span>
+      <div class="svc-title">Video Lessons</div>
+      <div class="svc-desc">
+        Short recorded walkthroughs for tricky questions and key topics. Watch,
+        understand, and move on faster.
+      </div>
+      <span class="svc-arrow">→</span>
+    </div>
+
+    <!-- IGCSE — coming soon / paid -->
+    <div class="service-card" style="opacity: 0.6; cursor: not-allowed">
+      <span class="svc-tag premium">Coming Soon</span>
+      <span class="svc-icon">🌍</span>
+      <div class="svc-title">
+        IGCSE Prep
+        <span style="color: var(--muted); font-size: 0.8rem">(Premium)</span>
+      </div>
+      <div class="svc-desc">
+        Cambridge IGCSE past papers and structured revision. Launching soon with
+        a dedicated premium plan.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about" class="about-section">
+  <div class="about-inner">
+    <div>
+      <div class="section-label">About Us</div>
+      <h2 class="section-title">Built for the Nigerian Student</h2>
+      <p class="section-sub">
+        We know the pressure of WAEC, NECO, and JAMB. ExamPrep was built to give
+        every student access to structured, exam-focused preparation —
+        regardless of where they are.
+      </p>
+
+      <div class="about-features">
+        <div class="about-feat">
+          <div class="feat-dot"></div>
+          <div class="feat-text">
+            <strong>Real Past Questions</strong>
+            <span
+              >Thousands of verified questions from official exam bodies,
+              organized by year and topic.</span
+            >
+          </div>
+        </div>
+        <div class="about-feat">
+          <div class="feat-dot"></div>
+          <div class="feat-text">
+            <strong>Instant Feedback</strong>
+            <span
+              >Know immediately if you're right or wrong, with explanations and
+              video references.</span
+            >
+          </div>
+        </div>
+        <div class="about-feat">
+          <div class="feat-dot"></div>
+          <div class="feat-text">
+            <strong>For Teachers Too</strong>
+            <span
+              >Educators can build, filter, and export question sets tailored to
+              their students' needs.</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="about-visual">
+      <div class="about-visual-inner">
+        <div class="mini-card">
+          <span class="mini-card-icon">📝</span>
+          <div class="mini-card-text">
+            <strong>WAEC English 2022</strong>
+            <span>15 questions · Objective · 18 mins left</span>
+          </div>
+        </div>
+        <div class="mini-card" style="border-color: rgba(0, 232, 122, 0.2)">
+          <span class="mini-card-icon">✅</span>
+          <div class="mini-card-text">
+            <strong>Score: 72%</strong>
+            <span>Above average for this topic</span>
+          </div>
+        </div>
+        <div class="mini-card">
+          <span class="mini-card-icon">🎬</span>
+          <div class="mini-card-text">
+            <strong>Video: Nervous System</strong>
+            <span>Biology · 4 min walkthrough</span>
+          </div>
+        </div>
+        <div class="mini-card">
+          <span class="mini-card-icon">🛠️</span>
+          <div class="mini-card-text">
+            <strong>Test Built — Chemistry SS3</strong>
+            <span>20 OBJ + 3 Theory · NECO 2019–2023</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="lp-footer">
+  <div class="lp-logo">Exam<span>Prep</span></div>
+  <div class="footer-copy">© 2025 ExamPrep. Built for Nigerian students.</div>
+  <a href="{% url 'Users:request_otp' %}" class="btn-primary-sm"
+    >Get Started →</a
+  >
+</footer>
+
+<script>
+  const isAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
+  const userRole = "{{ user.role|default:'' }}";
+
+  function requireAuth(destination) {
+    if (isAuthenticated) {
+      window.location.href = destination;
+    } else {
+      // Redirect to login, then come back
+      window.location.href = "{% url 'Users:request_otp' %}?next=" + encodeURIComponent(destination);
+    }
+  }
+
+  function requireTeacher(destination) {
+    if (!isAuthenticated) {
+      window.location.href = "{% url 'Users:request_otp' %}?next=" + encodeURIComponent(destination);
+    } else if (userRole !== 'TEACHER') {
+      alert("This area is for teachers only. Please contact support if you believe this is an error.");
+    } else {
+      window.location.href = destination;
+    }
+  }
+
+  function handlePortalClick(event, type) {
+    event.preventDefault();
+    if (type === 'student') {
+      requireAuth('/app/?mode=student');
+    } else {
+      requireTeacher('/app/?mode=teacher');
+    }
+  }
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+  });
+</script>
+
+{% endblock %}

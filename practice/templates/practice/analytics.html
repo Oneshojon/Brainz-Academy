@@ -1,0 +1,184 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/analytics.css' %}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<div id="analytics-data"
+  data-recent='{{ recent_sessions_json|default:"[]" }}'
+  data-subjects='{{ subject_stats_json|default:"[]" }}'
+  style="display:none">
+</div>
+
+<div class="page-body">
+
+  <div class="page-eyebrow">Practice</div>
+  <h1 class="page-title">Analytics</h1>
+  <p class="page-sub">Track your progress and identify areas to improve.</p>
+
+  <!-- Top stats -->
+  <div class="analytics-grid" style="grid-template-columns: repeat(4,1fr); margin-bottom:1.25rem;">
+    <div class="stat-card">
+      <div class="stat-card-label">Total Sessions</div>
+      <div class="stat-card-value accent">{{ total_sessions }}</div>
+      <div class="stat-card-sub">completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Questions Attempted</div>
+      <div class="stat-card-value accent">{{ total_questions_attempted }}</div>
+      <div class="stat-card-sub">all time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Overall Accuracy</div>
+      {% if accuracy_pct is not None %}
+        {% if accuracy_pct >= 70 %}<div class="stat-card-value green">{{ accuracy_pct }}%</div>
+        {% elif accuracy_pct >= 50 %}<div class="stat-card-value gold">{{ accuracy_pct }}%</div>
+        {% else %}<div class="stat-card-value" style="color:var(--red)">{{ accuracy_pct }}%</div>{% endif %}
+      {% else %}<div class="stat-card-value accent">—</div>{% endif %}
+      <div class="stat-card-sub">correct answers</div>
+    </div>
+    <div class="streak-card">
+      <span class="streak-flame">🔥</span>
+      <div>
+        <div class="streak-val">{{ streak }}</div>
+        <div class="streak-label">day streak</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="analytics-grid">
+    <div class="chart-card">
+      <div class="chart-card-title">Recent Scores</div>
+      <div class="chart-wrap"><canvas id="recentChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Performance by Subject</div>
+      <div class="chart-wrap"><canvas id="subjectChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Weak topics -->
+  {% if weak_topics %}
+  <div class="chart-card" style="margin-bottom:1.25rem;">
+    <div class="chart-card-title">⚠️ Weak Topics — Most Wrong Answers</div>
+    <div class="weak-list" id="weakList">
+      {% for topic in weak_topics %}
+      <div class="weak-item">
+        <span class="weak-topic-name">{{ topic.question__topics__name|default:"Unknown topic" }}</span>
+        <div class="weak-bar-bg">
+          <div class="weak-bar-fill" style="width:0%" data-target="{{ topic.wrong_count }}"></div>
+        </div>
+        <span class="weak-count">{{ topic.wrong_count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Subject stats table -->
+  {% if subject_stats %}
+  <div class="chart-card">
+    <div class="chart-card-title">Score by Subject</div>
+    <table class="subject-table">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Sessions</th>
+          <th>Avg Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in subject_stats %}
+        <tr class="subject-row">
+          <td><strong>{{ stat.subject__name|default:"—" }}</strong></td>
+          <td style="color:var(--muted-light)">{{ stat.session_count }}</td>
+          <td>
+            {% if stat.avg_score %}
+              {% if stat.avg_score >= 70 %}<span class="subject-avg" style="color:var(--green)">{{ stat.avg_score|floatformat:1 }}%</span>
+              {% elif stat.avg_score >= 50 %}<span class="subject-avg" style="color:var(--gold)">{{ stat.avg_score|floatformat:1 }}%</span>
+              {% else %}<span class="subject-avg" style="color:var(--red)">{{ stat.avg_score|floatformat:1 }}%</span>{% endif %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if not total_sessions %}
+  <div class="empty-state" style="margin-top:2rem;">
+    <span class="empty-icon">📊</span>
+    <div class="empty-title">No data yet</div>
+    <div class="empty-desc">Complete some practice sessions to see your analytics.</div>
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary" style="margin-top:1.25rem">Start Practicing</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+  const analyticsEl = document.getElementById('analytics-data');
+  const recentSessions = JSON.parse(analyticsEl.dataset.recent || '[]');
+  const subjectStats = JSON.parse(analyticsEl.dataset.subjects || '[]');
+
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: 'rgba(247,248,240,0.45)', font: { size: 11 } }, grid: { color: 'rgba(122,170,206,0.08)' } },
+      y: { ticks: { color: 'rgba(247,248,240,0.45)', font: { size: 11 } }, grid: { color: 'rgba(122,170,206,0.08)' }, min: 0, max: 100 }
+    }
+  };
+
+  // Recent scores line chart
+  if (recentSessions.length) {
+    new Chart(document.getElementById('recentChart'), {
+      type: 'line',
+      data: {
+        labels: recentSessions.map((s, i) => `#${i + 1}`),
+        datasets: [{
+          data: recentSessions.map(s => s.score_pct),
+          borderColor: '#9CD5FF', backgroundColor: 'rgba(156,213,255,0.08)',
+          borderWidth: 2, pointBackgroundColor: '#9CD5FF',
+          pointRadius: 4, tension: 0.35, fill: true,
+        }]
+      },
+      options: { ...chartDefaults }
+    });
+  }
+
+  // Subject bar chart
+  if (subjectStats.length) {
+    new Chart(document.getElementById('subjectChart'), {
+      type: 'bar',
+      data: {
+        labels: subjectStats.map(s => s.subject__name || '—'),
+        datasets: [{
+          data: subjectStats.map(s => s.avg_score || 0),
+          backgroundColor: subjectStats.map(s =>
+            (s.avg_score || 0) >= 70 ? 'rgba(74,222,128,0.6)' :
+            (s.avg_score || 0) >= 50 ? 'rgba(245,200,66,0.6)' :
+            'rgba(248,113,113,0.6)'
+          ),
+          borderRadius: 6,
+        }]
+      },
+      options: { ...chartDefaults }
+    });
+  }
+
+  // Animate weak topic bars
+  window.addEventListener('load', () => {
+    const maxCount = Math.max(...Array.from(document.querySelectorAll('.weak-bar-fill')).map(b => parseInt(b.dataset.target) || 0));
+    document.querySelectorAll('.weak-bar-fill').forEach(bar => {
+      const count = parseInt(bar.dataset.target) || 0;
+      const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
+      setTimeout(() => bar.style.width = pct + '%', 300);
+    });
+  });
+</script>
+{% endblock %}

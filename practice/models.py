@@ -66,3 +66,15 @@ class UserAnswer(models.Model):
 
     def __str__(self):
         return f"{self.session.user} — {self.question} — Session {self.session.id}"
+
+# Bookmark — user saves a question
+class Bookmark(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookmarks')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='bookmarks')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'question')
+
+    def __str__(self):
+        return f"{self.user} — {self.question}"

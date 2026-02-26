@@ -18,6 +18,9 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
+    path('student/', include('practice.urls')),
+    path('app/', include('frontend.urls')),
+    path('api/catalog/', include('catalog.urls')),
     path('', include('Users.urls')),
     path('api/catalog/', include('catalog.urls')),
     path('catalog/', include('catalog.urls')),

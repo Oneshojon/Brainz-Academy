@@ -2,13 +2,14 @@ from django.shortcuts import render, redirect
 from django.core.mail import send_mail
 from .models import CustomUser
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from datetime import timedelta
 import hashlib
 import secrets
-
+from practice.models import PracticeSession
 
 def index(request):
     return render(request, 'Users/index.html')
@@ -104,7 +105,7 @@ def verify_otp(request):
 
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, "Logged in successfully.")
-            return redirect('Users:index')
+            return redirect('Users:dashboard')
 
         else:
             request.session['otp_attempts'] = attempts + 1
@@ -121,6 +122,26 @@ def verify_otp(request):
         'new_user': not user_exists
     })
 
+
+
+@login_required
+def dashboard(request):
+    user = request.user
+    
+    # Last 3 practice sessions
+    recent_sessions = PracticeSession.objects.filter(
+        user=user, completed_at__isnull=False
+    ).select_related('subject', 'exam_series').order_by('-completed_at')[:3]
+
+    # Last completed session for score display
+    last_session = recent_sessions.first()
+
+    context = {
+        'user': user,
+        'recent_sessions': recent_sessions,
+        'last_session': last_session,
+    }
+    return render(request, 'Users/dashboard.html', context)
 
 def logout_view(request):
     logout(request)

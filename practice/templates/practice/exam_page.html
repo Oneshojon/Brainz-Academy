@@ -1,0 +1,141 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/exam_page.css' %}">
+
+<!-- Data bridge: passes Django context to JS without inline scripts -->
+<div id="exam-data"
+  data-session-id="{{ session.id }}"
+  data-total="{{ total_count }}"
+  data-answered-count="{{ answered_count }}"
+  data-csrf="{{ csrf_token }}"
+  data-submit-url="{% url 'practice:submit_answer' %}"
+  data-finish-url="{% url 'practice:finish_session' session.id %}"
+  style="display:none">
+</div>
+
+<!-- TOPBAR -->
+<div class="exam-topbar">
+  <div class="topbar-left">
+    <button class="btn-grid-toggle" onclick="toggleDrawer()">📋 Questions</button>
+    <div class="exam-title">
+      {{ session.subject|default:"Practice" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <div class="progress-label"><span id="answeredCount">{{ answered_count }}</span> / {{ total_count }} answered</div>
+  </div>
+  <div class="topbar-right">
+    <div class="timer" id="timer">⏱ --:--</div>
+    <button class="btn-finish" onclick="openModal()">Submit →</button>
+  </div>
+</div>
+
+<!-- MAIN SHELL -->
+<div class="exam-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="exam-sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-head-title">Questions</div>
+      <div class="sidebar-legend">
+        <div class="legend-item"><div class="legend-dot answered"></div> Answered</div>
+        <div class="legend-item"><div class="legend-dot unanswered"></div> Unanswered</div>
+        <div class="legend-item"><div class="legend-dot current"></div> Current</div>
+      </div>
+    </div>
+    <div class="question-grid" id="questionGrid">
+      {% for qs in question_status %}
+      <button class="grid-btn {{ qs.status }}" id="grid-{{ qs.id }}" onclick="goToQuestion({{ qs.id }})">{{ forloop.counter }}</button>
+      {% endfor %}
+    </div>
+    <div class="sidebar-footer">
+      <div class="answered-summary"><strong id="answeredCountSide">{{ answered_count }}</strong> / {{ total_count }} answered</div>
+      <button class="btn-finish-side" onclick="openModal()">Submit Exam</button>
+    </div>
+  </aside>
+
+  <!-- QUESTION PANEL -->
+  <main class="exam-main">
+    {% for question in questions %}
+    <div class="question-card {% if forloop.first %}active{% endif %}" id="q-{{ question.id }}" data-qid="{{ question.id }}">
+
+      <div class="q-meta">
+        <span class="q-num-badge">Q{{ question.question_number }}</span>
+        <span class="q-type-badge {% if question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">{% if question.question_type == 'OBJ' %}Objective{% else %}Theory{% endif %}</span>
+        <span class="q-marks">{{ question.marks }} mark{% if question.marks != 1 %}s{% endif %}</span>
+      </div>
+
+      <p class="q-content">{{ question.content }}</p>
+      {% if question.image %}<img src="{{ question.image.url }}" alt="Question image" class="q-image">{% endif %}
+
+      {% if question.question_type == 'OBJ' %}
+      <ul class="choices" id="choices-{{ question.id }}">
+        {% for choice in question.choices.all %}
+        <li class="choice-item" data-choice-id="{{ choice.id }}" onclick="selectChoice({{ question.id }}, {{ choice.id }}, this)">
+          <span class="choice-label">{{ choice.label }}</span>
+          <span class="choice-text">{{ choice.choice_text }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <label class="theory-label">Write your answer below:</label>
+      <textarea class="theory-textarea" id="theory-{{ question.id }}" placeholder="Type your answer here..." oninput="autoSaveTheory({{ question.id }})"></textarea>
+      {% endif %}
+
+      <div class="q-nav">
+        <button class="btn-nav" onclick="prevQuestion()" {% if forloop.first %}disabled{% endif %}>← Previous</button>
+        <span class="save-indicator" id="saved-{{ question.id }}">✓ Saved</span>
+        <button class="btn-nav" onclick="nextQuestion()" {% if forloop.last %}disabled{% endif %}>Next →</button>
+      </div>
+    </div>
+    {% endfor %}
+  </main>
+</div>
+
+<!-- MOBILE DRAWER -->
+<div class="grid-drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+<div class="grid-drawer" id="gridDrawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-grid">
+    {% for qs in question_status %}
+    <button class="grid-btn {{ qs.status }}" id="drawer-grid-{{ qs.id }}" onclick="goToQuestion({{ qs.id }}); toggleDrawer();">{{ forloop.counter }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- SUBMIT CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-title">Submit Exam?</div>
+    <div class="modal-body">Once submitted you cannot change your answers. Make sure you've answered as many questions as possible.</div>
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <div class="modal-stat-val green" id="modalAnswered">{{ answered_count }}</div>
+        <div class="modal-stat-label">Answered</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val gold" id="modalUnanswered">{{ total_count }}</div>
+        <div class="modal-stat-label">Unanswered</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val" style="color:var(--accent)">{{ total_count }}</div>
+        <div class="modal-stat-label">Total</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeModal()">Go Back</button>
+      <form method="post" action="{% url 'practice:finish_session' session.id %}" style="flex:1">
+        {% csrf_token %}
+        <button type="submit" class="btn-modal-confirm" style="width:100%">Submit Now</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'practice/js/exam_page.js' %}"></script>
+{% endblock %}

@@ -35,6 +35,11 @@ class CustomUser(AbstractUser):
     username = None
     email = models.EmailField('Email address', unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='STUDENT')
+    # On the User model, add these fields:
+    streak = models.PositiveIntegerField(default=0)
+    last_practice_date = models.DateField(null=True, blank=True)
+    referral_code = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    referred_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
     
     objects = CustomUserManager()
     USERNAME_FIELD = 'email'
@@ -51,3 +56,10 @@ class CustomUser(AbstractUser):
     def is_student(self):
         return self.role == 'STUDENT'
     
+class Referral(models.Model):
+    referrer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='referrals_made')
+    referred = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='referral_record')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.referrer} referred {self.referred}"

@@ -1,0 +1,124 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+
+<style>
+  .subject-group { margin-bottom: 2rem; }
+  .subject-group-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--accent); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+  .subject-group-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .bookmark-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 0.6rem; transition: border-color 0.2s; }
+  .bookmark-card:hover { border-color: var(--border-hover); }
+
+  .bookmark-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.85rem; cursor: pointer; }
+  .bm-q-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem; color: var(--muted); background: var(--deep); border: 1px solid var(--border); padding: 0.2rem 0.55rem; border-radius: 6px; flex-shrink: 0; }
+  .bm-q-type { font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+  .bm-q-type.obj { background: var(--accent-dim); color: var(--accent); }
+  .bm-q-type.theory { background: var(--gold-dim); color: var(--gold); }
+  .bm-preview { flex: 1; font-size: 0.875rem; color: var(--muted-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bm-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0.2rem; transition: color 0.15s; flex-shrink: 0; }
+  .bm-remove:hover { color: var(--red); }
+  .bm-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; flex-shrink: 0; }
+  .bookmark-card.expanded .bm-chevron { transform: rotate(180deg); }
+
+  .bookmark-body { padding: 0 1.25rem 1.25rem; display: none; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 0; }
+  .bookmark-card.expanded .bookmark-body { display: block; }
+
+  .bm-content { font-size: 0.95rem; line-height: 1.7; margin-bottom: 1.1rem; }
+  .bm-choices { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+  .bm-choice { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); background: var(--deep); font-size: 0.875rem; }
+  .bm-choice.correct { background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
+  .bm-choice-label { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.72rem; background: var(--card); border: 1px solid var(--border); flex-shrink: 0; }
+  .bm-choice.correct .bm-choice-label { background: var(--green); color: #000; border-color: var(--green); }
+
+  .bm-saved-date { font-size: 0.72rem; color: var(--muted); margin-top: 0.85rem; }
+</style>
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Practice</div>
+      <h1 class="page-title">Bookmarks</h1>
+      <p class="page-sub" style="margin-bottom:0">Questions you've saved for later review.</p>
+    </div>
+  </div>
+
+  {% if grouped_bookmarks %}
+    {% for subject_name, bookmarks in grouped_bookmarks.items %}
+    <div class="subject-group">
+      <div class="subject-group-title">{{ subject_name }} <span style="font-size:0.75rem; color:var(--muted); font-family:'DM Sans',sans-serif; font-weight:400;">({{ bookmarks|length }})</span></div>
+
+      {% for bm in bookmarks %}
+      <div class="bookmark-card" id="bm-card-{{ bm.question.id }}">
+        <div class="bookmark-header" onclick="toggleBm({{ bm.question.id }})">
+          <span class="bm-q-num">Q{{ bm.question.question_number }}</span>
+          <span class="bm-q-type {% if bm.question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">{% if bm.question.question_type == 'OBJ' %}OBJ{% else %}Theory{% endif %}</span>
+          <span class="bm-preview">{{ bm.question.content|truncatechars:80 }}</span>
+          <button class="bm-remove" onclick="event.stopPropagation(); removeBookmark({{ bm.question.id }}, this)" title="Remove bookmark">🗑</button>
+          <span class="bm-chevron">▼</span>
+        </div>
+        <div class="bookmark-body">
+          <p class="bm-content">{{ bm.question.content }}</p>
+          {% if bm.question.question_type == 'OBJ' %}
+          <ul class="bm-choices">
+            {% for choice in bm.question.choices.all %}
+            <li class="bm-choice {% if choice.is_correct %}correct{% endif %}">
+              <span class="bm-choice-label">{{ choice.label }}</span>
+              <span>{{ choice.choice_text }}</span>
+              {% if choice.is_correct %}<span style="margin-left:auto; font-size:0.72rem; color:var(--green); font-weight:700;">✓</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          {% if bm.question.theory_answer %}
+          <div style="background:var(--deep); border:1px solid rgba(245,200,66,0.15); border-radius:8px; padding:0.85rem 1rem; margin-top:0.5rem;">
+            <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:0.5rem;">Model Answer</div>
+            <p style="font-size:0.875rem; color:var(--muted-light); line-height:1.7;">{{ bm.question.theory_answer.content }}</p>
+          </div>
+          {% endif %}
+          {% endif %}
+          <div class="bm-saved-date">🔖 Saved {{ bm.created_at|date:"M j, Y" }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon">🔖</span>
+    <div class="empty-title">No bookmarks yet</div>
+    <div class="empty-desc">Bookmark questions during practice or from your results page to save them here for revision.</div>
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary" style="margin-top:1.25rem">Start Practicing</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+  const CSRF = '{{ csrf_token }}';
+  const BOOKMARK_URL = '{% url "practice:toggle_bookmark" %}';
+
+  function toggleBm(id) {
+    document.getElementById(`bm-card-${id}`)?.classList.toggle('expanded');
+  }
+
+  function removeBookmark(questionId, btn) {
+    fetch(BOOKMARK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ question_id: questionId })
+    })
+    .then(r => r.json())
+    .then(() => {
+      const card = document.getElementById(`bm-card-${questionId}`);
+      card.style.opacity = '0';
+      card.style.transition = 'opacity 0.3s';
+      setTimeout(() => card.remove(), 300);
+    });
+  }
+</script>
+{% endblock %}

@@ -4,6 +4,8 @@ from .views import (
     TopicListView, AvailableYearsView, GenerateQuestionsView
 )
 
+app_name = 'catalog'
+
 urlpatterns = [
     path('subjects/', SubjectListView.as_view(), name='subject-list'),
     path('exam-boards/', ExamBoardListView.as_view(), name='examboard-list'),

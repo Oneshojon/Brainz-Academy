@@ -1,0 +1,124 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+
+
+
+<div class="dash-body">
+
+  <div class="greeting-block">
+    <div class="greeting-eyebrow">{% now "N j, Y" %} · Welcome back</div>
+    <h1 class="greeting-title">Hello, <span class="name">{{ user.first_name|default:"there" }}</span> 👋</h1>
+    <p class="greeting-sub">{% if user.role == 'TEACHER' %}Ready to build a test or review question sets for your class?{% else %}What would you like to practice today?{% endif %}</p>
+  </div>
+
+  <div class="cta-banner">
+    <div class="cta-text">
+      {% if user.role == 'TEACHER' %}
+        <strong>Build a custom question set</strong>
+        <span>Filter by exam board, subject, year, topic and difficulty.</span>
+      {% else %}
+        <strong>Jump back into practice</strong>
+        <span>Pick up where you left off or start a new session.</span>
+      {% endif %}
+    </div>
+    {% if user.role == 'TEACHER' %}<a href="{% url 'frontend:frontend-index' %}?mode=teacher" class="btn-cta">Open Test Builder</a>{% else %}<a href="{% url 'practice:practice_home' %}" class="btn-cta">Start Practicing</a>{% endif %}
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-card-label">Sessions Completed</div>
+      <div class="stat-card-value accent">{{ recent_sessions|length }}</div>
+      <div class="stat-card-sub">recent sessions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Last Score</div>
+      {% if last_session and last_session.score_percentage is not None %}
+        {% if last_session.score_percentage >= 70 %}<div class="stat-card-value green">{{ last_session.score_percentage }}%</div>{% elif last_session.score_percentage >= 50 %}<div class="stat-card-value gold">{{ last_session.score_percentage }}%</div>{% else %}<div class="stat-card-value accent">{{ last_session.score_percentage }}%</div>{% endif %}
+        <div class="stat-card-sub">{{ last_session.subject }}</div>
+      {% else %}
+        <div class="stat-card-value accent">—</div>
+        <div class="stat-card-sub">no attempts yet</div>
+      {% endif %}
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Last Subject</div>
+      {% if last_session %}
+        <div class="stat-card-value gold" style="font-size:1.2rem; margin-top:0.4rem;">{{ last_session.subject|default:"—" }}</div>
+        <div class="stat-card-sub">{{ last_session.started_at|date:"M j, Y" }}</div>
+      {% else %}
+        <div class="stat-card-value accent">—</div>
+        <div class="stat-card-sub">no attempts yet</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <div>
+      <div class="section-header">
+        <div class="section-label">Features</div>
+        <div class="section-title">Your Services</div>
+      </div>
+      <div class="services-grid">
+        <a href="/app/?mode=student" class="service-card blue">
+          <span class="svc-icon">⚡</span>
+          <div class="svc-title">Exam Practice</div>
+          <div class="svc-desc">Work through past questions in timed exam conditions.</div>
+          <span class="svc-tag free">Free</span>
+        </a>
+        <a href="{% url 'practice:revision' %}" class="service-card green-card">
+          <span class="svc-icon">🎬</span>
+          <div class="svc-title">Video Lessons</div>
+          <div class="svc-desc">Short walkthroughs for tricky questions and key topics.</div>
+          <span class="svc-tag free">Free</span>
+        </a>
+        {% if user.role == 'TEACHER' %}
+        <a href="{% url 'frontend:frontend-index' %}?mode=teacher" class="service-card gold-card">
+          <span class="svc-icon">🛠️</span>
+          <div class="svc-title">Test Builder</div>
+          <div class="svc-desc">Generate custom question sets by topic, year and board.</div>
+          <span class="svc-tag teacher-tag">Teachers Only</span>
+        </a>
+        {% endif %}
+        <div class="service-card locked">
+          <span class="svc-icon">🌍</span>
+          <div class="svc-title">IGCSE Prep</div>
+          <div class="svc-desc">Cambridge IGCSE past papers — launching soon.</div>
+          <span class="svc-tag soon">Coming Soon</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header">
+        <div class="section-label">History</div>
+        <div class="section-title">Recent Practice</div>
+      </div>
+      {% if recent_sessions %}
+        <div class="sessions-list">
+          {% for session in recent_sessions %}
+          <div class="session-row">
+            <div class="session-icon">{% if session.session_type == 'EXAM' %}📝{% elif session.session_type == 'TOPIC' %}📖{% else %}🗂️{% endif %}</div>
+            <div class="session-info">
+              <div class="session-title">{{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}</div>
+              <div class="session-meta">{{ session.started_at|date:"M j, Y · g:i A" }} · {{ session.get_session_type_display }}</div>
+            </div>
+            {% if session.score_percentage is not None %}{% if session.score_percentage >= 70 %}<div class="session-score score-high">{{ session.score_percentage }}%</div>{% elif session.score_percentage >= 50 %}<div class="session-score score-mid">{{ session.score_percentage }}%</div>{% else %}<div class="session-score score-low">{{ session.score_percentage }}%</div>{% endif %}{% else %}<div class="session-score" style="color:var(--muted);font-size:0.85rem;">Incomplete</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="no-sessions">
+          <span>📋</span>
+          No practice sessions yet.<br>
+          Start your first session to see your history here.
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

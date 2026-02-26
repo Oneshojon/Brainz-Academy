@@ -1,0 +1,131 @@
+{% load static %}
+{% extends 'Users/layout.html' %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+
+<style>
+  .leaderboard-select { background: var(--deep); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 1rem; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none; cursor: pointer; min-width: 220px; }
+  .leaderboard-select:focus { border-color: rgba(156,213,255,0.4); }
+  .leaderboard-select option { background: #1e3347; }
+
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 1rem; margin-bottom: 2.5rem; }
+  .podium-item { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .podium-avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; color: var(--black); }
+  .podium-1 .podium-avatar { width: 64px; height: 64px; font-size: 1.3rem; background: var(--gold); }
+  .podium-2 .podium-avatar { width: 52px; height: 52px; font-size: 1.1rem; background: var(--mid); }
+  .podium-3 .podium-avatar { width: 48px; height: 48px; font-size: 1rem; background: var(--base); color: var(--text); }
+  .podium-name { font-size: 0.825rem; font-weight: 600; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .podium-score { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.9rem; }
+  .podium-1 .podium-score { color: var(--gold); }
+  .podium-2 .podium-score { color: var(--mid); }
+  .podium-3 .podium-score { color: var(--muted-light); }
+  .podium-block { border-radius: 10px 10px 0 0; width: 80px; }
+  .podium-1 .podium-block { height: 80px; background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.2); }
+  .podium-2 .podium-block { height: 56px; background: var(--mid-dim); border: 1px solid rgba(122,170,206,0.2); }
+  .podium-3 .podium-block { height: 44px; background: rgba(53,88,114,0.3); border: 1px solid var(--border); }
+  .podium-rank { font-size: 1.2rem; }
+
+  .rankings-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .rank-row { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1.25rem; display: flex; align-items: center; gap: 1rem; transition: border-color 0.2s; }
+  .rank-row:hover { border-color: var(--border-hover); }
+  .rank-row.me { border-color: rgba(156,213,255,0.3); background: var(--accent-dim); }
+  .rank-num { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem; color: var(--muted); min-width: 28px; }
+  .rank-name { flex: 1; font-weight: 600; font-size: 0.9rem; }
+  .rank-sessions { font-size: 0.78rem; color: var(--muted); }
+  .rank-score { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+  .rank-score.high { color: var(--green); }
+  .rank-score.mid { color: var(--gold); }
+  .rank-score.low { color: var(--red); }
+</style>
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Practice</div>
+      <h1 class="page-title">Leaderboard</h1>
+      <p class="page-sub" style="margin-bottom:0">See how you rank against other students.</p>
+    </div>
+  </div>
+
+  <!-- Subject selector -->
+  <form method="get" style="margin-bottom:2rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+    <select class="leaderboard-select" name="subject" onchange="this.form.submit()">
+      <option value="">— Select a Subject —</option>
+      {% for subject in subjects %}
+      <option value="{{ subject.id }}" {% if selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+      {% endfor %}
+    </select>
+    {% if selected_subject %}
+    <a href="{% url 'practice:leaderboard' %}" class="btn btn-ghost">Clear</a>
+    {% endif %}
+  </form>
+
+  {% if selected_subject and rankings %}
+
+    <!-- Podium for top 3 -->
+    {% if rankings|length >= 3 %}
+    <div class="podium">
+      <!-- 2nd -->
+      <div class="podium-item podium-2">
+        <div class="podium-avatar">{{ rankings.1.user__first_name|first|upper }}{{ rankings.1.user__last_name|first|upper }}</div>
+        <div class="podium-name">{{ rankings.1.user__first_name }} {{ rankings.1.user__last_name|first }}.</div>
+        <div class="podium-score">{{ rankings.1.best_score|floatformat:0 }}%</div>
+        <div class="podium-block"></div>
+        <div class="podium-rank">🥈</div>
+      </div>
+      <!-- 1st -->
+      <div class="podium-item podium-1">
+        <div class="podium-avatar">{{ rankings.0.user__first_name|first|upper }}{{ rankings.0.user__last_name|first|upper }}</div>
+        <div class="podium-name">{{ rankings.0.user__first_name }} {{ rankings.0.user__last_name|first }}.</div>
+        <div class="podium-score">{{ rankings.0.best_score|floatformat:0 }}%</div>
+        <div class="podium-block"></div>
+        <div class="podium-rank">🥇</div>
+      </div>
+      <!-- 3rd -->
+      <div class="podium-item podium-3">
+        <div class="podium-avatar">{{ rankings.2.user__first_name|first|upper }}{{ rankings.2.user__last_name|first|upper }}</div>
+        <div class="podium-name">{{ rankings.2.user__first_name }} {{ rankings.2.user__last_name|first }}.</div>
+        <div class="podium-score">{{ rankings.2.best_score|floatformat:0 }}%</div>
+        <div class="podium-block"></div>
+        <div class="podium-rank">🥉</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Full list -->
+    <div class="rankings-list">
+      {% for rank in rankings %}
+      <div class="rank-row {% if rank.user__email == request.user.email %}me{% endif %}">
+        <span class="rank-num">#{{ forloop.counter }}</span>
+        <div class="rank-name">
+          {{ rank.user__first_name }} {{ rank.user__last_name|first }}.
+          {% if rank.user__email == request.user.email %}<span style="font-size:0.7rem; color:var(--accent); margin-left:0.4rem;">(you)</span>{% endif %}
+        </div>
+        <span class="rank-sessions">{{ rank.sessions }} session{{ rank.sessions|pluralize }}</span>
+        {% if rank.best_score >= 70 %}<span class="rank-score high">{{ rank.best_score|floatformat:0 }}%</span>
+        {% elif rank.best_score >= 50 %}<span class="rank-score mid">{{ rank.best_score|floatformat:0 }}%</span>
+        {% else %}<span class="rank-score low">{{ rank.best_score|floatformat:0 }}%</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+  {% elif selected_subject %}
+  <div class="empty-state">
+    <span class="empty-icon">🏆</span>
+    <div class="empty-title">No rankings yet</div>
+    <div class="empty-desc">Be the first to complete a {{ selected_subject.name }} session!</div>
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary" style="margin-top:1.25rem">Start Practicing</a>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon">🏆</span>
+    <div class="empty-title">Select a subject</div>
+    <div class="empty-desc">Choose a subject above to see the leaderboard for that subject.</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

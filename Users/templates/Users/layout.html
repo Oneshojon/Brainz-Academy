@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -10,28 +11,23 @@
       integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
       crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="{% static 'Users/layout.css' %}" />
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div class="container">
-        <a class="navbar-brand" href="/">ExamPortal</a>
-
-        <div class="ms-auto">
-          {% if user.is_authenticated %}
-          <span class="navbar-text me-3"> Hello, {{ user.first_name }} </span>
-          <a
-            class="btn btn-outline-light btn-sm"
-            href="{% url 'Users:logout' %}"
-            >Logout</a
-          >
-          {% else %}
-          <a class="btn btn-primary btn-sm" href="{% url 'Users:request_otp' %}"
-            >Login</a
-          >
-          {% endif %}
-        </div>
+    <nav class="dash-nav">
+  <a href="/" class="dash-logo">Exam<span>Prep</span></a>
+  <div class="nav-right">
+    {% if user.is_authenticated %}
+      <div class="nav-user">
+        <span>👤 {{ user.first_name|default:user.email }}</span>
+        {% if user.role == 'TEACHER' %}<span class="role-pill teacher">Teacher</span>{% else %}<span class="role-pill student">Student</span>{% endif %}
       </div>
-    </nav>
+      <a href="{% url 'Users:logout' %}" class="btn-logout">Log out</a>
+    {% else %}
+      <a href="{% url 'Users:request_otp' %}" class="btn-login">Log in →</a>
+    {% endif %}
+  </div>
+</nav>
 
     {% block body%}{% endblock %}
   </body>
