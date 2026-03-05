@@ -446,3 +446,57 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ── 2. dashboard.css (Users) additions ─────────────────────
+   Already has:  stats-row 3→2→1, two-col 2→1, cta-banner
+   Missing:
+   - services-grid min is 220px — fine but needs a floor
+   - session-row flex-wrap already set, just needs gap reduction
+   - greeting title padding on very small screens
+   ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .dash-body {
+    padding: 1.75rem 4vw 4rem;
+  }
+  .greeting-block {
+    margin-bottom: 2rem;
+  }
+  .cta-banner {
+    padding: 1.5rem;
+  }
+  .services-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  .session-row {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .services-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .stat-card {
+    padding: 1.1rem;
+  }
+  .stat-card-value {
+    font-size: 1.6rem;
+  }
+  .cta-banner {
+    padding: 1.25rem;
+  }
+  .btn-cta {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+}

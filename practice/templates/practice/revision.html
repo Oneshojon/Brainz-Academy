@@ -1,5 +1,6 @@
-{% load static %}
 {% extends 'Users/layout.html' %}
+{% load static %}
+
 
 {% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
@@ -58,7 +59,7 @@
 
   <div class="page-eyebrow">Practice</div>
   <h1 class="page-title">Revision</h1>
-  <p class="page-sub">Browse questions by topic without a timer. Perfect for focused revision.</p>
+  <p class="pa  ge-sub">Browse questions by topic without a timer. Perfect for focused revision.</p>
 
   <div class="revision-layout">
 
@@ -197,5 +198,13 @@
       btn.textContent = res.bookmarked ? '🔖' : '🏷️';
     });
   }
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.revision-question').forEach(card => {
+      card.classList.add('expanded');
+    });
+  });
 </script>
 {% endblock %}

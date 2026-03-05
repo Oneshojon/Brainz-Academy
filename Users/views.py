@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect
 from django.core.mail import send_mail
 from .models import CustomUser
+import uuid
+import random
+from django.conf import settings
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -16,111 +19,138 @@ def index(request):
 
 
 def request_otp(request):
-    if request.method == "POST":
-        email = request.POST.get('email')
-        user_exists = CustomUser.objects.filter(email=email).exists()
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+        ref = request.POST.get('ref', '').strip()  # carry referral code forward
 
-        # Cryptographically secure OTP
-        otp = str(secrets.randbelow(900000) + 100000)
+        if not email:
+            return render(request, 'Users/login.html', {'error': 'Please enter your email address.'})
 
-        # Store hashed OTP in session, never plain text
-        otp_hash = hashlib.sha256(otp.encode()).hexdigest()
-        request.session['otp_code'] = otp_hash
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+        try:
+            validate_email(email)
+        except ValidationError:
+            return render(request, 'Users/login.html', {'error': 'Please enter a valid email address.'})
+
+        # Generate and store OTP
+        otp = str(random.randint(100000, 999999))
+        request.session['otp'] = otp
         request.session['otp_email'] = email
-        request.session['otp_created'] = timezone.now().isoformat()
-        request.session['otp_attempts'] = 0  # reset attempt counter on fresh OTP
+        request.session['otp_created_at'] = timezone.now().isoformat()
+        if ref:
+            request.session['ref_code'] = ref
 
+        # Send OTP email
         send_mail(
-            'Your Login Code',
-            f'Your OTP code is: {otp}\nExpires in 10 minutes.',
-            'noreply@exam.com',
-            [email],
-            fail_silently=False
+            subject='Your ExamPrep Login Code',
+            message=f'Your ExamPrep login code is: {otp}\n\nThis code expires in 10 minutes.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
         )
 
-        messages.success(request, "OTP has been sent to your email.")
-        return render(request, 'Users/verify_otp.html', {
-            'email': email,
-            'new_user': not user_exists
-        })
+        return redirect('Users:verify_otp')
 
-    return render(request, 'Users/login.html')
+    # GET - check for ?ref= in URL
+    ref = request.GET.get('ref', '')
+    return render(request, 'Users/login.html', {'ref': ref})
 
 
 def verify_otp(request):
     email = request.session.get('otp_email')
-    stored_otp = request.session.get('otp_code', '')
-    otp_created_str = request.session.get('otp_created')
-
-    # Guard: session data must be present
-    if not otp_created_str or not stored_otp or not email:
-        messages.error(request, "Session expired or invalid. Please request a new OTP.")
+    if not email:
         return redirect('Users:request_otp')
 
-    otp_created = parse_datetime(otp_created_str)
+    ref_code = request.session.get('ref_code', '')
 
-    if not otp_created:
-        messages.error(request, "Parsing error, please try again.")
-        return redirect('Users:request_otp')
+    if request.method == 'POST':
+        entered_otp = request.POST.get('otp', '').strip()
+        stored_otp = request.session.get('otp')
 
-    # Guard: OTP must not be expired
-    if timezone.now() - otp_created > timedelta(minutes=10):
-        for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
+        # Check expiry (10 minutes)
+        created_at_str = request.session.get('otp_created_at')
+        if created_at_str:
+            from datetime import timedelta
+            created_at = timezone.datetime.fromisoformat(created_at_str)
+            if timezone.now() > created_at + timedelta(minutes=10):
+                return render(request, 'Users/verify_otp.html', {
+                    'email': email, 'ref_code': ref_code,
+                    'error': 'Your code has expired. Please request a new one.',
+                })
+
+        if entered_otp != stored_otp:
+            # Check if this is a new user form submit
+            user_exists = CustomUser.objects.filter(email=email).exists()
+            return render(request, 'Users/verify_otp.html', {
+                'email': email,
+                'new_user': not user_exists,
+                'ref_code': ref_code,
+                'error': 'Invalid code. Please try again.',
+            })
+
+        # OTP correct — get or create user
+        user, created = CustomUser.objects.get_or_create(
+            email=email,
+            defaults={}
+        )
+
+        if created:
+            # New user — collect registration details
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            role = request.POST.get('role', 'STUDENT')
+
+            if not first_name or not last_name:
+                return render(request, 'Users/verify_otp.html', {
+                    'email': email, 'new_user': True, 'ref_code': ref_code,
+                    'error': 'Please enter your first and last name.',
+                })
+
+            if role not in ('STUDENT', 'TEACHER'):
+                role = 'STUDENT'
+
+            user.first_name = first_name
+            user.last_name = last_name
+            user.role = role
+
+            # Generate referral code for new user
+            user.referral_code = str(uuid.uuid4())[:8].upper()
+
+            # Handle referral — who referred this user?
+            ref = request.POST.get('ref', '').strip() or ref_code
+            if ref:
+                try:
+                    referrer = CustomUser.objects.get(referral_code=ref)
+                    if referrer != user:
+                        user.referred_by = referrer
+                        # Create Referral record
+                        from Users.models import Referral
+                        Referral.objects.get_or_create(referrer=referrer, referred=user)
+                except CustomUser.DoesNotExist:
+                    pass
+
+            user.save()
+
+        # Clear OTP session data
+        for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
             request.session.pop(key, None)
-        messages.error(request, "OTP has expired. Please request a new one.")
-        return redirect('Users:request_otp')
 
-    # Guard: brute force protection
-    attempts = request.session.get('otp_attempts', 0)
-    if attempts >= 3:
-        for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
-            request.session.pop(key, None)
-        messages.error(request, "Too many failed attempts. Please request a new OTP.")
-        return redirect('Users:request_otp')
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
-    if request.method == "POST":
-        otp_entered = str(request.POST.get('otp', '')).strip()
-        entered_hash = hashlib.sha256(otp_entered.encode()).hexdigest()
+        # Redirect based on role
+        if user.role == 'TEACHER':
+            return redirect('teacher:dashboard')
+        return redirect('Users:dashboard')
 
-        if entered_hash == stored_otp:
-            user = CustomUser.objects.filter(email=email).first()
-
-            if not user:
-                role = request.POST.get('role', 'STUDENT')
-
-                # Validate it to prevent arbitrary values being passed in
-                if role not in ['STUDENT', 'TEACHER']:
-                    role = 'STUDENT'
-
-                user = CustomUser.objects.create_user(
-                    email=email,
-                    first_name=request.POST.get('first_name', ''),
-                    last_name=request.POST.get('last_name', ''),
-                    role=role
-                )
-
-            # Clear OTP session data before logging in
-            for key in ['otp_code', 'otp_email', 'otp_created', 'otp_attempts']:
-                request.session.pop(key, None)
-
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            messages.success(request, "Logged in successfully.")
-            return redirect('Users:dashboard')
-
-        else:
-            request.session['otp_attempts'] = attempts + 1
-            remaining = 3 - (attempts + 1)
-            if remaining > 0:
-                messages.error(request, f"Invalid OTP. {remaining} attempt(s) remaining.")
-            else:
-                messages.error(request, "Too many failed attempts. Please request a new OTP.")
-            # Fall through to re-render the form
-
+    # GET — check if new or existing user
     user_exists = CustomUser.objects.filter(email=email).exists()
     return render(request, 'Users/verify_otp.html', {
         'email': email,
-        'new_user': not user_exists
+        'new_user': not user_exists,
+        'ref_code': ref_code,
     })
+
 
 
 

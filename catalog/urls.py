@@ -1,12 +1,13 @@
 from django.urls import path
 from .views import (
     SubjectListView, ExamBoardListView,
-    TopicListView, AvailableYearsView, GenerateQuestionsView
+    TopicListView, AvailableYearsView, GenerateQuestionsView, QuestionDownloadView
 )
 
 app_name = 'catalog'
 
 urlpatterns = [
+    path('questions/download/', QuestionDownloadView.as_view(), name='question-download'),
     path('subjects/', SubjectListView.as_view(), name='subject-list'),
     path('exam-boards/', ExamBoardListView.as_view(), name='examboard-list'),
     path('topics/', TopicListView.as_view(), name='topic-list'),

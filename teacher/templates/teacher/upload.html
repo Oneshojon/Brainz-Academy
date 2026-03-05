@@ -1,0 +1,109 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/upload.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Upload Questions</h1>
+      <p class="page-sub" style="margin-bottom:0">Add questions to the bank in bulk using a CSV file.</p>
+    </div>
+  </div>
+
+  <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+    <a href="{% url 'teacher:students' %}">Students</a>
+    <a href="{% url 'teacher:upload' %}" class="active">Upload Questions</a>
+    <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  {% if success %}
+  <div class="success-box">
+    <div class="success-box-title">✅ Upload Complete</div>
+    <div class="success-box-sub">{{ created }} question{{ created|pluralize }} added to the question bank.</div>
+    {% if errors %}
+    <div class="error-list">
+      <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem;">{{ errors|length }} row{{ errors|length|pluralize }} skipped:</div>
+      {% for err in errors %}<div class="error-item">{{ err }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div style="background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:10px; padding:1rem; margin-bottom:1.5rem; color:var(--red); font-size:0.875rem;">⚠ {{ error }}</div>
+  {% endif %}
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; align-items:start;">
+
+    <!-- Upload form -->
+    <div class="upload-card">
+      <div class="upload-card-title">Upload CSV File</div>
+      <div class="upload-card-sub">Select or drag and drop your CSV file below.</div>
+
+      <form method="post" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <span class="drop-zone-icon">📂</span>
+          <div class="drop-zone-text">Click to select a CSV file</div>
+          <div class="drop-zone-sub">or drag and drop it here</div>
+          <div class="file-chosen" id="fileChosen"></div>
+        </div>
+        <input type="file" name="csv_file" id="fileInput" accept=".csv" onchange="showFile(this)">
+
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem;">
+          ⬆️ Upload Questions
+        </button>
+      </form>
+    </div>
+
+    <!-- CSV format spec -->
+    <div>
+      <div class="upload-card">
+        <div class="upload-card-title">CSV Format</div>
+        <div class="upload-card-sub">Your CSV must have a header row with these columns:</div>
+        <div class="csv-spec">
+          <pre>content,question_type,subject,exam_board,year,sitting,question_number,choice_a,choice_b,choice_c,choice_d,correct_answer</pre>
+        </div>
+        <table class="col-table" style="margin-top:1rem;">
+          <thead><tr><th>Column</th><th>Required?</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>content</td><td><span class="required-badge">Required</span></td><td>The question text</td></tr>
+            <tr><td>question_type</td><td><span class="required-badge">Required</span></td><td>OBJ or THEORY</td></tr>
+            <tr><td>subject</td><td><span class="required-badge">Required</span></td><td>Must match a subject name exactly</td></tr>
+            <tr><td>topics</td><td><span class="optional-badge">Optional</span></td><td>Topic names separated by | e.g. <code>Algebra|Quadratics</code></td></tr>
+            <tr><td>exam_board</td><td><span class="optional-badge">Optional</span></td><td>Abbreviation e.g. WAEC, NECO</td></tr>
+            <tr><td>year</td><td><span class="optional-badge">Optional</span></td><td>e.g. 2022</td></tr>
+            <tr><td>sitting</td><td><span class="optional-badge">Optional</span></td><td>MAY_JUNE, NOV_DEC, MOCK</td></tr>
+            <tr><td>choice_a…d</td><td><span class="optional-badge">OBJ only</span></td><td>Answer choice text</td></tr>
+            <tr><td>correct_answer</td><td><span class="optional-badge">OBJ only</span></td><td>A, B, C or D</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="upload-card" style="margin-top:0;">
+        <div class="upload-card-title">Available Subjects</div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.25rem;">
+          {% for s in subjects %}
+          <span style="font-size:0.78rem; background:var(--deep); border:1px solid var(--border); padding:0.2rem 0.6rem; border-radius:100px; color:var(--muted-light);">{{ s.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="{% static 'teacher/js/upload.js' %}"></script>
+ 
+</script>
+{% endblock %}

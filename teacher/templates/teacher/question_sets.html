@@ -1,0 +1,97 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/question_sets.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Question Sets</h1>
+      <p class="page-sub" style="margin-bottom:0">Browse the question bank — {{ total_questions }} question{{ total_questions|pluralize }} total.</p>
+    </div>
+    <a href="/app/" class="btn btn-primary">+ Build Test</a>
+  </div>
+
+  <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'teacher:question_sets' %}" class="active">Question Sets</a>
+    <a href="{% url 'teacher:students' %}">Students</a>
+    <a href="{% url 'teacher:upload' %}">Upload Questions</a>
+    <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  <form method="get" class="filter-row">
+    <select class="filter-select" name="subject" onchange="this.form.submit()">
+      <option value="">All Subjects</option>
+      {% for s in subjects %}<option value="{{ s.id }}" {% if selected_subject == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <select class="filter-select" name="board" onchange="this.form.submit()">
+      <option value="">All Boards</option>
+      {% for b in exam_boards %}<option value="{{ b.id }}" {% if selected_board == b.id|stringformat:'s' %}selected{% endif %}>{{ b.abbreviation }}</option>{% endfor %}
+    </select>
+    {% if selected_subject or selected_board %}<a href="{% url 'teacher:question_sets' %}" class="btn btn-ghost">Clear</a>{% endif %}
+  </form>
+
+  {% if grouped %}
+    {% for series_name, questions in grouped.items %}
+    <div class="series-group">
+      <div class="series-title">
+        {{ series_name }}
+        <span class="series-count">({{ questions|length }})</span>
+      </div>
+      <div class="q-list">
+        {% for q in questions %}
+        <div class="q-item" id="q-{{ q.id }}">
+          <div class="q-header" onclick="toggleQ({{ q.id }})">
+            <span class="q-num">Q{{ q.question_number|default:forloop.counter }}</span>
+            <span class="q-type-badge {% if q.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">{{ q.question_type }}</span>
+            <span class="q-preview">{{ q.content|truncatechars:90 }}</span>
+            <span class="q-chevron">▼</span>
+          </div>
+          <div class="q-body">
+            <p class="q-content">{{ q.content }}</p>
+            {% if q.question_type == 'OBJ' %}
+            <ul class="choice-list">
+              {% for choice in q.choices.all %}
+              <li class="choice-item {% if choice.is_correct %}correct{% endif %}">
+                <span class="choice-label">{{ choice.label }}</span>
+                <span>{{ choice.choice_text }}</span>
+                {% if choice.is_correct %}<span style="margin-left:auto; font-size:0.72rem; color:var(--green); font-weight:700;">✓</span>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% elif q.theory_answer %}
+            <div style="background:rgba(245,200,66,0.06); border:1px solid rgba(245,200,66,0.12); border-radius:8px; padding:0.85rem 1rem; margin-top:0.5rem;">
+              <div style="font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:0.4rem;">Model Answer</div>
+              <p style="font-size:0.85rem; color:var(--muted-light); line-height:1.65;">{{ q.theory_answer.content }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon">🗂️</span>
+    <div class="empty-title">No questions found</div>
+    <div class="empty-desc">Upload questions via CSV or use the Test Builder to get started.</div>
+    <a href="{% url 'teacher:upload' %}" class="btn btn-primary" style="margin-top:1.25rem">Upload Questions</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function toggleQ(id) {
+  document.getElementById(`q-${id}`)?.classList.toggle('expanded');
+}
+</script>
+{% endblock %}

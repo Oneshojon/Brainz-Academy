@@ -60,3 +60,65 @@ body { background: var(--black); color: var(--text); font-family: 'DM Sans', san
 .page-tab { padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.825rem; font-weight: 600; border: 1px solid var(--border); background: var(--card); cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: 'DM Sans', sans-serif; text-decoration: none; }
 .page-tab:hover { color: var(--text); border-color: var(--border-hover); }
 .page-tab.active { background: var(--accent-dim); border-color: rgba(156,213,255,0.3); color: var(--accent); }
+
+
+/* ── 3. teacher/dashboard.css additions ──────────────────────
+   Already has:  dash-grid 3→2 at 700px, two-col 2→1
+   Missing:
+   - sessions-table breaks on mobile (fixed layout needed)
+   - dash-grid needs 1col at ~420px
+   - quick-actions needs padding reduction
+   - teacher-nav wraps already (flex-wrap:wrap) ✅ but 
+     needs smaller padding on mobile
+   ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  /* Already defined in teacher CSS — adding to it: */
+  .dash-body {
+    padding: 1.75rem 4vw 4rem;
+  }
+  .teacher-nav {
+    gap: 0.3rem;
+  }
+  .teacher-nav a {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+  }
+
+  /* Make sessions table scrollable horizontally */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+  }
+  .sessions-table {
+    min-width: 560px;       /* force horizontal scroll rather than squish */
+  }
+
+  /* Subject pills */
+  .subject-pill {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-grid {
+    grid-template-columns: 1fr 1fr;  /* 2col on small mobile */
+  }
+  .dash-stat-val {
+    font-size: 1.5rem;
+  }
+  .quick-action {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .dash-grid {
+    grid-template-columns: 1fr;      /* 1col on tiny screens */
+  }
+  .teacher-nav a {
+    font-size: 0.72rem;
+    padding: 0.35rem 0.6rem;
+  }
+}

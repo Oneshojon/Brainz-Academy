@@ -8,18 +8,14 @@ import json
 import random
 import string
 
-from catalog.models import Subject, ExamBoard, ExamSeries, Question, Topic
+from catalog.models import Subject, ExamBoard, ExamSeries, Question, Topic, LessonNote
 from .models import PracticeSession, UserAnswer, Bookmark
-from .models import PracticeSession
+from catalog.feature_flags import is_feature_enabled, feature_required
 
 User = get_user_model()
-# --- SESSIONS----
-
-
 
 
 # ── HELPERS ──────────────────────────────────────────────────────────────────
-
 
 def student_required(view_func):
     """Decorator: user must be logged in. Teachers can also access student pages."""
@@ -295,12 +291,25 @@ def results_page(request, session_id):
             'correct_choice': answer.question.choices.filter(is_correct=True).first() if answer.question.question_type == 'OBJ' else None,
         })
 
+    # Recommend lesson notes for topics answered incorrectly
+    flat_ids = set(
+        tid
+        for a in answers if a.is_correct is False
+        for tid in a.question.topics.values_list('id', flat=True)
+    )
+    recommended_notes = []
+    if flat_ids and is_feature_enabled('lesson_notes', user=request.user):
+        recommended_notes = LessonNote.objects.filter(
+            topic__id__in=flat_ids
+        ).select_related('topic', 'topic__subject')
+
     context = {
-        'session': session,
-        'answer_review': answer_review,
-        'correct_count': sum(1 for a in answers if a.is_correct),
-        'incorrect_count': sum(1 for a in answers if a.is_correct is False),
-        'unanswered_count': sum(1 for a in answers if a.is_correct is None and not a.theory_response),
+        'session':           session,
+        'answer_review':     answer_review,
+        'correct_count':     sum(1 for a in answers if a.is_correct),
+        'incorrect_count':   sum(1 for a in answers if a.is_correct is False),
+        'unanswered_count':  sum(1 for a in answers if a.is_correct is None and not a.theory_response),
+        'recommended_notes': recommended_notes,
     }
     return render(request, 'practice/results_page.html', context)
 
@@ -525,33 +534,3 @@ def referral(request):
         'referrals_made': referrals_made,
     }
     return render(request, 'practice/referral.html', context)
-
-# ── MODELS (SESSIONS) ───────────────────────────────────────────────────
-@student_required
-def practice_home(request):
-    recent_sessions = PracticeSession.objects.filter(
-        user=request.user, completed_at__isnull=False
-    ).select_related('subject', 'exam_series').order_by('-completed_at')[:4]
-
-    return render(request, 'practice/practice_home.html', {
-        'subjects': Subject.objects.all().order_by('name'),
-        'exam_boards': ExamBoard.objects.all().order_by('name'),
-        'recent_sessions': recent_sessions,
-    })
-
-
-
-def analytics(request):
-    # ... existing code ...
-
-    recent_sessions_json = json.dumps([
-        {'score_pct': s.score_percentage, 'subject': str(s.subject)}
-        for s in recent_sessions if s.score_percentage is not None
-    ])
-    subject_stats_json = json.dumps(list(subject_stats))
-
-    context = {
-        # ... existing context ...
-        'recent_sessions_json': recent_sessions_json,
-        'subject_stats_json': subject_stats_json,
-    }

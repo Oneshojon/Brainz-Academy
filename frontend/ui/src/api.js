@@ -1,8 +1,23 @@
-import axios from 'axios'
+import axios from "axios";
+
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+}
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/catalog/',
-  withCredentials: true, // sends session cookie for auth
-})
+  baseURL: "/api/catalog/",
+  withCredentials: true,
+});
 
-export default api
+// Attach Django's CSRF token to every request
+api.interceptors.request.use((config) => {
+  const csrfToken = getCookie("csrftoken");
+  if (csrfToken) {
+    config.headers["X-CSRFToken"] = csrfToken;
+  }
+  return config;
+});
+
+export default api;

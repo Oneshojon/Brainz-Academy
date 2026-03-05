@@ -1,0 +1,44 @@
+.teacher-nav { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .teacher-nav a { padding:0.45rem 1rem; border-radius:8px; font-size:0.825rem; font-weight:600; border:1px solid var(--border); background:var(--card); text-decoration:none; color:var(--muted); transition:all 0.15s; }
+  .teacher-nav a:hover { color:var(--text); border-color:var(--border-hover); }
+  .teacher-nav a.active { background:var(--gold-dim); border-color:rgba(245,200,66,0.3); color:var(--gold); }
+
+  .dash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:2rem; }
+  .dash-stat { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1.4rem; }
+  .dash-stat-val { font-family:'Syne',sans-serif; font-weight:800; font-size:2rem; letter-spacing:-1px; color:var(--gold); }
+  .dash-stat-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-top:0.3rem; }
+
+  .section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .section-head-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; }
+  .see-all { font-size:0.8rem; color:var(--mid); text-decoration:none; }
+  .see-all:hover { color:var(--accent); }
+
+  .sessions-table { width:100%; border-collapse:separate; border-spacing:0 0.4rem; }
+  .sessions-table th { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); padding:0 0.85rem 0.4rem; text-align:left; }
+  .session-row td { background:var(--card); padding:0.8rem 0.85rem; font-size:0.875rem; }
+  .session-row td:first-child { border-radius:8px 0 0 8px; }
+  .session-row td:last-child { border-radius:0 8px 8px 0; }
+  .score-high { color:var(--green); font-family:'Syne',sans-serif; font-weight:700; }
+  .score-mid { color:var(--gold); font-family:'Syne',sans-serif; font-weight:700; }
+  .score-low { color:var(--red); font-family:'Syne',sans-serif; font-weight:700; }
+
+  .subject-pills { display:flex; flex-direction:column; gap:0.5rem; }
+  .subject-pill { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; display:flex; align-items:center; gap:0.85rem; }
+  .subject-pill-name { flex:1; font-size:0.875rem; font-weight:600; }
+  .subject-pill-count { font-size:0.78rem; color:var(--muted); }
+  .subject-pill-score { font-family:'Syne',sans-serif; font-weight:700; font-size:0.9rem; }
+
+  .quick-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:0.75rem; margin-bottom:2rem; }
+  .quick-action { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.25rem; text-decoration:none; display:flex; align-items:center; gap:0.85rem; transition:all 0.2s; }
+  .quick-action:hover { border-color:var(--border-hover); transform:translateY(-2px); }
+  .quick-action-icon { font-size:1.5rem; }
+  .quick-action-label { font-family:'Syne',sans-serif; font-weight:700; font-size:0.875rem; }
+  .quick-action-desc { font-size:0.775rem; color:var(--muted); margin-top:0.15rem; }
+
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+
+  @media(max-width:700px) {
+    .dash-grid { grid-template-columns:1fr 1fr; }
+    .two-col { grid-template-columns:1fr; }
+    .quick-actions { grid-template-columns:1fr; }
+  }

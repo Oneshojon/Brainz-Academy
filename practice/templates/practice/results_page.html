@@ -1,4 +1,7 @@
-{% load static %} {% extends 'Users/layout.html' %} {% block body %}
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/results_page.css' %}" />
 
 <div
@@ -6,44 +9,29 @@
   data-csrf="{{ csrf_token }}"
   data-bookmark-url="{% url 'practice:toggle_bookmark' %}"
   data-score-pct="{{ session.score_percentage|default:0 }}"
-  style="display: none"
+  style="display:none"
 ></div>
 
 <div class="results-body">
+
   <!-- Score Hero -->
   <div class="score-hero">
     <div class="score-left">
       <div class="score-eyebrow">Session Complete</div>
       <div class="score-session-title">
-        {{ session.subject|default:"Practice Session" }}{% if
-        session.exam_series %} · {{ session.exam_series }}{% endif %}
+        {{ session.subject|default:"Practice Session" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
       </div>
       <div class="score-meta">
-        {{ session.started_at|date:"M j, Y · g:i A" }} · {{
-        session.get_session_type_display }}
+        {{ session.started_at|date:"M j, Y · g:i A" }} · {{ session.get_session_type_display }}
       </div>
     </div>
     <div class="score-ring">
       <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle cx="65" cy="65" r="54" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="10"/>
         <circle
-          cx="65"
-          cy="65"
-          r="54"
-          fill="none"
-          stroke="rgba(255,255,255,0.07)"
-          stroke-width="10"
-        />
-        <circle
-          id="scoreCircle"
-          cx="65"
-          cy="65"
-          r="54"
-          fill="none"
-          stroke="#4ade80"
-          stroke-width="10"
-          stroke-linecap="round"
-          stroke-dasharray="339.3"
-          stroke-dashoffset="339.3"
+          id="scoreCircle" cx="65" cy="65" r="54" fill="none"
+          stroke="#4ade80" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="339.3" stroke-dashoffset="339.3"
         />
       </svg>
       <div class="score-ring-val">
@@ -68,165 +56,86 @@
       <div class="stat-pill-label">Unanswered</div>
     </div>
     <div class="stat-pill">
-      <div class="stat-pill-val accent">
-        {{ session.total_marks|default:0 }}
-      </div>
+      <div class="stat-pill-val accent">{{ session.total_marks|default:0 }}</div>
       <div class="stat-pill-label">Total Marks</div>
     </div>
   </div>
 
+  {% if recommended_notes %}
+<div style="margin-bottom:2rem;">
+  <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--mid); margin-bottom:0.5rem;">Recommended Reading</div>
+  <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; margin-bottom:1rem;">Study These Topics</div>
+  <div style="display:flex; flex-direction:column; gap:0.5rem;">
+    {% for note in recommended_notes %}
+    <a href="/teacher/lesson-notes/?subject={{ note.subject.id }}&topic={{ note.topic.id }}"
+       style="background:var(--card); border:1px solid var(--border); border-radius:10px;
+              padding:0.9rem 1.25rem; text-decoration:none; display:flex;
+              align-items:center; gap:0.75rem; transition:border-color 0.2s;"
+       onmouseover="this.style.borderColor='var(--border-hover)'"
+       onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:1.2rem;">📄</span>
+      <div>
+        <div style="font-weight:600; font-size:0.875rem; color:var(--text);">{{ note.title }}</div>
+        <div style="font-size:0.75rem; color:var(--muted); margin-top:0.1rem;">{{ note.topic.subject.name }}</div>
+      </div>
+      <span style="margin-left:auto; font-size:0.8rem; color:var(--mid);">Read →</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
   <!-- Actions -->
   <div class="action-row">
-    <a href="{% url 'practice:practice_home' %}" class="btn-action primary"
-      >🔁 Practice Again</a
-    >
-    <a href="{% url 'practice:history' %}" class="btn-action secondary"
-      >📋 View History</a
-    >
-    <a href="{% url 'practice:analytics' %}" class="btn-action secondary"
-      >📊 Analytics</a
-    >
-    <a href="{% url 'practice:bookmarks' %}" class="btn-action secondary"
-      >🔖 Bookmarks</a
-    >
+    <a href="{% url 'practice:practice_home' %}" class="btn-action primary">🔁 Practice Again</a>
+    <a href="{% url 'practice:history' %}" class="btn-action secondary">📋 View History</a>
+    <a href="{% url 'practice:analytics' %}" class="btn-action secondary">📊 Analytics</a>
+    <a href="{% url 'practice:bookmarks' %}" class="btn-action secondary">🔖 Bookmarks</a>
   </div>
 
-  <!-- Answer Review -->
-  <div
-    style="
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    "
-  >
+  <!-- Answer Review Header -->
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
     <div>
-      <div
-        style="
-          font-size: 0.7rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--mid);
-          margin-bottom: 0.2rem;
-        "
-      >
-        Review
-      </div>
-      <div
-        style="
-          font-family: &quot;Syne&quot;, sans-serif;
-          font-weight: 700;
-          font-size: 1.1rem;
-        "
-      >
-        Answer Review
-      </div>
+      <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--mid); margin-bottom:0.2rem;">Review</div>
+      <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1.1rem;">Answer Review</div>
     </div>
-    <div style="display: flex; gap: 0.5rem">
-      <button
-        onclick="expandAll()"
-        style="
-          background: transparent;
-          border: 1px solid var(--border);
-          color: var(--muted);
-          padding: 0.35rem 0.8rem;
-          border-radius: 7px;
-          font-size: 0.78rem;
-          cursor: pointer;
-          font-family: &quot;DM Sans&quot;, sans-serif;
-          transition: all 0.2s;
-        "
-        onmouseover="this.style.color = 'var(--text)'"
-        onmouseout="this.style.color = 'var(--muted)'"
-      >
-        Expand All
-      </button>
-      <button
-        onclick="collapseAll()"
-        style="
-          background: transparent;
-          border: 1px solid var(--border);
-          color: var(--muted);
-          padding: 0.35rem 0.8rem;
-          border-radius: 7px;
-          font-size: 0.78rem;
-          cursor: pointer;
-          font-family: &quot;DM Sans&quot;, sans-serif;
-          transition: all 0.2s;
-        "
-        onmouseover="this.style.color = 'var(--text)'"
-        onmouseout="this.style.color = 'var(--muted)'"
-      >
-        Collapse All
-      </button>
+    <div style="display:flex; gap:0.5rem;">
+      <button onclick="expandAll()" style="background:transparent; border:1px solid var(--border); color:var(--muted); padding:0.35rem 0.8rem; border-radius:7px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Expand All</button>
+      <button onclick="collapseAll()" style="background:transparent; border:1px solid var(--border); color:var(--muted); padding:0.35rem 0.8rem; border-radius:7px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Collapse All</button>
     </div>
   </div>
 
   <!-- Filter Tabs -->
   <div class="filter-tabs">
-    <button
-      class="filter-tab active"
-      data-filter="all"
-      onclick="filterReview('all')"
-    >
-      All ({{ answer_review|length }})
-    </button>
-    <button
-      class="filter-tab"
-      data-filter="correct"
-      onclick="filterReview('correct')"
-    >
-      ✓ Correct ({{ correct_count }})
-    </button>
-    <button
-      class="filter-tab"
-      data-filter="incorrect"
-      onclick="filterReview('incorrect')"
-    >
-      ✗ Incorrect ({{ incorrect_count }})
-    </button>
-    <button
-      class="filter-tab"
-      data-filter="unanswered"
-      onclick="filterReview('unanswered')"
-    >
-      — Unanswered ({{ unanswered_count }})
-    </button>
+    <button class="filter-tab active" data-filter="all" onclick="filterReview('all')">All ({{ answer_review|length }})</button>
+    <button class="filter-tab" data-filter="correct" onclick="filterReview('correct')">✓ Correct ({{ correct_count }})</button>
+    <button class="filter-tab" data-filter="incorrect" onclick="filterReview('incorrect')">✗ Incorrect ({{ incorrect_count }})</button>
+    <button class="filter-tab" data-filter="unanswered" onclick="filterReview('unanswered')">— Unanswered ({{ unanswered_count }})</button>
   </div>
 
   <!-- Review Cards -->
   <div class="review-list">
-    {% for item in answer_review %} {% with answer=item.answer
-    question=item.question %} {% if answer.is_correct %}{% with status="correct"
-    icon="✅" %}
-    <div class="review-card correct" id="review-card-{{ question.id }}">
-      {% endwith %}{% elif answer.is_correct == False %}{% with
-      status="incorrect" icon="❌" %}
-      <div class="review-card incorrect" id="review-card-{{ question.id }}">
-        {% endwith %}{% else %}{% with status="unanswered" icon="⬜" %}
-        <div class="review-card unanswered" id="review-card-{{ question.id }}">
-          {% endwith %}{% endif %}
+    {% for item in answer_review %}
+      {% with answer=item.answer question=item.question %}
 
-          <div
-            class="review-card-header"
-            onclick="toggleCard({{ question.id }})"
-          >
-            <span class="result-icon"
-              >{% if answer.is_correct %}✅{% elif answer.is_correct == False
-              %}❌{% else %}⬜{% endif %}</span
-            >
+        {% if answer.is_correct %}
+          <div class="review-card correct" id="review-card-{{ question.id }}">
+        {% elif answer.is_correct == False %}
+          <div class="review-card incorrect" id="review-card-{{ question.id }}">
+        {% else %}
+          <div class="review-card unanswered" id="review-card-{{ question.id }}">
+        {% endif %}
+
+          <!-- Card Header -->
+          <div class="review-card-header" onclick="toggleCard({{ question.id }})">
+            <span class="result-icon">
+              {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
+            </span>
             <span class="review-q-num">Q{{ question.question_number }}</span>
-            <span class="review-q-preview"
-              >{{ question.content|truncatechars:80 }}</span
-            >
-            <span
-              class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}"
-              >{% if answer.is_correct %}Correct{% elif answer.is_correct ==
-              False %}Incorrect{% else %}Unanswered{% endif %}</span
-            >
+            <span class="review-q-preview">{{ question.content|truncatechars:80 }}</span>
+            <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
+              {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
+            </span>
             <button
               class="bookmark-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
               onclick="event.stopPropagation(); toggleBookmark({{ question.id }}, this)"
@@ -237,137 +146,88 @@
             <span class="chevron">▼</span>
           </div>
 
+          <!-- Card Body -->
           <div class="review-card-body">
             <p class="review-q-full">{{ question.content }}</p>
-            {% if question.image %}<img
-              src="{{ question.image.url }}"
-              style="
-                max-width: 100%;
-                border-radius: 8px;
-                margin-bottom: 1rem;
-                border: 1px solid var(--border);
-              "
-            />{% endif %} {% if question.question_type == 'OBJ' %}
-            <ul class="review-choices">
-              {% for choice in question.choices.all %}
-              <li
-                class="review-choice {% if choice.is_correct %}correct-answer{% elif answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick{% endif %}"
-              >
-                <span class="review-choice-label">{{ choice.label }}</span>
-                <span>{{ choice.choice_text }}</span>
-                {% if choice.is_correct %}<span
-                  style="
-                    margin-left: auto;
-                    font-size: 0.75rem;
-                    color: var(--green);
-                    font-weight: 700;
-                  "
-                  >✓ Correct</span
-                >{% endif %}
-              </li>
-              {% endfor %}
-            </ul>
-            {% if item.correct_choice and item.correct_choice.explanation %}
-            <p class="choice-explanation" style="margin-top: 0.85rem">
-              💡 {{ item.correct_choice.explanation }}
-            </p>
-            {% endif %} {% if item.correct_choice and
-            item.correct_choice.video_url %}
-            <a
-              href="{{ item.correct_choice.video_url }}"
-              target="_blank"
-              rel="noreferrer"
-              class="video-link"
-              >▶ Watch explanation</a
-            >
-            {% endif %} {% else %} {% if answer.theory_response %}
-            <div
-              style="
-                font-size: 0.78rem;
-                color: var(--muted);
-                margin-bottom: 0.35rem;
-                font-weight: 600;
-              "
-            >
-              Your Answer:
-            </div>
-            <div class="theory-response-box">{{ answer.theory_response }}</div>
-            {% else %}
-            <div
-              class="theory-response-box"
-              style="color: var(--muted); font-style: italic"
-            >
-              No answer provided.
-            </div>
-            {% endif %} {% if question.theory_answer %}
-            <div class="theory-model-answer">
-              <div class="theory-model-title">Model Answer</div>
-              <div class="theory-model-content">
-                {{ question.theory_answer.content }}
-              </div>
-              {% if question.theory_answer.marking_guide %}
-              <details style="margin-top: 0.75rem">
-                <summary
-                  style="
-                    font-size: 0.78rem;
-                    color: var(--muted);
-                    cursor: pointer;
-                    font-weight: 600;
-                  "
-                >
-                  📋 Marking Guide
-                </summary>
-                <p
-                  style="
-                    font-size: 0.85rem;
-                    color: var(--muted);
-                    margin-top: 0.5rem;
-                    line-height: 1.6;
-                  "
-                >
-                  {{ question.theory_answer.marking_guide }}
-                </p>
-              </details>
-              {% endif %} {% if question.theory_answer.video_url %}
-              <a
-                href="{{ question.theory_answer.video_url }}"
-                target="_blank"
-                rel="noreferrer"
-                class="video-link"
-                style="margin-top: 0.75rem"
-                >▶ Watch walkthrough</a
-              >
-              {% endif %}
-            </div>
-            {% endif %} {% endif %} {% if question.topics.all %}
-            <div
-              style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.4rem;
-                margin-top: 1rem;
-              "
-            >
-              {% for topic in question.topics.all %}<span
-                style="
-                  font-size: 0.72rem;
-                  color: var(--muted);
-                  background: var(--deep);
-                  border: 1px solid var(--border);
-                  padding: 0.2rem 0.6rem;
-                  border-radius: 100px;
-                "
-                >{{ topic.name }}</span
-              >{% endfor %}
-            </div>
-            {% endif %}
-          </div>
-        </div>
-        {% endwith %} {% endfor %}
-      </div>
-    </div>
 
-    <script src="{% static 'practice/js/results_page.js' %}"></script>
-    {% endblock %}
-  </div>
-</div>
+            {% if question.image %}
+              <img src="{{ question.image.url }}" style="max-width:100%; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
+            {% endif %}
+
+            {% if question.question_type == 'OBJ' %}
+
+              <!-- OBJ: choices -->
+              <ul class="review-choices">
+                {% for choice in question.choices.all %}
+                <li class="review-choice {% if choice.is_correct %}correct-answer{% elif answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick{% endif %}">
+                  <span class="review-choice-label">{{ choice.label }}</span>
+                  <span>{{ choice.choice_text }}</span>
+                  {% if choice.is_correct %}
+                    <span style="margin-left:auto; font-size:0.75rem; color:var(--green); font-weight:700;">✓ Correct</span>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+
+              {% if item.correct_choice and item.correct_choice.explanation %}
+                <p class="choice-explanation" style="margin-top:0.85rem;">💡 {{ item.correct_choice.explanation }}</p>
+              {% endif %}
+
+              {% if item.correct_choice and item.correct_choice.video_url %}
+                <a href="{{ item.correct_choice.video_url }}" target="_blank" rel="noreferrer" class="video-link">▶ Watch explanation</a>
+              {% endif %}
+
+            {% else %}
+
+              <!-- THEORY: student response -->
+              <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem; font-weight:600;">Your Answer:</div>
+              {% if answer.theory_response %}
+                <div class="theory-response-box">{{ answer.theory_response }}</div>
+              {% else %}
+                <div class="theory-response-box" style="color:var(--muted); font-style:italic;">No answer provided.</div>
+              {% endif %}
+
+              {% if question.theory_answer %}
+                <div class="theory-model-answer">
+                  <div class="theory-model-title">Model Answer</div>
+                  <div class="theory-model-content">{{ question.theory_answer.content }}</div>
+
+                  {% if question.theory_answer.marking_guide %}
+                    <details style="margin-top:0.75rem;">
+                      <summary style="font-size:0.78rem; color:var(--muted); cursor:pointer; font-weight:600;">📋 Marking Guide</summary>
+                      <p style="font-size:0.85rem; color:var(--muted); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide }}</p>
+                    </details>
+                  {% endif %}
+
+                  {% if question.theory_answer.video_url %}
+                    <a href="{{ question.theory_answer.video_url }}" target="_blank" rel="noreferrer" class="video-link" style="margin-top:0.75rem;">▶ Watch walkthrough</a>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+            {% endif %}
+
+            <!-- Topics -->
+            {% if question.topics.all %}
+              <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:1rem;">
+                {% for topic in question.topics.all %}
+                  <span style="font-size:0.72rem; color:var(--muted); background:var(--deep); border:1px solid var(--border); padding:0.2rem 0.6rem; border-radius:100px;">{{ topic.name }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+          </div><!-- /.review-card-body -->
+
+        </div><!-- /.review-card -->
+
+      {% endwith %}
+    {% endfor %}
+  </div><!-- /.review-list -->
+
+</div><!-- /.results-body -->
+
+<script src="{% static 'practice/js/results_page.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => expandAll());
+</script>
+{% endblock %}

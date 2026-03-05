@@ -1,0 +1,85 @@
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap");
+
+.dash-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(14, 31, 44, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(122, 170, 206, 0.18);
+  padding: 0.9rem 5vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "DM Sans", sans-serif;
+}
+.dash-logo {
+  font-family: "Syne", sans-serif;
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: #f7f8f0;
+  letter-spacing: -0.5px;
+  text-decoration: none;
+}
+.dash-logo span {
+  color: #9cd5ff;
+}
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #1e3347;
+  border: 1px solid rgba(122, 170, 206, 0.18);
+  padding: 0.4rem 1rem;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  color: rgba(247, 248, 240, 0.7);
+}
+.role-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.role-pill.teacher {
+  background: rgba(245, 200, 66, 0.12);
+  color: #f5c842;
+}
+.role-pill.student {
+  background: rgba(156, 213, 255, 0.12);
+  color: #9cd5ff;
+}
+.btn-logout {
+  font-size: 0.825rem;
+  color: rgba(247, 248, 240, 0.45);
+  text-decoration: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(122, 170, 206, 0.18);
+  transition: all 0.2s;
+}
+.btn-logout:hover {
+  color: #f7f8f0;
+  border-color: rgba(156, 213, 255, 0.35);
+}
+.btn-login {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #0e1f2c;
+  background: #9cd5ff;
+  text-decoration: none;
+  padding: 0.45rem 1.1rem;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.2s;
+}
+.btn-login:hover {
+  background: #c2e8ff;
+}

@@ -1,5 +1,5 @@
-{% load static %}
 {% extends 'Users/layout.html' %}
+{% load static %}
 
 {% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
@@ -77,6 +77,30 @@
     </div>
   </div>
   {% endif %}
+
+  {% if recommended_notes %}
+<div style="margin-top:2rem;">
+  <div class="section-label">Recommended Reading</div>
+  <div class="section-title" style="margin-bottom:1rem;">Study Materials for Weak Topics</div>
+  <div style="display:flex; flex-direction:column; gap:0.5rem;">
+    {% for note in recommended_notes %}
+    <a href="{% url 'teacher:lesson_notes' %}?subject={{ note.topic.subject.id }}&topic={{ note.topic.id }}"
+       style="background:var(--card); border:1px solid var(--border); border-radius:10px;
+              padding:0.9rem 1.25rem; text-decoration:none; display:flex;
+              align-items:center; gap:0.75rem; transition:border-color 0.2s;"
+       onmouseover="this.style.borderColor='var(--border-hover)'"
+       onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:1.2rem;">📄</span>
+      <div>
+        <div style="font-weight:600; font-size:0.875rem; color:var(--text);">{{ note.title }}</div>
+        <div style="font-size:0.75rem; color:var(--muted); margin-top:0.1rem;">{{ note.topic.name }}</div>
+      </div>
+      <span style="margin-left:auto; font-size:0.8rem; color:var(--mid);">Read →</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
   <!-- Subject stats table -->
   {% if subject_stats %}

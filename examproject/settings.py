@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'teacher',
     'corsheaders',
     'frontend',
     'rest_framework',
@@ -65,10 +66,14 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'catalog.context_processors.feature_flags',   # ← add this
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'libraries': {
+                'feature_tags': 'catalog.templatetags.feature_tags',  # ← add this
+            }
         },
     },
 ]
@@ -144,8 +149,8 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #Set up email backend
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 600
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+# SESSION_COOKIE_AGE = 600
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 AUTH_USER_MODEL = 'Users.CustomUser'
 # messages set up
@@ -174,3 +179,6 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 LOGIN_URL = '/get-otp/'
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"

@@ -1,0 +1,22 @@
+.teacher-nav { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .teacher-nav a { padding:0.45rem 1rem; border-radius:8px; font-size:0.825rem; font-weight:600; border:1px solid var(--border); background:var(--card); text-decoration:none; color:var(--muted); transition:all 0.15s; }
+  .teacher-nav a:hover { color:var(--text); border-color:var(--border-hover); }
+  .teacher-nav a.active { background:var(--gold-dim); border-color:rgba(245,200,66,0.3); color:var(--gold); }
+
+  .filter-row { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.5rem; align-items:center; }
+  .filter-select { background:var(--deep); border:1px solid var(--border); color:var(--text); padding:0.5rem 0.85rem; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:0.85rem; outline:none; cursor:pointer; }
+  .filter-select option { background:#1e3347; }
+
+  .students-table { width:100%; border-collapse:separate; border-spacing:0 0.4rem; }
+  .students-table th { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); padding:0 0.85rem 0.5rem; text-align:left; }
+  .student-row { cursor:pointer; }
+  .student-row td { background:var(--card); padding:0.9rem 0.85rem; font-size:0.875rem; transition:background 0.15s; }
+  .student-row:hover td { background:#253d54; }
+  .student-row td:first-child { border-radius:8px 0 0 8px; }
+  .student-row td:last-child { border-radius:0 8px 8px 0; }
+
+  .student-avatar { width:34px; height:34px; border-radius:50%; background:var(--base); border:1px solid var(--border); display:inline-flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:0.8rem; margin-right:0.6rem; vertical-align:middle; }
+  .score-high { color:var(--green); font-family:'Syne',sans-serif; font-weight:700; }
+  .score-mid { color:var(--gold); font-family:'Syne',sans-serif; font-weight:700; }
+  .score-low { color:var(--red); font-family:'Syne',sans-serif; font-weight:700; }
+  .streak-badge { background:var(--gold-dim); color:var(--gold); border:1px solid rgba(245,200,66,0.2); padding:0.15rem 0.5rem; border-radius:100px; font-size:0.72rem; font-weight:700; }

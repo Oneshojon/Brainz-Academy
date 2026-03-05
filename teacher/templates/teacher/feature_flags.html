@@ -1,0 +1,64 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/feature_flags.css' %}">
+
+<div class="dash-body" id="page-data"
+     data-toggle-url="{% url 'teacher:toggle_flag' %}">
+
+  <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="{% url 'teacher:feature_flags' %}" class="active">Feature Flags</a>
+  </nav>
+
+  <div class="section-header" style="margin-bottom:0.5rem;">
+    <div class="section-label">Admin</div>
+    <div class="section-title">Feature Flags</div>
+  </div>
+  <p style="color:var(--muted); font-size:0.875rem; margin-bottom:2rem; line-height:1.6;">
+    Toggle platform features on or off instantly. Changes take effect immediately — no restart required.
+    Role-scoped flags only affect the specified role; other roles are unaffected.
+  </p>
+
+  <div class="flags-grid">
+    {% for flag in flags %}
+    <div class="flag-row {% if flag.is_enabled %}enabled{% else %}disabled{% endif %}"
+         id="flag-row-{{ flag.id }}">
+
+      <div class="flag-info">
+        <div class="flag-label">{{ flag.label }}</div>
+        <div class="flag-key">{{ flag.key }}</div>
+        {% if flag.description %}
+          <div class="flag-desc">{{ flag.description }}</div>
+        {% endif %}
+      </div>
+
+      <span class="flag-role {{ flag.visible_to|lower }}">{{ flag.get_visible_to_display }}</span>
+
+      <div class="toggle-wrap">
+        <label class="toggle" title="Toggle {{ flag.label }}">
+          <input type="checkbox"
+                 {% if flag.is_enabled %}checked{% endif %}
+                 onchange="toggleFlag({{ flag.id }}, this)">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="save-indicator" id="ind-{{ flag.id }}">saving…</span>
+      </div>
+
+    </div>
+    {% empty %}
+    <div style="color:var(--muted); font-size:0.9rem; padding:2rem; text-align:center;">
+      No feature flags found. Run:
+      <code style="font-size:0.8rem; background:var(--deep); padding:0.2rem 0.5rem; border-radius:4px;">
+        python manage.py shell -c "from catalog.models import _seed_flags; _seed_flags()"
+      </code>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script src="{% static 'teacher/js/feature_flags.js' %}"></script>
+
+{% endblock %}

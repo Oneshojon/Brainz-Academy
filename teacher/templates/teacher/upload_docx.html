@@ -1,0 +1,171 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
+
+<div class="dash-body">
+
+  <!-- Nav -->
+  <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+    <a href="{% url 'teacher:students' %}">Students</a>
+    <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+    <a href="{% url 'teacher:upload_docx' %}" class="active">Upload DOCX</a>
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  <div class="section-header" style="margin-top:2rem;">
+    <div class="section-label">Data Import</div>
+    <div class="section-title">Upload Questions from Word Document</div>
+  </div>
+
+  <p style="color:var(--muted); font-size:0.9rem; margin-bottom:2rem; max-width:640px;">
+    Upload a <strong>.docx</strong> file formatted in the standard ExamPrep question format.
+    Duplicate questions (same exam series + question number) are automatically skipped.
+    New topics found in the file are created automatically.
+  </p>
+
+  <!-- ── Result banner ─────────────────────────────────────────────────── -->
+  {% if success %}
+  <div style="
+    background: rgba(0,232,122,0.08); border: 1px solid rgba(0,232,122,0.25);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; max-width: 680px;
+  ">
+    <div style="font-size:1.1rem; font-weight:700; color:#00e87a; margin-bottom:0.75rem;">
+      ✅ Import complete
+    </div>
+    <div style="font-size:0.9rem; color:var(--muted); line-height:1.8;">
+      <strong style="color:var(--text);">Subject:</strong> {{ subject }}<br>
+      <strong style="color:var(--text);">Exam Board:</strong> {{ exam_board }}<br>
+      <strong style="color:var(--text);">Year / Sitting:</strong> {{ year }} · {{ sitting }}<br>
+      <strong style="color:var(--text);">Questions parsed:</strong> {{ total_parsed }}<br>
+      <strong style="color:#00e87a;">Created:</strong> {{ created_count }}<br>
+      {% if skipped_count %}
+      <strong style="color:var(--gold);">Skipped (duplicates):</strong> {{ skipped_count }}
+        {% if skipped_nums %}— Q{{ skipped_nums|join:", Q" }}{% endif %}<br>
+      {% endif %}
+    </div>
+    {% if errors %}
+    <div style="margin-top:1rem; font-size:0.82rem; color:#f87171;">
+      <strong>Errors ({{ errors|length }}):</strong><br>
+      {% for e in errors %}{{ e }}<br>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div style="
+    background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.25);
+    border-radius: 12px; padding: 1.25rem; margin-bottom: 2rem; max-width: 680px;
+    color: #f87171; font-size: 0.9rem;
+  ">
+    ⚠️ {{ error }}
+  </div>
+  {% endif %}
+
+  <!-- ── Upload form ──────────────────────────────────────────────────── -->
+  <div style="
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem; max-width: 640px;
+  ">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <!-- Drop zone -->
+      <div id="drop-zone" style="
+        border: 2px dashed var(--border); border-radius: 12px;
+        padding: 2.5rem 1.5rem; text-align: center; cursor: pointer;
+        transition: all 0.2s; margin-bottom: 1.5rem;
+      ">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">📄</div>
+        <div style="font-size:0.95rem; color:var(--text); font-weight:600;">
+          Drop your .docx file here
+        </div>
+        <div style="font-size:0.8rem; color:var(--muted); margin-top:0.35rem;">
+          or click to browse
+        </div>
+        <input type="file" name="docx_file" id="docx-input" accept=".docx"
+               style="display:none" required>
+        <div id="file-name" style="
+          margin-top:1rem; font-size:0.85rem; color:var(--accent);
+          font-weight:600; display:none;
+        "></div>
+      </div>
+
+      <!-- Format reminder -->
+      <div style="
+        background: var(--deep); border: 1px solid var(--border);
+        border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+        font-size: 0.82rem; color: var(--muted); line-height: 1.9;
+        font-family: 'Courier New', monospace;
+      ">
+        <div style="font-family:'DM Sans',sans-serif; font-weight:700; color:var(--text); margin-bottom:0.5rem;">
+          Expected format:
+        </div>
+        Subject: Biology<br>
+        Exam: WAEC<br>
+        Year: 2024<br>
+        Paper Type: CBT<br>
+        <br>
+        1. Question text here<br>
+        A. First choice<br>
+        B. Second choice<br>
+        C. Third choice<br>
+        D. Fourth choice<br>
+        Answer: C<br>
+        <strong style="color:var(--text);">Topic: Topic Name (Sub-topic)</strong>
+      </div>
+
+      <button type="submit" class="btn-cta" style="width:100%; justify-content:center;">
+        Import Questions →
+      </button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+  const zone  = document.getElementById('drop-zone')
+  const input = document.getElementById('docx-input')
+  const label = document.getElementById('file-name')
+
+  zone.addEventListener('click', () => input.click())
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) {
+      label.textContent = '📄 ' + input.files[0].name
+      label.style.display = 'block'
+      zone.style.borderColor = 'var(--accent)'
+    }
+  })
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault()
+    zone.style.background = 'rgba(156,213,255,0.04)'
+    zone.style.borderColor = 'rgba(156,213,255,0.4)'
+  })
+  zone.addEventListener('dragleave', () => {
+    zone.style.background = ''
+    zone.style.borderColor = 'var(--border)'
+  })
+  zone.addEventListener('drop', e => {
+    e.preventDefault()
+    zone.style.background = ''
+    zone.style.borderColor = 'var(--accent)'
+    const file = e.dataTransfer.files[0]
+    if (file && file.name.endsWith('.docx')) {
+      const dt   = new DataTransfer()
+      dt.items.add(file)
+      input.files = dt.files
+      label.textContent    = '📄 ' + file.name
+      label.style.display  = 'block'
+    }
+  })
+</script>
+
+{% endblock %}

@@ -40,6 +40,7 @@ class CustomUser(AbstractUser):
     last_practice_date = models.DateField(null=True, blank=True)
     referral_code = models.CharField(max_length=20, unique=True, null=True, blank=True)
     referred_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
+    is_admin = models.BooleanField(default=False)
     
     objects = CustomUserManager()
     USERNAME_FIELD = 'email'
