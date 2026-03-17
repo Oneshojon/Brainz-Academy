@@ -4,6 +4,41 @@
 {% block body %}
 <link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
 
+<style>
+  .upgrade-banner {
+    margin: 0 0 1.5rem;
+    background: linear-gradient(120deg, rgba(245,200,66,0.08), rgba(156,213,255,0.06));
+    border: 1px solid rgba(245,200,66,0.3);
+    border-radius: 14px;
+    padding: 1rem 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .upgrade-banner-left { display: flex; align-items: center; gap: 0.85rem; }
+  .upgrade-banner-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .upgrade-banner-text strong {
+    display: block;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.92rem;
+    color: var(--gold); margin-bottom: 0.15rem;
+  }
+  .upgrade-banner-text span { font-size: 0.78rem; color: var(--muted-light); line-height: 1.4; }
+  .upgrade-banner-limits { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .upgrade-limit-pill {
+    font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px;
+    background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2); color: var(--gold);
+  }
+  .btn-upgrade {
+    background: var(--gold); color: #0e1f2c; border: none; border-radius: 9px;
+    padding: 0.55rem 1.3rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.85rem; text-decoration: none; white-space: nowrap;
+    flex-shrink: 0; transition: all 0.2s; display: inline-block;
+  }
+  .btn-upgrade:hover { background: #f7d96a; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,200,66,0.25); }
+</style>
+
 <div class="dash-body">
 
   <div class="greeting-block">
@@ -17,6 +52,41 @@
       {% endif %}
     </p>
   </div>
+
+  {# Upgrade banner — only for non-admin users without an active subscription #}
+  {% if not user.is_admin %}
+    {% with sub=user.active_subscription %}
+    {% if not sub %}
+    <div class="upgrade-banner">
+      <div class="upgrade-banner-left">
+        <div class="upgrade-banner-icon">⚡</div>
+        <div class="upgrade-banner-text">
+          {% if user.role == 'TEACHER' %}
+            <strong>You're on the Free Plan</strong>
+            <span>Unlock unlimited test builder, lesson notes &amp; practice.</span>
+            <div class="upgrade-banner-limits">
+              <span class="upgrade-limit-pill">2 test builder trials</span>
+              <span class="upgrade-limit-pill">5 lesson note topics</span>
+              <span class="upgrade-limit-pill">5 sessions/day</span>
+            </div>
+          {% else %}
+            <strong>You're on the Free Plan</strong>
+            <span>Upgrade for unlimited sessions, analytics &amp; lesson notes.</span>
+            <div class="upgrade-banner-limits">
+              <span class="upgrade-limit-pill">5 sessions/day</span>
+              <span class="upgrade-limit-pill">15 questions/session</span>
+              <span class="upgrade-limit-pill">No lesson notes</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <a href="{% url 'Users:pricing' %}{% if user.role == 'TEACHER' %}?tab=teacher{% endif %}" class="btn-upgrade">
+        Upgrade Now →
+      </a>
+    </div>
+    {% endif %}
+    {% endwith %}
+  {% endif %}
 
   <div class="cta-banner">
     <div class="cta-text">
@@ -109,7 +179,7 @@
       </div>
     </div>
 
-    <!-- Recent sessions with Review links -->
+    <!-- Recent sessions -->
     <div>
       <div class="section-header">
         <div class="section-label">History</div>

@@ -9,8 +9,12 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import dj_database_url
+from decouple import config
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +35,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'payments',
     'teacher',
     'corsheaders',
     'frontend',
@@ -44,9 +49,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     'corsheaders.middleware.CorsMiddleware',  # ← add this first
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -90,8 +97,7 @@ WSGI_APPLICATION = 'examproject.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-import dj_database_url
-from decouple import config
+
 
 DATABASES = {
  'default': dj_database_url.config(
@@ -100,6 +106,41 @@ DATABASES = {
  conn_health_checks=True,
  )
 }
+
+CACHE_BACKEND = os.environ.get('CACHE_BACKEND', 'locmem')
+REDIS_URL     = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
+ 
+if CACHE_BACKEND == 'redis':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'examprep',   # avoids key collisions if Redis is shared
+            'TIMEOUT': 300,             # default 5 minutes
+        }
+    }
+elif CACHE_BACKEND == 'memcached':
+    CACHES = {
+        'default': {
+            'BACKEND':  'django.core.cache.backends.memcached.PyMemcacheCache',
+            'LOCATION': os.environ.get('MEMCACHED_URL', '127.0.0.1:11211'),
+            'KEY_PREFIX': 'examprep',
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    # Default: LocMemCache — works out of the box, no extra services needed
+    CACHES = {
+        'default': {
+            'BACKEND':  'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'examprep-cache',
+            'TIMEOUT': 300,
+        }
+    }
+ 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -182,3 +223,10 @@ LOGIN_URL = '/get-otp/'
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
+PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY')
+INTERNAL_IPS = [
+    # ...
+    "127.0.0.1",
+    # ...
+]

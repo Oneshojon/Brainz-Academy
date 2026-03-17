@@ -1,0 +1,16 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<div style="max-width:520px; margin:5rem auto; text-align:center; padding:2rem;">
+  <div style="font-size:3rem; margin-bottom:1rem;">❌</div>
+  <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.5rem; margin-bottom:0.5rem;">
+    Payment Failed
+  </div>
+  <p style="color:var(--muted); line-height:1.7; margin-bottom:1.75rem;">
+    {{ reason|default:"Something went wrong with your payment." }}<br>
+    No charge was made. Please try again.
+  </p>
+  <a href="{% url 'Users:pricing' %}" class="btn btn-primary">Back to Pricing →</a>
+</div>
+{% endblock %}

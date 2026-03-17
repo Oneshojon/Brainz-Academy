@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser,  BaseUserManager
+from django.utils import timezone
+
 
 # Create your models here.
 
@@ -25,6 +27,39 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
     
+    @property
+    def active_subscription(self):
+        """Returns the user's current active subscription or None."""
+        return self.subscriptions.filter(
+            status='ACTIVE',
+            expires_at__gt=timezone.now()
+        ).select_related('plan').first()
+ 
+    def has_subscription(self, plan_type=None):
+        """
+        Check if user has an active subscription.
+        Optionally check for a specific plan type.
+
+        Usage:
+            user.has_subscription()                    # any active sub
+            user.has_subscription('STUDENT_BASIC')     # specific plan
+            user.has_subscription('TEACHER_PRO')
+        """
+        sub = self.active_subscription
+        if not sub:
+            return False
+        if plan_type:
+            return sub.plan.plan_type == plan_type
+        return True
+ 
+    @property
+    def subscription_status(self):
+         """Returns a display string for the user's subscription status. """
+         sub = self.active_subscription
+         if sub:
+               return f"{sub.plan.name} ({sub.days_remaining}d left)"
+         return 'Free'
+
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [

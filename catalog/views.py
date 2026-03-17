@@ -1,10 +1,17 @@
+from urllib import request
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
-from .models import Subject, Topic, ExamBoard, ExamSeries, Question
-from .serializers import SubjectSerializer, TopicSerializer, ExamBoardSerializer, QuestionSerializer
+from .models import Subject, Topic, ExamBoard, ExamSeries, Question, Theme
+from .serializers import (
+    SubjectSerializer, TopicSerializer, ThemeSerializer,
+    ExamBoardSerializer, QuestionSerializer, QuestionListSerializer,
+)
 from .permissions import IsTeacher
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from catalog.subscription_access import check_test_builder_access
+from catalog.models import FreeUsageTracker
 
 # File
 from django.http import HttpResponse
@@ -21,98 +28,209 @@ import io
 import os
 from datetime import date
 
+from catalog.cache_utils import (
+    get_all_subjects, get_all_boards, get_themes_for_subject,
+    get_topics_for_subject, get_topics_for_theme, get_available_years,
+    get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
+    get_leaderboard,
+)
+
+class FeatureFlagsView(APIView):
+    """
+    GET /api/catalog/feature-flags/
+    Returns all feature flags as a flat dict {key: is_enabled}.
+    Used by the React frontend to check which modes are enabled.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from catalog.cache_utils import get_feature_flags
+        return Response(get_feature_flags())
 
 class SubjectListView(generics.ListAPIView):
     permission_classes = [AllowAny]
-    queryset = Subject.objects.all()
-    serializer_class = SubjectSerializer
-
-
+    serializer_class   = SubjectSerializer
+ 
+    def get_queryset(self):
+        return get_all_subjects()
+ 
+ 
 class ExamBoardListView(generics.ListAPIView):
     permission_classes = [AllowAny]
-    queryset = ExamBoard.objects.all()
-    serializer_class = ExamBoardSerializer
-
+    serializer_class   = ExamBoardSerializer
+ 
+    def get_queryset(self):
+        return get_all_boards()
 
 class TopicListView(generics.ListAPIView):
     """Returns topics filtered by subject."""
     permission_classes = [AllowAny]
-    serializer_class = TopicSerializer
-
+    serializer_class   = TopicSerializer
+ 
     def get_queryset(self):
         subject_id = self.request.query_params.get('subject')
         if subject_id:
-            return Topic.objects.filter(subject_id=subject_id)
-        return Topic.objects.none()
+            return get_topics_for_subject(subject_id)
+        return []
 
+class TopicsByThemeView(generics.ListAPIView):
+    """Returns topics under a theme."""
+    permission_classes = [AllowAny]
+    serializer_class   = TopicSerializer
+ 
+    def get_queryset(self):
+        theme_id = self.request.query_params.get('theme')
+        if theme_id:
+            return get_topics_for_theme(theme_id)
+        return []
+
+class ThemeListView(generics.ListAPIView):
+    """Returns themes for a subject."""
+    permission_classes = [AllowAny]
+    serializer_class   = ThemeSerializer
+ 
+    def get_queryset(self):
+        subject_id = self.request.query_params.get('subject')
+        if subject_id:
+            return get_themes_for_subject(subject_id)
+        return []    
 
 class AvailableYearsView(APIView):
     permission_classes = [AllowAny]
-    """Returns distinct years available for a given exam board and subject."""
-
+ 
     def get(self, request):
+        subject_id    = request.query_params.get('subject')
         exam_board_id = request.query_params.get('exam_board')
-        subject_id = request.query_params.get('subject')
-
-        qs = ExamSeries.objects.all()
-        if exam_board_id:
-            qs = qs.filter(exam_board_id=exam_board_id)
-        if subject_id:
-            qs = qs.filter(subject_id=subject_id)
-
-        years = sorted(qs.values_list('year', flat=True).distinct())
+        years = get_available_years(subject_id, exam_board_id)
         return Response({'years': years})
 
 
+class TestBuilderAccessView(APIView):
+    """
+    GET /api/catalog/test-builder-access/
+    Returns the current user\'s test builder permissions.
+    The React frontend calls this on load to show/hide options.
+    """
+    permission_classes = [IsAuthenticated]
+ 
+    def get(self, request):
+        access = check_test_builder_access(request.user)
+        return Response(access)
+ 
+ 
 class GenerateQuestionsView(APIView):
-    """Teacher-only endpoint to fetch questions based on filters."""
-    permission_classes = [IsTeacher]
-
+    """Updated to enforce free tier limits before generating."""
+    permission_classes = [IsAuthenticated]
+ 
     def post(self, request):
-        data = request.data
-
-        exam_board_id = data.get('exam_board')
-        subject_id = data.get('subject')
-        years = data.get('years', [])           # list of years
-        sitting = data.get('sitting')
-        question_type = data.get('question_type')
-        topics = data.get('topics', [])          # list of topic ids
-        difficulty = data.get('difficulty')
-        num_questions = data.get('num_questions')
-
+        from catalog.subscription_access import check_test_builder_access
+        from catalog.models import FreeUsageTracker
+ 
+        access = check_test_builder_access(request.user)
+ 
+        if not access['allowed']:
+            return Response({'error': access['reason']}, status=403)
+ 
+        subject_id    = request.data.get('subject')
+        topic_ids     = request.data.get('topics', [])
+        exam_board_id = request.data.get('exam_board')
+        years         = request.data.get('years', [])
+        question_type = request.data.get('question_type', '')
+        requested_num = int(request.data.get('num_questions', 15))
+ 
+        # Cap for free users
+        num_questions = min(requested_num, access['max_questions'])
+ 
         qs = Question.objects.all()
-
         if subject_id:
             qs = qs.filter(subject_id=subject_id)
+        if topic_ids:
+            qs = qs.filter(topics__id__in=topic_ids).distinct()
+        if exam_board_id:
+            qs = qs.filter(exam_series__exam_board_id=exam_board_id)
+        if years:
+            qs = qs.filter(exam_series__year__in=years)
         if question_type:
             qs = qs.filter(question_type=question_type)
+
+        difficulty = request.data.get('difficulty', '')
         if difficulty:
             qs = qs.filter(difficulty=difficulty)
-        if topics:
-            qs = qs.filter(topics__id__in=topics).distinct()
 
-        # Filter through exam series
-        series_qs = ExamSeries.objects.all()
-        if exam_board_id:
-            series_qs = series_qs.filter(exam_board_id=exam_board_id)
-        if years:
-            series_qs = series_qs.filter(year__in=years)
+        sitting = request.data.get('sitting', '')
         if sitting:
-            series_qs = series_qs.filter(sitting=sitting)
-        if subject_id:
-            series_qs = series_qs.filter(subject_id=subject_id)
+            qs = qs.filter(exam_series__sitting=sitting)
 
-        if any([exam_board_id, years, sitting]):
-            qs = qs.filter(exam_series__in=series_qs)
+        qs = qs.select_related(
+            'subject',
+            'exam_series',
+            'exam_series__exam_board',
+        ).prefetch_related(
+            'choices',
+            'topics',
+            'theory_answer',
+        )
 
-        if num_questions:
-            qs = qs[:int(num_questions)]
+        # Always randomise for free trial; paid can choose ordering later
+        if access['is_free']:
+            qs = qs.order_by('?')
 
-        serializer = QuestionSerializer(qs, many=True, context={'request': request})
-        return Response({'count': len(serializer.data), 'questions': serializer.data})
+        questions = list(qs[:num_questions])
+ 
+       
+
+ 
+        if not questions:
+            return Response({'error': 'No questions found for your selection.'}, status=404)
+ 
+        # Increment trial counter for free teachers
+        if access['is_free']:
+            tracker, _ = FreeUsageTracker.objects.get_or_create(user=request.user)
+            tracker.increment_test_builder_trial()
+ 
+        serializer = QuestionSerializer(questions, many=True)
+        return Response({
+            'questions':        serializer.data,
+            'total':            len(questions),
+            'is_free':          access['is_free'],
+            'pdf_only':         access['pdf_only'],
+            'trials_remaining': access['trials_remaining'] - (1 if access['is_free'] else 0),
+        })
+    
+
+class QuestionDetailView(APIView):
+    """
+    GET /api/catalog/questions/<id>/
+    Returns full question detail including choices and theory answer.
+    Used by the test builder preview panel when teacher clicks a question.
+    No N+1 — uses select_related + prefetch_related.
+    """
+    permission_classes = [IsAuthenticated]
+ 
+    def get(self, request, pk):
+        try:
+            question = (
+                Question.objects
+                .select_related(
+                    'subject',
+                    'exam_series',
+                    'exam_series__exam_board',
+                )
+                .prefetch_related(
+                    'choices',
+                    'topics',
+                    'theory_answer',
+                )
+                .get(pk=pk)
+            )
+        except Question.DoesNotExist:
+            return Response({'error': 'Question not found'}, status=404)
+ 
+        serializer = QuestionSerializer(question)
+        return Response(serializer.data)
+    
     
 # ── INTERNAL HELPER: get raw image bytes from a question ─────────────────────
-
 def _get_image_bytes(question):
     """Returns (bytes, ext) or (None, None)."""
     try:
@@ -263,6 +381,43 @@ def _generate_docx(questions, title, include_answers=False):
     buf.seek(0)
     return buf.read()
 
+ 
+ 
+class QuestionsByTopicView(APIView):
+    """
+    GET /api/catalog/questions-by-topic/?topic=<id>&exam_board=<id>
+    Returns lightweight question list for the test builder list panel.
+    Full detail is fetched separately via QuestionDetailView when previewing.
+    """
+    permission_classes = [IsAuthenticated]
+ 
+    def get(self, request):
+        topic_id      = request.query_params.get('topic')
+        exam_board_id = request.query_params.get('exam_board')
+ 
+        if not topic_id:
+            return Response({'error': 'topic is required'}, status=400)
+ 
+        qs = (
+            Question.objects
+            .filter(topics__id=topic_id)
+            .select_related(
+                'subject',
+                'exam_series',
+                'exam_series__exam_board',
+            )
+            .prefetch_related(
+                'topics',           # needed for topic_names in serializer
+            )
+            .order_by('-exam_series__year', 'question_number')
+        )
+ 
+        if exam_board_id:
+            qs = qs.filter(exam_series__exam_board_id=exam_board_id)
+ 
+        # No choices or theory_answer prefetch — not needed for list view
+        serializer = QuestionListSerializer(qs, many=True)
+        return Response(serializer.data)
 
 # ════════════════════════════════════════════════════════════════════════════
 # PDF GENERATOR  (mirrors docx structure exactly)
@@ -386,7 +541,7 @@ class QuestionDownloadView(APIView):
         questions = (
             Question.objects
             .filter(id__in=question_ids)
-            .prefetch_related('choices', 'topics')
+            .prefetch_related('choices', 'topics', 'theory_answer',)
             .select_related(
                 'subject',
                 'exam_series',

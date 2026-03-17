@@ -1,26 +1,25 @@
-// All values injected from the template via data attributes on #exam-data
-const examData = document.getElementById('exam-data');
-const SESSION_ID = parseInt(examData.dataset.sessionId);
-const TOTAL = parseInt(examData.dataset.total);
-const CSRF = examData.dataset.csrf;
-const SUBMIT_URL = examData.dataset.submitUrl;
-const FINISH_URL = examData.dataset.finishUrl;
+// ── DATA BRIDGE ──────────────────────────────────────────────────────────────
+const examData    = document.getElementById('exam-data');
+const SESSION_ID  = parseInt(examData.dataset.sessionId);
+const TOTAL       = parseInt(examData.dataset.total);
+const CSRF        = examData.dataset.csrf;
+const SUBMIT_URL  = examData.dataset.submitUrl;
+const FINISH_URL  = examData.dataset.finishUrl;
 
-// ── STATE ──
-let currentQId = parseInt(document.querySelector('.question-card.active').dataset.qid);
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentQId    = parseInt(document.querySelector('.question-card.active').dataset.qid);
 let answeredCount = parseInt(examData.dataset.answeredCount);
-let theoryTimers = {};
+let theoryTimers  = {};
 
-// Build ordered list of question IDs from DOM
 const qCards = Array.from(document.querySelectorAll('.question-card'));
-const qIds = qCards.map(c => parseInt(c.dataset.qid));
+const qIds   = qCards.map(c => parseInt(c.dataset.qid));
 
-// ── TIMER ──
-let timeLeft = TOTAL * 90; // 1.5 mins per question
+// ── TIMER ────────────────────────────────────────────────────────────────────
+let timeLeft = TOTAL * 90;
 const timerEl = document.getElementById('timer');
 
 function formatTime(s) {
-  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const m   = Math.floor(s / 60).toString().padStart(2, '0');
   const sec = (s % 60).toString().padStart(2, '0');
   return `${m}:${sec}`;
 }
@@ -29,31 +28,58 @@ const timerInterval = setInterval(() => {
   timeLeft--;
   timerEl.textContent = '⏱ ' + formatTime(timeLeft);
   if (timeLeft <= 300) timerEl.className = 'timer warning';
-  if (timeLeft <= 60) timerEl.className = 'timer danger';
+  if (timeLeft <= 60)  timerEl.className = 'timer danger';
   if (timeLeft <= 0) {
     clearInterval(timerInterval);
     document.getElementById('confirmModal').classList.add('open');
   }
 }, 1000);
 
-// ── NAVIGATION ──
+// ── SYNC ALL GRID BUTTONS FOR A QUESTION ─────────────────────────────────────
+// Updates sidebar, mobile grid, and removes 'current' from old question
+function syncGridState(qId, state) {
+  // state: 'answered' | 'current' | 'unanswered'
+  const ids = [
+    `grid-${qId}`,
+    `mobile-grid-${qId}`,
+  ];
+  ids.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.className = `grid-btn ${state}`;
+  });
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────────────────────
 function goToQuestion(qId) {
+  // Deactivate old card
   document.getElementById(`q-${currentQId}`)?.classList.remove('active');
-  document.getElementById(`grid-${currentQId}`)?.classList.remove('current');
-  document.getElementById(`drawer-grid-${currentQId}`)?.classList.remove('current');
+
+  // Remove 'current' from old question buttons (sidebar + mobile)
+  const oldSide   = document.getElementById(`grid-${currentQId}`);
+  const oldMobile = document.getElementById(`mobile-grid-${currentQId}`);
+  [oldSide, oldMobile].forEach(btn => {
+    if (btn && btn.classList.contains('current')) {
+      btn.classList.remove('current');
+      btn.classList.add('unanswered');
+    }
+  });
 
   currentQId = qId;
+
+  // Activate new card
   document.getElementById(`q-${qId}`)?.classList.add('active');
 
-  const gridBtn = document.getElementById(`grid-${qId}`);
-  const drawerBtn = document.getElementById(`drawer-grid-${qId}`);
-  if (gridBtn && !gridBtn.classList.contains('answered')) gridBtn.classList.add('current');
-  if (drawerBtn && !drawerBtn.classList.contains('answered')) drawerBtn.classList.add('current');
+  // Mark new question as current in sidebar + mobile grid
+  const newSide   = document.getElementById(`grid-${qId}`);
+  const newMobile = document.getElementById(`mobile-grid-${qId}`);
+  [newSide, newMobile].forEach(btn => {
+    if (btn && !btn.classList.contains('answered')) {
+      btn.classList.remove('unanswered');
+      btn.classList.add('current');
+    }
+  });
 
   document.querySelector('.exam-main').scrollTo({ top: 0, behavior: 'smooth' });
-  if (typeof renderMath === 'function') {
-  renderMath(card);
-}
 }
 
 function nextQuestion() {
@@ -68,18 +94,19 @@ function prevQuestion() {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') nextQuestion();
-  if (e.key === 'ArrowLeft') prevQuestion();
+  if (e.key === 'ArrowLeft')  prevQuestion();
 });
 
-// ── SELECT CHOICE (OBJ) ──
+// ── SELECT CHOICE (OBJ) ──────────────────────────────────────────────────────
 function selectChoice(qId, choiceId, el) {
-  document.querySelectorAll(`#choices-${qId} .choice-item`).forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll(`#choices-${qId} .choice-item`)
+          .forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 
   fetch(SUBMIT_URL, {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ session_id: SESSION_ID, question_id: qId, choice_id: choiceId })
+    body:    JSON.stringify({ session_id: SESSION_ID, question_id: qId, choice_id: choiceId }),
   })
   .then(r => r.json())
   .then(data => {
@@ -92,15 +119,15 @@ function selectChoice(qId, choiceId, el) {
   .catch(() => console.error('Failed to save answer'));
 }
 
-// ── AUTO-SAVE THEORY ──
+// ── AUTO-SAVE THEORY ─────────────────────────────────────────────────────────
 function autoSaveTheory(qId) {
   clearTimeout(theoryTimers[qId]);
   theoryTimers[qId] = setTimeout(() => {
     const text = document.getElementById(`theory-${qId}`).value;
     fetch(SUBMIT_URL, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ session_id: SESSION_ID, question_id: qId, theory_response: text })
+      body:    JSON.stringify({ session_id: SESSION_ID, question_id: qId, theory_response: text }),
     })
     .then(r => r.json())
     .then(data => {
@@ -114,22 +141,24 @@ function autoSaveTheory(qId) {
   }, 800);
 }
 
-// ── HELPERS ──
+// ── HELPERS ──────────────────────────────────────────────────────────────────
 function markAnswered(qId) {
-  const gridBtn = document.getElementById(`grid-${qId}`);
-  const drawerBtn = document.getElementById(`drawer-grid-${qId}`);
-  if (gridBtn) gridBtn.className = 'grid-btn answered';
-  if (drawerBtn) drawerBtn.className = 'grid-btn answered';
+  // Update sidebar, mobile grid
+  ['grid', 'mobile-grid'].forEach(prefix => {
+    const btn = document.getElementById(`${prefix}-${qId}`);
+    if (btn) btn.className = 'grid-btn answered';
+  });
 }
 
 function updateProgress(count) {
   answeredCount = count;
   const pct = Math.round((count / TOTAL) * 100);
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('answeredCount').textContent = count;
+  document.getElementById('progressBar').style.width       = pct + '%';
+  document.getElementById('answeredCount').textContent     = count;
   document.getElementById('answeredCountSide').textContent = count;
-  document.getElementById('modalAnswered').textContent = count;
-  document.getElementById('modalUnanswered').textContent = TOTAL - count;
+   document.getElementById('answeredCountMobile').textContent = count;
+  document.getElementById('modalAnswered').textContent     = count;
+  document.getElementById('modalUnanswered').textContent   = TOTAL - count;
 }
 
 function showSaved(qId) {
@@ -140,20 +169,16 @@ function showSaved(qId) {
   }
 }
 
-// ── MODAL ──
-function openModal() {
-  document.getElementById('confirmModal').classList.add('open');
-}
-function closeModal() {
-  document.getElementById('confirmModal').classList.remove('open');
-}
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('confirmModal').classList.add('open'); }
+function closeModal() { document.getElementById('confirmModal').classList.remove('open'); }
 
-// ── MOBILE DRAWER ──
-function toggleDrawer() {
-  document.getElementById('gridDrawer').classList.toggle('open');
-  document.getElementById('drawerOverlay').classList.toggle('open');
-}
-
-// ── INIT ──
-document.getElementById(`grid-${currentQId}`)?.classList.add('current');
-document.getElementById(`drawer-grid-${currentQId}`)?.classList.add('current');
+// ── INIT ─────────────────────────────────────────────────────────────────────
+// Mark initial current question in sidebar + mobile grid
+['grid', 'mobile-grid'].forEach(prefix => {
+  const btn = document.getElementById(`${prefix}-${currentQId}`);
+  if (btn) {
+    btn.classList.remove('unanswered');
+    btn.classList.add('current');
+  }
+});

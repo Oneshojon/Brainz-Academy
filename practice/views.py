@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Avg, Count, Q
 from django.contrib.auth import get_user_model
+from django.contrib import messages
 import json
 import random
 import string
@@ -11,6 +12,7 @@ import string
 from catalog.models import Subject, ExamBoard, ExamSeries, Question, Topic, LessonNote
 from .models import PracticeSession, UserAnswer, Bookmark
 from catalog.feature_flags import is_feature_enabled, feature_required
+
 
 User = get_user_model()
 
@@ -45,44 +47,74 @@ def update_streak(user):
 @student_required
 def practice_home(request):
     """Exam/session selection page."""
-    subjects = Subject.objects.all().order_by('name')
+    from catalog.subscription_access import check_practice_access
+ 
+    subjects    = Subject.objects.all().order_by('name')
     exam_boards = ExamBoard.objects.all().order_by('name')
-
+ 
+    # Recent completed sessions for the "continue" shortcut (last 3)
+    recent_sessions = PracticeSession.objects.filter(
+        user=request.user, completed_at__isnull=False
+    ).select_related('subject', 'exam_series').order_by('-completed_at')[:3]
+ 
+    # Access info — drives the free-tier banner and question cap in the template
+    access = check_practice_access(request.user)
+ 
     context = {
-        'subjects': subjects,
-        'exam_boards': exam_boards,
+        'subjects':        subjects,
+        'exam_boards':     exam_boards,
+        'recent_sessions': recent_sessions,
+        'access':          access,
     }
     return render(request, 'practice/practice_home.html', context)
-
 
 # ── START SESSION ─────────────────────────────────────────────────────────────
 
 @student_required
 def start_session(request):
-    """POST: create a PracticeSession and redirect to exam page."""
     if request.method != 'POST':
         return redirect('practice:practice_home')
-
-    subject_id = request.POST.get('subject')
+ 
+    from catalog.subscription_access import check_practice_access
+    from catalog.models import FreeUsageTracker
+ 
+    # ── Check free tier access ────────────────────────────────────────────────
+    access = check_practice_access(request.user)
+    if not access['allowed']:
+        messages.warning(request, access['reason'])
+        return render(request, 'practice/practice_home.html', {
+            'subjects':    Subject.objects.all(),
+            'exam_boards': ExamBoard.objects.all(),
+            'error':       access['reason'],
+            'show_upgrade': True,
+        })
+ 
+    subject_id    = request.POST.get('subject')
     exam_board_id = request.POST.get('exam_board')
-    year = request.POST.get('year')
-    sitting = request.POST.get('sitting')
-    question_type = request.POST.get('question_type')  # OBJ, THEORY, or ''
-    session_type = request.POST.get('session_type', 'EXAM')  # EXAM, TOPIC, CUSTOM
-    topic_ids = request.POST.getlist('topics')
-    num_questions = int(request.POST.get('num_questions', 40))
-
-    # Build question queryset
+    year          = request.POST.get('year')
+    sitting       = request.POST.get('sitting')
+    question_type = request.POST.get('question_type')
+    session_type  = request.POST.get('session_type', 'EXAM')
+    topic_ids     = request.POST.getlist('topics')
+ 
+    # ── Enforce question cap ──────────────────────────────────────────────────
+    # Free users: max 15, chosen randomly
+    # Paid users: respect what they selected (default 40)
+    max_questions = access['max_questions']
+    if access['is_free']:
+        num_questions = min(int(request.POST.get('num_questions', 15)), max_questions)
+    else:
+        num_questions = int(request.POST.get('num_questions', 40))
+ 
+    # ── Build question queryset ───────────────────────────────────────────────
     qs = Question.objects.all()
-
     if subject_id:
         qs = qs.filter(subject_id=subject_id)
     if question_type:
         qs = qs.filter(question_type=question_type)
     if topic_ids:
         qs = qs.filter(topics__id__in=topic_ids).distinct()
-
-    # Filter by exam series
+ 
     if exam_board_id or year or sitting:
         series_qs = ExamSeries.objects.all()
         if exam_board_id:
@@ -94,36 +126,41 @@ def start_session(request):
         if subject_id:
             series_qs = series_qs.filter(subject_id=subject_id)
         qs = qs.filter(exam_series__in=series_qs)
-
+ 
+    # For free users, randomise before slicing so they get a fresh set each time
+    if access['is_free']:
+        qs = qs.order_by('?')
+ 
     questions = list(qs[:num_questions])
-
+ 
     if not questions:
         return render(request, 'practice/practice_home.html', {
-            'subjects': Subject.objects.all(),
+            'subjects':    Subject.objects.all(),
             'exam_boards': ExamBoard.objects.all(),
-            'error': 'No questions found for your selection. Please try different filters.',
+            'error':       'No questions found for your selection. Please try different filters.',
         })
-
-    # Resolve related objects
+ 
     subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
     exam_series = None
     if exam_board_id and year:
         exam_series = ExamSeries.objects.filter(
             exam_board_id=exam_board_id, subject_id=subject_id, year=year
         ).first()
-
-    # Create session
+ 
     session = PracticeSession.objects.create(
-        user=request.user,
-        session_type=session_type,
-        subject=subject,
-        exam_series=exam_series,
-        total_marks=sum(q.marks for q in questions),
+        user         = request.user,
+        session_type = session_type,
+        subject      = subject,
+        exam_series  = exam_series,
+        total_marks  = sum(q.marks for q in questions),
     )
-
-    # Store question IDs in session (Django session, not DB)
     request.session[f'session_{session.id}_questions'] = [q.id for q in questions]
-
+ 
+    # ── Increment free usage counter ──────────────────────────────────────────
+    if access['is_free']:
+        tracker, _ = FreeUsageTracker.objects.get_or_create(user=request.user)
+        tracker.increment_session()
+ 
     return redirect('practice:exam_page', session_id=session.id)
 
 
@@ -253,6 +290,8 @@ def finish_session(request, session_id):
         session.score = score
         session.completed_at = timezone.now()
         session.save()
+        from catalog.cache_utils import invalidate_leaderboard
+        invalidate_leaderboard()
 
         # Update streak
         update_streak(request.user)

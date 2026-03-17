@@ -6,19 +6,20 @@
 <link rel="stylesheet" href="{% static 'teacher/lesson_notes.css' %}">
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
 
-
 <div class="dash-body">
 
   <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
     <a href="/app/">Test Builder ↗</a>
-    <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
-    <a href="{% url 'teacher:students' %}">Students</a>
-    <a href="{% url 'teacher:upload' %}">Upload CSV</a>
-    <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+    {% if user.is_admin %}
+      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+      <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+    {% endif %}
     <a href="{% url 'teacher:lesson_notes' %}" class="active">Lesson Notes</a>
     {% if user.is_admin %}
-    <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
   </nav>
 
@@ -89,7 +90,7 @@
     <!-- ── Main content ───────────────────────────────────────────────── -->
     <main class="ln-main">
 
-      {# ── Subject not in our coverage ── #}
+      {# ── 1. Subject not in our coverage ───────────────────────────── #}
       {% if selected_subject and not subject_covered %}
       <div class="ln-state warning">
         <span class="ln-state-icon">📭</span>
@@ -102,7 +103,7 @@
         </div>
       </div>
 
-      {# ── No subject selected ── #}
+      {# ── 2. No subject selected ────────────────────────────────────── #}
       {% elif not selected_subject %}
       <div class="ln-state">
         <span class="ln-state-icon">📚</span>
@@ -112,8 +113,8 @@
         </div>
       </div>
 
-      {# ── Subject selected, no topic yet ── #}
-      {% elif selected_subject and not selected_topic %}
+      {# ── 3. Subject selected but no topic yet ─────────────────────── #}
+      {% elif not selected_topic %}
       <div class="ln-state">
         <span class="ln-state-icon">🗂️</span>
         <div class="ln-state-title">Select a Topic</div>
@@ -123,101 +124,137 @@
         </div>
       </div>
 
-      {# ── Note exists — show it ── #}
-      {% elif note %}
-      <div class="ln-note-card">
-        <div class="ln-note-header">
-          <div>
-            <div class="ln-note-title">
-              {{ note.title }}
-              {% if note.is_ai_generated %}
-                <span class="ai-badge" style="margin-left:0.5rem;">AI Generated</span>
-              {% endif %}
-            </div>
-            <div class="ln-note-meta">
-              {{ selected_topic.subject.name }} · {{ selected_topic.name }}
-              · Updated {{ note.updated_at|date:"M j, Y" }}
-            </div>
-          </div>
-          {% if note.pdf_file %}
-            <a href="{{ note.pdf_file.url }}" target="_blank" class="btn-download">
-              ⬇ Download PDF
-            </a>
+      {# ── 4. Topic selected — all note logic lives here ────────────── #}
+      {% else %}
+
+        {# -- Free tier slot counter (shown for any free teacher with a topic open) -- #}
+        {% if lesson_access.is_free %}
+        <div style="margin-bottom:1rem; padding:0.65rem 1rem;
+                    background:rgba(245,200,66,0.07); border:1px solid rgba(245,200,66,0.2);
+                    border-radius:8px; font-size:0.8rem; color:var(--gold);
+                    display:flex; align-items:center; gap:0.5rem;">
+          🏷️
+          {% if lesson_access.already_accessed %}
+            You've viewed this topic before — it doesn't count against your limit.
+            <strong>{{ lesson_access.slots_remaining }} slot{{ lesson_access.slots_remaining|pluralize }} remaining.</strong>
+          {% else %}
+            <strong>{{ lesson_access.slots_remaining }} free topic slot{{ lesson_access.slots_remaining|pluralize }} remaining.</strong>
+            Upgrade to Teacher Pro for unlimited access.
           {% endif %}
-        </div>
-
-        <div class="ln-note-body">
-          {% if note.ai_content %}
-            <div class="ai-content" id="ai-note-rendered">
-              <!-- Rendered by marked.js below -->
-            </div>
-            <script>
-              window._aiNoteRaw = {{ note.ai_content|escapejs|safe|json_script:"_raw" }};
-            </script>
-          {% elif note.pdf_file %}
-            <p style="color:var(--muted); font-size:0.9rem;">
-              This lesson note is available as a PDF. Use the download button above to save it.
-            </p>
-          {% endif %}
-
-          {% if note.description %}
-            <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem; line-height:1.7;">
-              {{ note.description }}
-            </p>
-          {% endif %}
-        </div>
-      </div>
-
-      {# ── No note for this topic — offer AI generation ── #}
-      {% elif selected_topic %}
-
-        {% if ai_enabled %}
-        <div class="ai-panel">
-          <div class="ai-panel-header">
-            <span class="ai-panel-icon">🤖</span>
-            <div>
-              <div class="ai-panel-title">No Note Found — Generate with AI?</div>
-            </div>
-          </div>
-          <div class="ai-panel-body">
-            There are no lesson notes yet for
-            <strong style="color:var(--text);">{{ selected_topic.name }}</strong>.
-            You can generate comprehensive notes instantly using AI, then save them
-            to your account for future reference.
-          </div>
-          <div class="ai-disclaimer">
-            ⚠️ AI-generated notes are a starting point. Always review the content
-            against your curriculum guide before sharing with students.
-            Admin can replace these with verified PDF notes at any time.
-          </div>
-          <button class="btn-generate" id="btn-generate"
-                  onclick="generateNote({{ selected_topic.id }})">
-            ✨ Generate Lesson Notes
-          </button>
-
-          <!-- Preview + accept/discard -->
-          <div id="ai-preview-section">
-            <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--mid); margin-bottom:0.6rem;">Generated Notes Preview</div>
-            <div class="ai-preview-box ai-content" id="ai-preview-body"></div>
-            <div class="ai-accept-btns">
-              <button class="btn-accept" onclick="acceptNote()">✅ Accept & Save Notes</button>
-              <button class="btn-discard" onclick="discardNote()">✕ Discard</button>
-            </div>
-          </div>
-        </div>
-
-        {% else %}
-        <div class="ln-state">
-          <span class="ln-state-icon">🚧</span>
-          <div class="ln-state-title">No Notes Available Yet</div>
-          <div class="ln-state-body">
-            There are no lesson notes for <strong>{{ selected_topic.name }}</strong> yet.
-            AI-assisted generation is currently disabled. Our team will upload notes for this topic soon.
-          </div>
         </div>
         {% endif %}
 
-      {% endif %}
+        {# -- Access denied: free teacher has used all 5 slots -- #}
+        {% if lesson_access_denied %}
+        <div style="text-align:center; padding:3rem 1.5rem;
+                    background:var(--card); border:1px solid var(--border); border-radius:14px;">
+          <div style="font-size:2rem; margin-bottom:0.75rem;">🔒</div>
+          <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1.1rem;
+                      margin-bottom:0.5rem;">Free Limit Reached</div>
+          <p style="color:var(--muted); font-size:0.875rem; margin-bottom:1.25rem;">
+            You've used all 5 free topic slots.<br>
+            Upgrade to <strong>Teacher Pro</strong> for unlimited lesson notes.
+          </p>
+          <a href="/pricing/" class="btn btn-primary">Upgrade to Teacher Pro</a>
+        </div>
+
+        {# -- Access allowed and note exists -- show the note -- #}
+        {% elif note %}
+        <div class="ln-note-card">
+          <div class="ln-note-header">
+            <div>
+              <div class="ln-note-title">
+                {{ note.title }}
+                {% if note.is_ai_generated %}
+                  <span class="ai-badge" style="margin-left:0.5rem;">AI Generated</span>
+                {% endif %}
+              </div>
+              <div class="ln-note-meta">
+                {{ selected_topic.subject.name }} · {{ selected_topic.name }}
+                · Updated {{ note.updated_at|date:"M j, Y" }}
+              </div>
+            </div>
+            {% if note.pdf_file %}
+              <a href="{{ note.pdf_file.url }}" target="_blank" class="btn-download">
+                ⬇ Download PDF
+              </a>
+            {% endif %}
+          </div>
+
+          <div class="ln-note-body">
+            {% if note.ai_content %}
+              <div class="ai-content" id="ai-note-rendered">
+                <!-- Rendered by marked.js below -->
+              </div>
+              <script>
+                window._aiNoteRaw = {{ note.ai_content|escapejs|safe|json_script:"_raw" }};
+              </script>
+            {% elif note.pdf_file %}
+              <p style="color:var(--muted); font-size:0.9rem;">
+                This lesson note is available as a PDF. Use the download button above to save it.
+              </p>
+            {% endif %}
+
+            {% if note.description %}
+              <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem; line-height:1.7;">
+                {{ note.description }}
+              </p>
+            {% endif %}
+          </div>
+        </div>
+
+        {# -- Access allowed but no note yet — offer AI generation -- #}
+        {% else %}
+          {% if ai_enabled %}
+          <div class="ai-panel">
+            <div class="ai-panel-header">
+              <span class="ai-panel-icon">🤖</span>
+              <div>
+                <div class="ai-panel-title">No Note Found — Generate with AI?</div>
+              </div>
+            </div>
+            <div class="ai-panel-body">
+              There are no lesson notes yet for
+              <strong style="color:var(--text);">{{ selected_topic.name }}</strong>.
+              You can generate comprehensive notes instantly using AI, then save them
+              to your account for future reference.
+            </div>
+            <div class="ai-disclaimer">
+              ⚠️ AI-generated notes are a starting point. Always review the content
+              against your curriculum guide before sharing with students.
+              Admin can replace these with verified PDF notes at any time.
+            </div>
+            <button class="btn-generate" id="btn-generate"
+                    onclick="generateNote({{ selected_topic.id }})">
+              ✨ Generate Lesson Notes
+            </button>
+
+            <!-- Preview + accept/discard -->
+            <div id="ai-preview-section" style="display:none;">
+              <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--mid); margin-bottom:0.6rem;">Generated Notes Preview</div>
+              <div class="ai-preview-box ai-content" id="ai-preview-body"></div>
+              <div class="ai-accept-btns">
+                <button class="btn-accept" onclick="acceptNote()">✅ Accept & Save Notes</button>
+                <button class="btn-discard" onclick="discardNote()">✕ Discard</button>
+              </div>
+            </div>
+          </div>
+
+          {% else %}
+          <div class="ln-state">
+            <span class="ln-state-icon">🚧</span>
+            <div class="ln-state-title">No Notes Available Yet</div>
+            <div class="ln-state-body">
+              There are no lesson notes for <strong>{{ selected_topic.name }}</strong> yet.
+              AI-assisted generation is currently disabled. Our team will upload notes for this topic soon.
+            </div>
+          </div>
+          {% endif %}
+
+        {% endif %}{# end lesson_access_denied / note / else #}
+
+      {% endif %}{# end topic selected block #}
+
     </main>
 
   </div><!-- /.ln-layout -->
@@ -227,10 +264,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 
 <script>
-  const CSRF      = document.getElementById('results-data')?.dataset?.csrf
-              || '{{ csrf_token }}'
-  const TOPIC_ID  = {{ selected_topic.id|default:"null" }}
-  let   _aiRaw    = ''
+  const CSRF     = '{{ csrf_token }}'
+  const TOPIC_ID = {{ selected_topic.id|default:"null" }}
+  let   _aiRaw   = ''
 
   // Render stored AI note if present
   const el = document.getElementById('ai-note-rendered')
@@ -260,9 +296,7 @@
       }
 
       _aiRaw = data.content
-      const previewBody = document.getElementById('ai-preview-body')
-      previewBody.innerHTML = marked.parse(data.content)
-
+      document.getElementById('ai-preview-body').innerHTML = marked.parse(data.content)
       document.getElementById('ai-preview-section').style.display = 'block'
       btn.innerHTML = '🔄 Regenerate'
       btn.disabled  = false
@@ -285,7 +319,6 @@
     const data = await res.json()
 
     if (data.success) {
-      // Reload page to show the saved note
       window.location.reload()
     } else {
       alert('Error saving note: ' + (data.error || 'Unknown error'))

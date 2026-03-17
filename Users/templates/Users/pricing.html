@@ -1,0 +1,423 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+
+<style>
+  .pricing-body {
+    max-width: 900px; margin: 0 auto; padding: 3rem 2rem 5rem;
+  }
+  .pricing-eyebrow {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem; text-align: center;
+  }
+  .pricing-title {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2.2rem;
+    letter-spacing: -0.5px; text-align: center; margin-bottom: 0.6rem; line-height: 1.2;
+  }
+  .pricing-sub {
+    font-size: 0.95rem; color: var(--muted); text-align: center;
+    margin-bottom: 2.5rem; line-height: 1.7; max-width: 520px; margin-inline: auto;
+  }
+
+  /* Role toggle */
+  .role-toggle { display: flex; justify-content: center; margin-bottom: 0.75rem; }
+  .role-toggle-inner {
+    display: flex; gap: 0.3rem; background: var(--deep);
+    border: 1px solid var(--border); padding: 0.3rem; border-radius: 12px;
+  }
+  .role-tab {
+    padding: 0.55rem 1.4rem; border-radius: 9px; font-size: 0.875rem;
+    font-weight: 700; cursor: pointer; border: none; transition: all 0.2s;
+    font-family: 'Syne', sans-serif; background: transparent; color: var(--muted);
+  }
+  .role-tab.active {
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .role-tab:hover:not(.active) { color: var(--text); }
+  .role-switch-hint {
+    text-align: center; font-size: 0.78rem; color: var(--muted); margin-bottom: 2.5rem;
+  }
+  .role-switch-hint a {
+    color: var(--mid); font-weight: 600; text-decoration: none;
+    border-bottom: 1px solid rgba(122,170,206,0.3);
+  }
+  .role-switch-hint a:hover { color: var(--accent); }
+
+  /* Plans */
+  .plans-section { display: none; }
+  .plans-section.active { display: block; }
+
+  .plans-grid {
+    display: grid; grid-template-columns: 1.05fr 1fr 1fr;
+    gap: 1rem; align-items: start;
+  }
+
+  .plan-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.75rem 1.5rem;
+    display: flex; flex-direction: column;
+    transition: border-color 0.2s, transform 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .plan-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .plan-card.featured {
+    border-color: rgba(156,213,255,0.35);
+    background: linear-gradient(145deg, rgba(156,213,255,0.05), var(--card));
+  }
+  .plan-card.featured::before {
+    content: 'BEST VALUE';
+    position: absolute; top: 14px; right: -22px;
+    background: var(--accent); color: var(--black);
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+    padding: 0.25rem 2rem; transform: rotate(35deg);
+  }
+
+  .plan-badge {
+    display: inline-flex; font-size: 0.65rem; font-weight: 800;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.25rem 0.7rem; border-radius: 100px;
+    margin-bottom: 1.1rem; width: fit-content;
+  }
+  .badge-free    { background: rgba(74,222,128,0.1);  color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+  .badge-monthly { background: var(--accent-dim);      color: var(--accent); border: 1px solid rgba(156,213,255,0.2); }
+  .badge-yearly  { background: rgba(167,139,250,0.1); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+
+  .plan-name    { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.15rem; margin-bottom: 0.3rem; }
+  .plan-tagline { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-bottom: 1.25rem; min-height: 2.5rem; }
+
+  .plan-price {
+    margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);
+  }
+  .plan-price .amount   { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2rem; letter-spacing: -1px; line-height: 1; }
+  .plan-price .currency { font-size: 1rem; font-weight: 700; color: var(--muted-light); vertical-align: top; margin-top: 0.3rem; display: inline-block; }
+  .plan-price .period   { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+  .plan-price .saving   {
+    display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; font-weight: 700; color: #4ade80;
+    background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.2);
+    padding: 0.15rem 0.55rem; border-radius: 100px;
+  }
+
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.75rem; flex: 1; }
+  .plan-features li { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.825rem; line-height: 1.45; color: var(--muted-light); }
+  .plan-features li .feat-icon { flex-shrink: 0; margin-top: 0.05rem; }
+  .plan-features li.locked { color: var(--muted); opacity: 0.5; }
+  .plan-features li .feat-limit { font-size: 0.7rem; color: var(--muted); display: block; margin-top: 0.1rem; }
+
+  .plan-cta {
+    display: block; width: 100%; padding: 0.75rem; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.875rem;
+    text-align: center; text-decoration: none; transition: all 0.2s;
+    cursor: pointer; border: none;
+  }
+  .cta-free { background: var(--deep); color: var(--muted); border: 1px solid var(--border); }
+  .cta-free:hover { color: var(--text); border-color: var(--border-hover); }
+  .cta-paid { background: var(--accent); color: var(--black); }
+  .cta-paid:hover { background: #c2e8ff; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(156,213,255,0.2); }
+
+  /* Comparison table */
+  .compare-section { margin-top: 4rem; padding-top: 2.5rem; border-top: 1px solid var(--border); }
+  .compare-title   { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.1rem; margin-bottom: 1.5rem; text-align: center; }
+  .compare-table   { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .compare-table th {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem;
+    padding: 0.75rem 1rem; text-align: left; color: var(--muted);
+    border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .compare-table th:not(:first-child) { text-align: center; }
+  .compare-table td { padding: 0.75rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--muted-light); }
+  .compare-table td:not(:first-child) { text-align: center; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .tick { color: #4ade80; }
+  .cross { color: var(--muted); opacity: 0.4; }
+  .limit-text { font-size: 0.75rem; color: var(--gold); }
+
+  .pricing-note { margin-top: 2.5rem; text-align: center; font-size: 0.8rem; color: var(--muted); line-height: 1.8; }
+  .pricing-note strong { color: var(--muted-light); }
+
+  @media (max-width: 720px) { .plans-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) { .pricing-title { font-size: 1.6rem; } }
+</style>
+
+<div class="pricing-body">
+
+  <div class="pricing-eyebrow">Simple Pricing</div>
+  <h1 class="pricing-title">Start free. Upgrade when ready.</h1>
+  <p class="pricing-sub">
+    Every student and teacher gets free access to core features.
+    Upgrade for unlimited practice, lesson notes, and more.
+  </p>
+
+  <div class="role-toggle">
+    <div class="role-toggle-inner">
+      <button class="role-tab {% if default_tab == 'student' %}active{% endif %}"
+              onclick="switchTab('student', this)">🎓 Student Plans</button>
+      <button class="role-tab {% if default_tab == 'teacher' %}active{% endif %}"
+              onclick="switchTab('teacher', this)">🏫 Teacher Plans</button>
+    </div>
+  </div>
+
+  <div class="role-switch-hint" id="switch-hint">
+    {% if user.is_authenticated and user.role == 'TEACHER' %}
+      Looking for student pricing?
+      <a href="#" onclick="switchTab('student'); return false;">View Student Plans →</a>
+    {% else %}
+      Are you a teacher?
+      <a href="#" onclick="switchTab('teacher'); return false;">View Teacher Plans →</a>
+    {% endif %}
+  </div>
+
+  {# ════════════════════════ STUDENT PLANS ════════════════════════ #}
+  <div class="plans-section {% if default_tab == 'student' %}active{% endif %}" id="section-student">
+    <div class="plans-grid">
+
+      {# Free #}
+      <div class="plan-card">
+        <span class="plan-badge badge-free">Free Forever</span>
+        <div class="plan-name">Student Free</div>
+        <div class="plan-tagline">Get started with daily practice. No card needed.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">0</span>
+          <div class="period">always free</div>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Practice sessions<span class="feat-limit">5 sessions per day</span></span></li>
+          <li><span class="feat-icon">✅</span><span>All exam boards &amp; subjects</span></li>
+          <li><span class="feat-icon">✅</span><span>Questions per session<span class="feat-limit">Up to 15 (random)</span></span></li>
+          <li><span class="feat-icon">✅</span><span>Revision mode &amp; bookmarks</span></li>
+          <li><span class="feat-icon">✅</span><span>Leaderboard</span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Full analytics &amp; weak topics</span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Lesson notes &amp; AI notes</span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Unlimited sessions</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          <a href="{% url 'Users:dashboard' %}" class="plan-cta cta-free">Your Current Plan</a>
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-free">Get Started Free →</a>
+        {% endif %}
+      </div>
+
+      {# Monthly #}
+      <div class="plan-card">
+        <span class="plan-badge badge-monthly">Monthly</span>
+        <div class="plan-name">Student Basic</div>
+        <div class="plan-tagline">Full access for one month. Perfect for exam season.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">1,500</span>
+          <div class="period">per month</div>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Unlimited practice sessions</span></li>
+          <li><span class="feat-icon">✅</span><span>All exam boards &amp; subjects</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited questions per session</span></li>
+          <li><span class="feat-icon">✅</span><span>Revision mode &amp; bookmarks</span></li>
+          <li><span class="feat-icon">✅</span><span>Leaderboard</span></li>
+          <li><span class="feat-icon">✅</span><span>Full analytics &amp; weak topics</span></li>
+          <li><span class="feat-icon">✅</span><span>Lesson notes &amp; AI notes</span></li>
+          <li><span class="feat-icon">✅</span><span>Priority support</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          {% for plan in student_plans %}{% if plan.duration == 'MONTHLY' %}
+          <form method="post" action="{% url 'payments:initialize' %}">
+            {% csrf_token %}
+            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦1,500/mo →</button>
+          </form>
+          {% endif %}{% endfor %}
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-paid">Sign up to Subscribe →</a>
+        {% endif %}
+      </div>
+
+      {# Yearly — featured #}
+      <div class="plan-card featured">
+        <span class="plan-badge badge-yearly">Yearly</span>
+        <div class="plan-name">Student Basic</div>
+        <div class="plan-tagline">Full year access. Best value for serious students.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">12,000</span>
+          <div class="period">per year</div>
+          <span class="saving">Save ₦6,000 vs monthly</span>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Unlimited practice sessions</span></li>
+          <li><span class="feat-icon">✅</span><span>All exam boards &amp; subjects</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited questions per session</span></li>
+          <li><span class="feat-icon">✅</span><span>Revision mode &amp; bookmarks</span></li>
+          <li><span class="feat-icon">✅</span><span>Leaderboard</span></li>
+          <li><span class="feat-icon">✅</span><span>Full analytics &amp; weak topics</span></li>
+          <li><span class="feat-icon">✅</span><span>Lesson notes &amp; AI notes</span></li>
+          <li><span class="feat-icon">✅</span><span>Priority support</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          {% for plan in student_plans %}{% if plan.duration == 'YEARLY' %}
+          <form method="post" action="{% url 'payments:initialize' %}">
+            {% csrf_token %}
+            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦12,000/yr →</button>
+          </form>
+          {% endif %}{% endfor %}
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-paid">Sign up to Subscribe →</a>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <div class="compare-section">
+      <div class="compare-title">What's included</div>
+      <table class="compare-table">
+        <thead><tr><th>Feature</th><th>Free</th><th>Monthly</th><th>Yearly</th></tr></thead>
+        <tbody>
+          <tr><td>Practice sessions</td><td><span class="limit-text">5/day</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+          <tr><td>Questions per session</td><td><span class="limit-text">15 max</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+          <tr><td>All exam boards</td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td></tr>
+          <tr><td>Revision &amp; bookmarks</td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td></tr>
+          <tr><td>Full analytics &amp; weak topics</td><td><span class="cross">✕</span></td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td></tr>
+          <tr><td>Lesson notes &amp; AI notes</td><td><span class="cross">✕</span></td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ════════════════════════ TEACHER PLANS ════════════════════════ #}
+  <div class="plans-section {% if default_tab == 'teacher' %}active{% endif %}" id="section-teacher">
+    <div class="plans-grid">
+
+      {# Free #}
+      <div class="plan-card">
+        <span class="plan-badge badge-free">Free Forever</span>
+        <div class="plan-name">Teacher Free</div>
+        <div class="plan-tagline">Try the tools before committing. No card needed.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">0</span>
+          <div class="period">always free</div>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Test builder<span class="feat-limit">2 lifetime trials · 15 Qs · PDF only</span></span></li>
+          <li><span class="feat-icon">✅</span><span>Lesson notes<span class="feat-limit">5 unique topics (lifetime)</span></span></li>
+          <li><span class="feat-icon">✅</span><span>Practice access<span class="feat-limit">Same as student free tier</span></span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Unlimited test builder &amp; Word downloads</span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Unlimited lesson notes &amp; AI generation</span></li>
+          <li class="locked"><span class="feat-icon">🔒</span><span>Unlimited practice</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          <a href="{% url 'teacher:dashboard' %}" class="plan-cta cta-free">Your Current Plan</a>
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-free">Get Started Free →</a>
+        {% endif %}
+      </div>
+
+      {# Monthly #}
+      <div class="plan-card">
+        <span class="plan-badge badge-monthly">Monthly</span>
+        <div class="plan-name">Teacher Pro</div>
+        <div class="plan-tagline">Full portal access. Ideal for occasional use.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">3,000</span>
+          <div class="period">per month</div>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Unlimited test builder sessions</span></li>
+          <li><span class="feat-icon">✅</span><span>PDF &amp; Word downloads</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited lesson notes &amp; AI generation</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited practice access</span></li>
+          <li><span class="feat-icon">✅</span><span>All exam boards &amp; subjects</span></li>
+          <li><span class="feat-icon">✅</span><span>Priority support</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          {% for plan in teacher_plans %}{% if plan.duration == 'MONTHLY' %}
+          <form method="post" action="{% url 'payments:initialize' %}">
+            {% csrf_token %}
+            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦3,000/mo →</button>
+          </form>
+          {% endif %}{% endfor %}
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-paid">Sign up to Subscribe →</a>
+        {% endif %}
+      </div>
+
+      {# Yearly — featured #}
+      <div class="plan-card featured">
+        <span class="plan-badge badge-yearly">Yearly</span>
+        <div class="plan-name">Teacher Pro</div>
+        <div class="plan-tagline">Best value for active teachers. Full year coverage.</div>
+        <div class="plan-price">
+          <span class="currency">₦</span><span class="amount">25,000</span>
+          <div class="period">per year</div>
+          <span class="saving">Save ₦11,000 vs monthly</span>
+        </div>
+        <ul class="plan-features">
+          <li><span class="feat-icon">✅</span><span>Unlimited test builder sessions</span></li>
+          <li><span class="feat-icon">✅</span><span>PDF &amp; Word downloads</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited lesson notes &amp; AI generation</span></li>
+          <li><span class="feat-icon">✅</span><span>Unlimited practice access</span></li>
+          <li><span class="feat-icon">✅</span><span>All exam boards &amp; subjects</span></li>
+          <li><span class="feat-icon">✅</span><span>Priority support</span></li>
+        </ul>
+        {% if user.is_authenticated %}
+          {% for plan in teacher_plans %}{% if plan.duration == 'YEARLY' %}
+          <form method="post" action="{% url 'payments:initialize' %}">
+            {% csrf_token %}
+            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦25,000/yr →</button>
+          </form>
+          {% endif %}{% endfor %}
+        {% else %}
+          <a href="{% url 'Users:request_otp' %}" class="plan-cta cta-paid">Sign up to Subscribe →</a>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <div class="compare-section">
+      <div class="compare-title">What's included</div>
+      <table class="compare-table">
+        <thead><tr><th>Feature</th><th>Free</th><th>Monthly</th><th>Yearly</th></tr></thead>
+        <tbody>
+          <tr><td>Test builder</td><td><span class="limit-text">2 trials</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+          <tr><td>Questions per set</td><td><span class="limit-text">15 max</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+          <tr><td>Download formats</td><td><span class="limit-text">PDF only</span></td><td>PDF &amp; Word</td><td>PDF &amp; Word</td></tr>
+          <tr><td>Lesson notes</td><td><span class="limit-text">5 topics</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+          <tr><td>AI note generation</td><td><span class="cross">✕</span></td><td><span class="tick">✓</span></td><td><span class="tick">✓</span></td></tr>
+          <tr><td>Practice access</td><td><span class="limit-text">5/day · 15 Qs</span></td><td><span class="tick">✓</span> Unlimited</td><td><span class="tick">✓</span> Unlimited</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pricing-note">
+    Payments are processed securely by <strong>Paystack</strong> — card &amp; bank transfer supported.<br>
+    Questions? Reach out via the contact link in the footer.
+  </div>
+
+</div>
+
+<script>
+  function switchTab(tab, btnEl) {
+    document.querySelectorAll('.plans-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + tab).classList.add('active');
+    document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+    if (btnEl) {
+      btnEl.classList.add('active');
+    } else {
+      document.querySelectorAll('.role-tab').forEach(b => {
+        if ((tab === 'student' && b.textContent.includes('Student')) ||
+            (tab === 'teacher' && b.textContent.includes('Teacher'))) {
+          b.classList.add('active');
+        }
+      });
+    }
+    const hint = document.getElementById('switch-hint');
+    if (tab === 'student') {
+      hint.innerHTML = 'Are you a teacher? <a href="#" onclick="switchTab(\'teacher\'); return false;">View Teacher Plans →</a>';
+    } else {
+      hint.innerHTML = 'Looking for student pricing? <a href="#" onclick="switchTab(\'student\'); return false;">View Student Plans →</a>';
+    }
+  }
+</script>
+{% endblock %}

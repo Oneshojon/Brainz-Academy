@@ -29,6 +29,13 @@ class PracticeSession(models.Model):
     score = models.PositiveIntegerField(null=True, blank=True)
     total_marks = models.PositiveIntegerField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'completed_at']),  # dashboard queries
+            models.Index(fields=['user', 'subject']),        # analytics queries
+            models.Index(fields=['completed_at']),           # admin recent sessions
+        ]
+
     @property
     def is_completed(self):
         return self.completed_at is not None
@@ -63,6 +70,10 @@ class UserAnswer(models.Model):
 
     class Meta:
         unique_together = ('session', 'question')
+        indexes = [
+                models.Index(fields=['session', 'question']),    # results page
+                models.Index(fields=['is_correct']),             # analytics
+            ]
 
     def __str__(self):
         return f"{self.session.user} — {self.question} — Session {self.session.id}"

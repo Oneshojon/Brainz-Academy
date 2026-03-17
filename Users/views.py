@@ -176,3 +176,40 @@ def dashboard(request):
 def logout_view(request):
     logout(request)
     return redirect('Users:index')
+
+def pricing(request):
+    """
+    Public pricing page. Pre-selects role tab based on logged-in user.
+    Passes plan data from DB if available, otherwise falls back to hardcoded defaults.
+    """
+    from catalog.models import SubscriptionPlan
+ 
+    # Determine default tab
+    if request.user.is_authenticated:
+        default_tab = 'teacher' if request.user.role == 'TEACHER' else 'student'
+    else:
+        default_tab = request.GET.get('tab', 'student')
+ 
+    # Try to load plans from DB (seeded via _seed_plans())
+    # Falls back to empty list if migrations haven't run yet
+    try:
+        student_plans = list(
+            SubscriptionPlan.objects.filter(
+                plan_type='STUDENT_BASIC', is_active=True
+            ).order_by('price')
+        )
+        teacher_plans = list(
+            SubscriptionPlan.objects.filter(
+                plan_type='TEACHER_PRO', is_active=True
+            ).order_by('price')
+        )
+    except Exception:
+        student_plans = []
+        teacher_plans = []
+ 
+    context = {
+        'default_tab':    default_tab,
+        'student_plans':  student_plans,
+        'teacher_plans':  teacher_plans,
+    }
+    return render(request, 'Users/pricing.html', context)

@@ -1,5 +1,6 @@
 {% extends 'Users/layout.html' %}
 {% load static %}
+{% load question_filters %}
 
 {% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/results_page.css' %}" />
@@ -148,10 +149,10 @@
 
           <!-- Card Body -->
           <div class="review-card-body">
-            <p class="review-q-full">{{ question.content }}</p>
+            <p class="review-q-full">{{ question.content|render_content }}</p>
 
             {% if question.image %}
-              <img src="{{ question.image.url }}" style="max-width:100%; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
+              <img src="{{ question.image.url }}" style="max-width:min(100%, 480px); height:auto; display:block; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
             {% endif %}
 
             {% if question.question_type == 'OBJ' %}

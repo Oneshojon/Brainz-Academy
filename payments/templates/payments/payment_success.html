@@ -1,0 +1,21 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<div style="max-width:520px; margin:5rem auto; text-align:center; padding:2rem;">
+  <div style="font-size:3rem; margin-bottom:1rem;">🎉</div>
+  <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.5rem; margin-bottom:0.5rem;">
+    Payment Successful!
+  </div>
+  <p style="color:var(--muted); line-height:1.7; margin-bottom:1.75rem;">
+    Your <strong style="color:var(--text);">{{ plan.name }}</strong> subscription is now active.
+    Enjoy unlimited access!
+  </p>
+  {% if user.role == 'TEACHER' %}
+    <a href="{% url 'teacher:dashboard' %}" class="btn btn-primary">Go to Teacher Portal →</a>
+  {% else %}
+    <a href="{% url 'practice:practice_home' %}" class="btn btn-primary">Start Practising →</a>
+  {% endif %}
+</div>
+{% endblock %}
+ 

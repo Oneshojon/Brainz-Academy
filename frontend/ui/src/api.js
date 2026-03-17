@@ -1,5 +1,8 @@
 import axios from "axios";
 
+export const getTestBuilderAccess = () =>
+  api.get('test-builder-access/').then(r => r.data);
+
 function getCookie(name) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
