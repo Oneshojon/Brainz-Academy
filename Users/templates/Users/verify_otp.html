@@ -1,37 +1,30 @@
-{% extends 'Users/layout.html' %} {% load static %} {% block body %}
-<link rel="stylesheet" href="{% static 'Users/verify_otp.css' %}" />
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+
+<link rel="stylesheet" href="{% static 'Users/verify_otp.css' %}">
 
 <div class="auth-wrap">
   <div class="auth-card">
-    <div class="auth-logo">Exam<span>Prep</span></div>
+
+    <a href="/" class="auth-logo">Exam<span>Prep</span></a>
 
     {% if new_user %}
     <h1 class="auth-title">Create your account</h1>
-    <p class="auth-sub">
-      Enter the code we sent you, then tell us a bit about yourself.
-    </p>
+    <p class="auth-sub">Enter the code we sent you, then tell us a bit about yourself.</p>
     {% else %}
     <h1 class="auth-title">Check your email</h1>
-    <p class="auth-sub">
-      We sent a 6-digit code to your email. Enter it below to log in.
-    </p>
+    <p class="auth-sub">We sent a 6-digit code to your email. Enter it below to log in.</p>
     {% endif %}
 
     <div class="email-display">📧 {{ email }}</div>
 
     {% if error %}
     <div class="error-box">⚠ {{ error }}</div>
-    {% endif %} {% for message in messages %}
-    <div
-      class="error-box"
-      style="
-        background: rgba(156, 213, 255, 0.08);
-        border-color: rgba(156, 213, 255, 0.2);
-        color: var(--accent);
-      "
-    >
-      {{ message }}
-    </div>
+    {% endif %}
+
+    {% for message in messages %}
+    <div class="info-box">{{ message }}</div>
     {% endfor %}
 
     <form method="post" action="{% url 'Users:verify_otp' %}" id="verifyForm">
@@ -45,26 +38,13 @@
       <!-- OTP -->
       <div class="form-group">
         <div class="resend-row">
-          <label class="form-label" for="otp" style="margin-bottom: 0"
-            >6-Digit Code</label
-          >
-          <a
-            class="resend-link"
-            onclick="document.getElementById('resendForm').submit()"
-            >Resend code</a
-          >
+          <label class="form-label" for="otp" style="margin-bottom:0">6-Digit Code</label>
+          <a class="resend-link" onclick="document.getElementById('resendForm').submit()">Resend code</a>
         </div>
         <input
-          class="otp-input"
-          type="text"
-          name="otp"
-          id="otp"
-          placeholder="000000"
-          maxlength="6"
-          inputmode="numeric"
-          pattern="[0-9]{6}"
-          autofocus
-          required
+          class="otp-input" type="text" name="otp" id="otp"
+          placeholder="000000" maxlength="6" inputmode="numeric"
+          pattern="[0-9]{6}" autofocus required
         />
       </div>
 
@@ -73,32 +53,18 @@
 
       <div class="reg-banner">
         <strong>👋 Looks like you're new here!</strong>
-        Just fill in your details below to finish creating your account.
+        Fill in your details below to finish creating your account.
       </div>
 
       <!-- Name -->
-      <div class="form-row" style="margin-bottom: 1.25rem">
+      <div class="form-row">
         <div>
           <label class="form-label" for="first_name">First Name</label>
-          <input
-            class="form-input"
-            type="text"
-            name="first_name"
-            id="first_name"
-            placeholder="Amaka"
-            required
-          />
+          <input class="form-input" type="text" name="first_name" id="first_name" placeholder="Amaka" required />
         </div>
         <div>
           <label class="form-label" for="last_name">Last Name</label>
-          <input
-            class="form-input"
-            type="text"
-            name="last_name"
-            id="last_name"
-            placeholder="Okafor"
-            required
-          />
+          <input class="form-input" type="text" name="last_name" id="last_name" placeholder="Okafor" required />
         </div>
       </div>
 
@@ -106,22 +72,12 @@
       <div class="form-group">
         <label class="form-label">I am a...</label>
         <div class="role-toggle">
-          <button
-            type="button"
-            class="role-btn student active"
-            id="btnStudent"
-            onclick="setRole('STUDENT')"
-          >
+          <button type="button" class="role-btn student active" id="btnStudent" onclick="setRole('STUDENT')">
             <span class="role-btn-icon">🎓</span>
             <span class="role-btn-label">Student</span>
             <span class="role-btn-desc">I want to practice</span>
           </button>
-          <button
-            type="button"
-            class="role-btn teacher"
-            id="btnTeacher"
-            onclick="setRole('TEACHER')"
-          >
+          <button type="button" class="role-btn teacher" id="btnTeacher" onclick="setRole('TEACHER')">
             <span class="role-btn-icon">🏫</span>
             <span class="role-btn-label">Teacher</span>
             <span class="role-btn-desc">I build tests</span>
@@ -132,8 +88,7 @@
       {% if ref_code %}
       <div class="ref-code-row">
         <strong>Referral Code Applied</strong>
-        You were referred with code
-        <strong style="color: var(--gold)">{{ ref_code }}</strong> — welcome!
+        You were referred with code <strong style="color:var(--gold)">{{ ref_code }}</strong> — welcome!
       </div>
       {% endif %}
 
@@ -141,18 +96,13 @@
 
       {% else %}
 
-      <button type="submit" class="btn-submit">Verify & Log In →</button>
+      <button type="submit" class="btn-submit">Verify &amp; Log In →</button>
 
       {% endif %}
     </form>
 
     <!-- Hidden resend form -->
-    <form
-      id="resendForm"
-      method="post"
-      action="{% url 'Users:request_otp' %}"
-      style="display: none"
-    >
+    <form id="resendForm" method="post" action="{% url 'Users:request_otp' %}" style="display:none">
       {% csrf_token %}
       <input type="hidden" name="email" value="{{ email }}" />
     </form>
@@ -160,6 +110,7 @@
     <p class="auth-footer-note">
       Wrong email? <a href="{% url 'Users:request_otp' %}">Go back</a>
     </p>
+
   </div>
 </div>
 
@@ -169,8 +120,6 @@
     document.getElementById('btnStudent').classList.toggle('active', role === 'STUDENT');
     document.getElementById('btnTeacher').classList.toggle('active', role === 'TEACHER');
   }
-
-  // Auto-submit when 6 digits entered (existing users only)
   {% if not new_user %}
   document.getElementById('otp').addEventListener('input', function() {
     if (this.value.length === 6) {
@@ -179,4 +128,5 @@
   });
   {% endif %}
 </script>
+
 {% endblock %}

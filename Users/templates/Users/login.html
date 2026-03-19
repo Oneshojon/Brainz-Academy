@@ -1,34 +1,30 @@
-{% extends 'Users/layout.html' %} {% load static %}  {% block body %}
-<link rel="stylesheet" href="{% static 'Users/login.css' %}" />
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+
+<link rel="stylesheet" href="{% static 'Users/login.css' %}">
 
 <div class="auth-wrap">
   <div class="auth-card">
-    <div class="auth-logo">Exam<span>Prep</span></div>
+
+    <a href="/" class="auth-logo">Exam<span>Prep</span></a>
 
     <h1 class="auth-title">Welcome back</h1>
     <p class="auth-sub">
-      Enter your email to receive a secure login code. New? We'll get you set
-      up.
+      Enter your email to receive a secure login code.
+      New here? We'll get you set up automatically.
     </p>
 
     {% if error %}
     <div class="error-box">⚠ {{ error }}</div>
-    {% endif %} {% for message in messages %}
-    <div
-      class="error-box"
-      style="
-        background: rgba(156, 213, 255, 0.08);
-        border-color: rgba(156, 213, 255, 0.2);
-        color: var(--accent);
-      "
-    >
-      {{ message }}
-    </div>
+    {% endif %}
+
+    {% for message in messages %}
+    <div class="info-box">{{ message }}</div>
     {% endfor %}
 
     <form method="post" action="{% url 'Users:request_otp' %}">
       {% csrf_token %}
-      <!-- Carry referral code through login if present in URL -->
       {% if request.GET.ref %}
       <input type="hidden" name="ref" value="{{ request.GET.ref }}" />
       {% endif %}
@@ -50,9 +46,11 @@
     </form>
 
     <p class="auth-footer-note">
-      No password needed — we send a 6-digit code to your email.<br />
+      No password needed — we send a 6-digit code to your inbox.<br>
       <a href="/">← Back to home</a>
     </p>
+
   </div>
 </div>
+
 {% endblock %}

@@ -102,7 +102,11 @@
       <div class="q-nav">
         <button class="btn-nav" onclick="prevQuestion()" {% if forloop.first %}disabled{% endif %}>← Previous</button>
         <span class="save-indicator" id="saved-{{ question.id }}">✓ Saved</span>
-        <button class="btn-nav" onclick="nextQuestion()" {% if forloop.last %}disabled{% endif %}>Next →</button>
+        {% if forloop.last %}
+<button class="btn-nav" onclick="openModal()" style="background:var(--navy);color:#fff;border-color:var(--navy);">Submit Exam →</button>
+{% else %}
+<button class="btn-nav" onclick="nextQuestion()">Next →</button>
+{% endif %}
       </div>
     </div>
     {% endfor %}

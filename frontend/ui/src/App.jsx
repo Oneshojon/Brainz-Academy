@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import api from "./api";
-import QuestionGeneratorForm, { getTestBuilderAccess } from "./components/QuestionGeneratorForm";
+import QuestionGeneratorForm, {
+  getTestBuilderAccess,
+} from "./components/QuestionGeneratorForm";
 import QuestionList from "./components/QuestionList";
 import BuilderLayout from "./components/builder/BuilderLayout";
 
@@ -8,7 +10,7 @@ const appStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
   :root {
-    --black: #0e1f2c; --deep: #162736; --card: #1e3347; --base: #355872;
+    --black: #ffffff; --deep: #f4f6f9; --card: #ffffff; --base: #c8d6e5;
     --border: rgba(122,170,206,0.18); --border-hover: rgba(156,213,255,0.35);
     --accent: #9CD5FF; --accent-dim: rgba(156,213,255,0.12); --mid: #7AAACE;
     --text: #F7F8F0; --muted: rgba(247,248,240,0.45); --muted-light: rgba(247,248,240,0.7);
@@ -32,10 +34,10 @@ const appStyles = `
   .app-logo span { color: var(--accent); }
 
   .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
-  .user-chip { display: flex; align-items: center; gap: 0.5rem; background: var(--deep); border: 1px solid var(--border); padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.8rem; }
+  .user-chip { display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 0.35rem 0.75rem; border-radius: 100px; font-size: 0.8rem; color: rgba(255,255,255,0.85); }
   .role-badge { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .role-badge.teacher { background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.25); }
-  .role-badge.student { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(156,213,255,0.2); }
+  .role-badge.teacher { background: #ffffff; color: #0B2D72; border: 1px solid #C2D4EC; }
+  .role-badge.student { background: #ffffff; color: #0B2D72; border: 1px solid #C2D4EC; }
 
   .app-main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
 
@@ -96,32 +98,44 @@ const appStyles = `
 `;
 
 export default function App() {
-  const [access, setAccess]           = useState(null);
-  const [userRole, setUserRole]       = useState(window.USER_ROLE || 'STUDENT');
-  const [mode, setMode]               = useState(null);   // null | 'random' | 'manual'
-  const [questions, setQuestions]     = useState([]);
-  const [count, setCount]             = useState(null);
-  const [filterMeta, setFilterMeta]   = useState(null);
+  const [access, setAccess] = useState(null);
+  const [userRole, setUserRole] = useState(window.USER_ROLE || "STUDENT");
+  const [mode, setMode] = useState(null); // null | 'random' | 'manual'
+  const [questions, setQuestions] = useState([]);
+  const [count, setCount] = useState(null);
+  const [filterMeta, setFilterMeta] = useState(null);
 
   // Feature flags for disabling modes
   const [flags, setFlags] = useState({ random: true, manual: true });
 
   useEffect(() => {
     if (window.USER_ROLE) setUserRole(window.USER_ROLE);
-    getTestBuilderAccess().then(setAccess).catch(() =>
-      setAccess({ allowed: false, is_free: true, trials_remaining: 0, max_questions: 15, pdf_only: true, reason: '' })
-    );
+    getTestBuilderAccess()
+      .then(setAccess)
+      .catch(() =>
+        setAccess({
+          allowed: false,
+          is_free: true,
+          trials_remaining: 0,
+          max_questions: 15,
+          pdf_only: true,
+          reason: "",
+        }),
+      );
     // Fetch feature flags to check if modes are enabled
-    api.get('/api/catalog/feature-flags/').then(r => {
-      const f = r.data;
-      setFlags({
-        random: f.test_builder_random !== false,
-        manual: f.test_builder_manual !== false,
-      });
-    }).catch(() => {}); // silently fail — defaults to both enabled
+    api
+      .get("/api/catalog/feature-flags/")
+      .then((r) => {
+        const f = r.data;
+        setFlags({
+          random: f.test_builder_random !== false,
+          manual: f.test_builder_manual !== false,
+        });
+      })
+      .catch(() => {}); // silently fail — defaults to both enabled
   }, []);
 
-  const isTeacher = userRole === 'TEACHER';
+  const isTeacher = userRole === "TEACHER";
 
   const handleResults = (data) => {
     setQuestions(data.questions);
@@ -139,32 +153,53 @@ export default function App() {
     <>
       <style>{appStyles}</style>
       <div className="app-shell">
-
         {/* ── Topbar ── */}
         <header className="app-topbar">
-          <a href="/" className="app-logo">Exam<span>Prep</span></a>
+          <a href="/" className="app-logo">
+            Exam<span>Prep</span>
+          </a>
 
           <div className="topbar-right">
-            {isTeacher && mode && (
-              <button className="btn-back" onClick={() => { setMode(null); handleClear(); }}>
+            
+            {isTeacher && mode === "random" && (
+              <button
+                className="btn-back"
+                onClick={() => {
+                  setMode(null);
+                  handleClear();
+                }}
+              >
                 ← Change Mode
               </button>
             )}
             {isTeacher && (
-              <a href="/teacher/"
-                style={{ display:'flex', alignItems:'center', gap:'0.4rem',
-                  background:'var(--card)', border:'1px solid var(--border)',
-                  color:'var(--text)', borderRadius:'8px', padding:'0.4rem 0.9rem',
-                  textDecoration:'none', fontFamily:'DM Sans, sans-serif',
-                  fontSize:'0.85rem', fontWeight:500, transition:'all 0.2s' }}
+              <a
+                href="/teacher/"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  background: "#ffffff",
+                  border: "1px solid #C2D4EC",
+                  color: "#0B2D72",
+                  borderRadius: "8px",
+                  padding: "0.4rem 0.9rem",
+                  textDecoration: "none",
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  transition: "all 0.2s",
+                }}
               >
                 ← Dashboard
               </a>
             )}
             <div className="user-chip">
               <span>👤</span>
-              <span className={`role-badge ${isTeacher ? 'teacher' : 'student'}`}>
-                {isTeacher ? 'Teacher' : 'Student'}
+              <span
+                className={`role-badge ${isTeacher ? "teacher" : "student"}`}
+              >
+                {isTeacher ? "Teacher" : "Student"}
               </span>
             </div>
           </div>
@@ -173,7 +208,13 @@ export default function App() {
         {/* ── Main content ── */}
         <main className="app-main">
           {!isTeacher ? (
-            <div style={{ textAlign:'center', padding:'4rem 2rem', color:'var(--muted)' }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "4rem 2rem",
+                color: "var(--muted)",
+              }}
+            >
               Test builder is for teachers only.
             </div>
           ) : mode === null ? (
@@ -183,57 +224,68 @@ export default function App() {
               <p>Choose how you want to build your question set.</p>
               <div className="mode-cards">
                 <div
-                  className={`mode-card ${!flags.random ? 'disabled' : ''}`}
-                  onClick={() => flags.random && setMode('random')}
+                  className={`mode-card ${!flags.random ? "disabled" : ""}`}
+                  onClick={() => flags.random && setMode("random")}
                 >
                   <span className="mode-card-icon">🎲</span>
                   <div className="mode-card-title">Random / Filter</div>
                   <div className="mode-card-desc">
-                    Set filters — subject, year, topic, difficulty — and let the system pick questions automatically.
-                    Fast and great for mixed practice sets.
+                    Set filters — subject, year, topic, difficulty — and let the
+                    system pick questions automatically. Fast and great for
+                    mixed practice sets.
                   </div>
                   <span className="mode-card-badge">Quick Generate</span>
                 </div>
                 <div
-                  className={`mode-card ${!flags.manual ? 'disabled' : ''}`}
-                  onClick={() => flags.manual && setMode('manual')}
+                  className={`mode-card ${!flags.manual ? "disabled" : ""}`}
+                  onClick={() => flags.manual && setMode("manual")}
                 >
                   <span className="mode-card-icon">✋</span>
                   <div className="mode-card-title">Manual Selection</div>
                   <div className="mode-card-desc">
-                    Browse questions by theme and topic. Hand-pick exactly which questions go in your test,
-                    preview each one before adding.
+                    Browse questions by theme and topic. Hand-pick exactly which
+                    questions go in your test, preview each one before adding.
                   </div>
                   <span className="mode-card-badge">Full Control</span>
                 </div>
               </div>
             </div>
-
-          ) : mode === 'random' ? (
+          ) : mode === "random" ? (
             /* Existing random generator */
             <div className="teacher-layout">
               <aside className="form-sidebar">
-                <QuestionGeneratorForm onResults={handleResults} onClear={handleClear} access={access} />
+                <QuestionGeneratorForm
+                  onResults={handleResults}
+                  onClear={handleClear}
+                  access={access}
+                />
               </aside>
               <div className="results-panel">
                 {count === null ? (
                   <div className="empty-state">
                     <div className="empty-icon">📋</div>
                     <div className="empty-title">No questions yet</div>
-                    <div className="empty-desc">Use the filters on the left to generate a question set.</div>
+                    <div className="empty-desc">
+                      Use the filters on the left to generate a question set.
+                    </div>
                   </div>
                 ) : (
                   <>
                     <div className="results-header">
                       <div className="panel-title">Generated Questions</div>
-                      <span className="results-count">✓ {count} question{count !== 1 ? 's' : ''} found</span>
+                      <span className="results-count">
+                        ✓ {count} question{count !== 1 ? "s" : ""} found
+                      </span>
                     </div>
-                    <QuestionList questions={questions} filterMeta={filterMeta} access={access} />
+                    <QuestionList
+                      questions={questions}
+                      filterMeta={filterMeta}
+                      access={access}
+                    />
                   </>
                 )}
               </div>
             </div>
-
           ) : (
             /* New manual builder */
             <BuilderLayout access={access} />

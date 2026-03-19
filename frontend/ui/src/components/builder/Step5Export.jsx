@@ -1,269 +1,368 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import api from "../../api";
 
 const styles = `
-  .s5-layout { display: grid; grid-template-columns: 420px 1fr; gap: 1.5rem; align-items: start; }
-  @media (max-width: 900px) { .s5-layout { grid-template-columns: 1fr; } }
+  /* ══ Row 1: stats + actions ══ */
+  .s5-row1 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; align-items: center; }
+  @media (max-width: 640px) { .s5-row1 { grid-template-columns: 1fr; } }
 
-  /* ── Summary bar ── */
-  .s5-summary {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.75rem;
-  }
+  .s5-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
   .s5-stat {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 1rem; text-align: center;
+    background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 10px;
+    padding: 0.55rem 0.5rem; text-align: center;
+    box-shadow: 0 1px 3px rgba(11,45,114,0.05);
   }
-  .s5-stat-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; }
-  .s5-stat-label { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
-  .s5-stat-val.accent { color: var(--accent); }
-  .s5-stat-val.gold   { color: var(--gold); }
-  .s5-stat-val.green  { color: var(--green); }
+  .s5-stat-val { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1rem; line-height: 1; }
+  .s5-stat-label { font-size: 0.58rem; color: #6B7FA3; margin-top: 0.15rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .s5-stat-val.accent { color: #0992C2; }
+  .s5-stat-val.gold   { color: #B8860B; }
+  .s5-stat-val.green  { color: #15803D; }
 
-  /* ── Difficulty bar ── */
-  .diff-bar-wrap { margin-bottom: 1.75rem; }
-  .diff-bar-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
-  .diff-bar { display: flex; border-radius: 100px; overflow: hidden; height: 8px; }
-  .diff-bar-seg { height: 100%; transition: width 0.4s ease; }
-  .diff-bar-seg.easy   { background: var(--green); }
-  .diff-bar-seg.medium { background: var(--gold); }
-  .diff-bar-seg.hard   { background: var(--red); }
-  .diff-bar-seg.none   { background: var(--base); }
-  .diff-legend { display: flex; gap: 1rem; margin-top: 0.4rem; }
-  .diff-legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--muted); }
-  .diff-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .s5-actions-row { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
+  .s5-test-btn {
+    padding: 0.42rem 0.9rem; border-radius: 100px;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .s5-test-btn.my  { background: #F3F6FA; color: #6B7FA3; border: 1.5px solid #C2D4EC; cursor: not-allowed; opacity: 0.55; }
+  .s5-test-btn.new { background: #0B2D72; color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
+  .s5-test-btn.new:hover { background: #0a2360; }
+  .s5-test-btn.new:active { transform: scale(0.97); }
+  .s5-back-btn {
+    padding: 0.42rem 0.9rem; border-radius: 100px;
+    background: #ffffff; border: 1.5px solid #C2D4EC; color: #6B7FA3;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(11,45,114,0.05);
+  }
+  .s5-back-btn:hover { border-color: #0B2D72; color: #0B2D72; }
+  .s5-back-btn:active { transform: scale(0.97); }
 
-  /* ── Question list (draggable) ── */
-  .s5-q-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  /* ══ Difficulty bar ══ */
+  .s5-diff-row { margin-bottom: 1rem; }
+  .s5-diff-bar { display: flex; border-radius: 100px; overflow: hidden; height: 6px; background: #D1DCF0; }
+  .s5-diff-seg { height: 100%; transition: width 0.4s; }
+  .s5-diff-seg.easy   { background: #15803D; }
+  .s5-diff-seg.medium { background: #B8860B; }
+  .s5-diff-seg.hard   { background: #DC2626; }
+  .s5-diff-legend { display: flex; gap: 0.75rem; margin-top: 0.35rem; flex-wrap: wrap; }
+  .s5-diff-legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.67rem; color: #6B7FA3; }
+  .s5-diff-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ══ Main 2-col ══ */
+  .s5-main { display: grid; grid-template-columns: minmax(280px, 36%) 1fr; gap: 1rem; }
+  @media (max-width: 900px) { .s5-main { grid-template-columns: 1fr; } }
+
+  /* ── Left: question list ── */
+  .s5-q-panel {
+    background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 14px;
+    overflow: hidden; display: flex; flex-direction: column; height: 520px;
+    box-shadow: 0 2px 10px rgba(11,45,114,0.07);
+  }
+  .s5-q-panel-head {
+    padding: 0.65rem 0.85rem; border-bottom: 1px solid #C2D4EC; flex-shrink: 0;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.78rem;
+    display: flex; align-items: center; justify-content: space-between; color: #0B2D72;
+    background: #EDF1F8;
+  }
+  .s5-q-scroll { overflow-y: auto; flex: 1; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  .s5-q-scroll::-webkit-scrollbar { width: 3px; }
+  .s5-q-scroll::-webkit-scrollbar-thumb { background: #C2D4EC; border-radius: 2px; }
+
   .s5-q-row {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 0.75rem 0.9rem; display: flex; align-items: center; gap: 0.75rem;
-    transition: all 0.15s;
+    background: #F7FAFD; border: 1.5px solid #C2D4EC; border-radius: 10px;
+    padding: 0.85rem 0.75rem; display: flex; align-items: flex-start; gap: 0.6rem;
+    cursor: grab; transition: all 0.12s; font-size: 0.74rem;
   }
-  .s5-q-row.dragging { opacity: 0.5; border-style: dashed; }
-  .s5-q-row.drag-over { border-color: var(--accent); transform: translateY(-2px); }
-  .s5-drag-handle {
-    color: var(--muted); cursor: grab; font-size: 1rem; flex-shrink: 0; user-select: none;
-  }
-  .s5-drag-handle:active { cursor: grabbing; }
+  .s5-q-row:hover { border-color: #0B2D72; }
+  .s5-q-row.dragging  { opacity: 0.4; border-style: dashed; }
+  .s5-q-row.drag-over { border-color: #0992C2; background: rgba(9,146,194,0.06); }
+  .s5-drag-handle { color: #6B7FA3; font-size: 0.85rem; flex-shrink: 0; user-select: none; }
   .s5-q-num {
     width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.72rem;
-    background: var(--deep); border: 1px solid var(--border); color: var(--muted-light);
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.72rem;
+    background: #0B2D72; color: #ffffff; margin-top: 0.1rem;
   }
   .s5-q-info { flex: 1; min-width: 0; }
-  .s5-q-title { font-size: 0.78rem; font-weight: 600; color: var(--muted-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+  .s5-q-title { font-size: 0.82rem; font-weight: 700; color: #0B2D72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.8rem; }
+  .s5-q-tags { display: flex; gap: 0.25rem; margin-top: 0.15rem; }
+  .s5-q-tag { font-size: 0.68rem; font-weight: 700; padding: 0.18rem 0.45rem; border-radius: 100px; text-transform: uppercase; }
+  .s5-q-tag.obj    { background: rgba(9,146,194,0.1); color: #0992C2;}
+  .s5-q-tag.theory { background: #FEF3C7; color: #B8860B; }
+  .s5-q-tag.year   { background: #EDF1F8; color: #6B7FA3; border: 1px solid #C2D4EC; }
+  .s5-q-tag.easy   { background: #DCFCE7; color: #15803D; }
+  .s5-q-tag.medium { background: #FEF3C7; color: #B8860B; }
+  .s5-q-tag.hard   { background: #FEE2E2; color: #DC2626; }
+  .s5-q-tag.unrated{ background: #EDF1F8; color: #6B7FA3; border: 1px solid #C2D4EC; }
+
+  .s5-marks-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.08rem; flex-shrink: 0; }
   .s5-marks-input {
-    width: 52px; background: var(--deep); border: 1px solid var(--border); color: var(--text);
-    border-radius: 6px; padding: 0.25rem 0.4rem; font-size: 0.8rem; outline: none;
-    text-align: center; transition: border-color 0.15s;
+    width: 40px; background: #ffffff; border: 1.5px solid #C2D4EC; color: #0D1B3E;
+    border-radius: 6px; padding: 0.2rem 0.3rem; font-size: 0.78rem; outline: none; text-align: center;
   }
-  .s5-marks-input:focus { border-color: rgba(156,213,255,0.4); }
-  .s5-marks-label { font-size: 0.68rem; color: var(--muted); }
+  .s5-marks-input:focus { border-color: #0992C2; }
+  .s5-marks-label { font-size: 0.65rem; color: #6B7FA3; font-weight: 600; }
+
   .s5-remove-btn {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 0.85rem;
-    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
-    flex-shrink: 0;
+    background: transparent; border: none; color: #6B7FA3;
+    width: 20px; height: 20px; cursor: pointer; font-size: 0.7rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; transition: all 0.12s; flex-shrink: 0;
   }
-  .s5-remove-btn:hover { background: var(--red-dim); color: var(--red); border-color: rgba(248,113,113,0.3); }
+  .s5-remove-btn:hover { background: #FEE2E2; color: #DC2626; }
+  .s5-remove-btn:active { transform: scale(0.9); }
 
-  /* ── Export panel ── */
-  .s5-export-panel { position: sticky; top: 80px; }
-  .s5-export-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 1.5rem; margin-bottom: 1rem;
+  /* ── Right: paper preview ── */
+  .s5-preview-panel {
+    background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 14px;
+    overflow: hidden; display: flex; flex-direction: column; height: 520px;
+    box-shadow: 0 2px 10px rgba(11,45,114,0.07);
   }
-  .s5-export-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; margin-bottom: 1rem; }
-  .s5-export-btns { display: flex; flex-direction: column; gap: 0.6rem; }
-  .s5-export-btn {
-    width: 100%; padding: 0.75rem; border-radius: 10px; border: none;
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.875rem;
-    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  .s5-preview-head {
+    padding: 0.65rem 0.9rem; border-bottom: 1px solid #C2D4EC; flex-shrink: 0;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.78rem;
+    color: #0B2D72; display: flex; align-items: center; justify-content: space-between;
+    background: #EDF1F8;
   }
-  .s5-export-btn.primary { background: var(--accent); color: var(--black); }
-  .s5-export-btn.primary:hover { background: #c2e8ff; }
-  .s5-export-btn.secondary { background: var(--deep); color: var(--text); border: 1px solid var(--border); }
-  .s5-export-btn.secondary:hover { border-color: var(--border-hover); }
-  .s5-export-btn.gold-btn { background: var(--gold); color: var(--black); }
-  .s5-export-btn.gold-btn:hover { background: #f7d96a; }
-  .s5-export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .s5-export-divider { font-size: 0.7rem; color: var(--muted); text-align: center; margin: 0.25rem 0; }
-  .pdf-only-note { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 0.5rem; line-height: 1.5; }
+  .s5-preview-scroll { overflow-y: auto; flex: 1; padding: 1rem 1.25rem; }
+  .s5-preview-scroll::-webkit-scrollbar { width: 4px; }
+  .s5-preview-scroll::-webkit-scrollbar-thumb { background: #C2D4EC; border-radius: 2px; }
 
-  .s5-loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(14,31,44,0.3); border-top-color: var(--black); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  .s5-paper-q { margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid #D1DCF0; }
+  .s5-paper-q:last-child { border-bottom: none; }
+  .s5-paper-q-header { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.75rem; }
+  .s5-paper-q-num { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.9rem; color: #0B2D72; flex-shrink: 0; min-width: 28px; }
+  .s5-paper-q-content { font-size: 1rem; line-height: 1.75; color: #0D1B3E; flex: 1; }
+  .s5-paper-q-img { max-width: 100%; max-height: 220px; border-radius: 6px; margin: 0.5rem 0 0.75rem; border: 1px solid #C2D4EC; display: block; }
+  .s5-paper-choices { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin-left: 1.6rem; }
+  .s5-paper-choice { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.825rem; line-height: 1.5; color: #6B7FA3; }
+  .s5-paper-choice-label { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.75rem; flex-shrink: 0; color: #6B7FA3; min-width: 20px; }
+  .s5-paper-marks { text-align: right; font-size: 0.72rem; color: #B8860B; font-weight: 700; margin-top: 0.6rem; font-family: 'Plus Jakarta Sans', sans-serif; }
+  .s5-paper-total { text-align: right; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.9rem; color: #0B2D72; padding-top: 0.75rem; border-top: 2px solid #C2D4EC; margin-top: 0.5rem; }
+
+  .s5-loading { display: inline-block; width: 11px; height: 11px; border: 2px solid rgba(11,45,114,0.2); border-top-color: #0B2D72; border-radius: 50%; animation: spin 0.6s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  @media (max-width: 640px) { .s5-summary { grid-template-columns: 1fr 1fr; } }
+  .s5-pdf-only { font-size: 0.68rem; color: #6B7FA3; }
 `;
 
-export default function Step5Export({ savedQuestions, testTitle, access, onUpdateMarks, onRemove, onReorder, onBack }) {
-  const [downloading, setDownloading] = useState(null); // 'pdf-student'|'pdf-teacher'|'docx-student'|'docx-teacher'
-  const [dragIdx, setDragIdx]   = useState(null);
-  const [overIdx, setOverIdx]   = useState(null);
+export default function Step5Export({ savedQuestions, testTitle, access, onUpdateMarks, onRemove, onReorder, onBack, onNewTest, qTypeFilter, onQTypeFilter }) {
+  const [downloading, setDownloading]   = useState(null);
+  const [dragIdx, setDragIdx]           = useState(null);
+  const [overIdx, setOverIdx]           = useState(null);
+  const [openDropdown, setOpenDropdown] = useState(null); // 'pdf' | 'docx'
 
   const total      = savedQuestions.length;
   const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
   const objCount   = savedQuestions.filter(q => q.question_type === 'OBJ').length;
   const theoryCount = total - objCount;
 
-  // Difficulty breakdown
   const diffCounts = { EASY: 0, MEDIUM: 0, HARD: 0, null: 0 };
   savedQuestions.forEach(q => { diffCounts[q.difficulty || 'null']++; });
   const pct = (k) => total > 0 ? (diffCounts[k] / total * 100).toFixed(1) : 0;
 
-  // ── Drag-to-reorder ──────────────────────────────────────────────────────
+  const displayed = qTypeFilter
+    ? savedQuestions.filter(q => q.question_type === qTypeFilter)
+    : savedQuestions;
+
+  // ── Drag reorder ──────────────────────────────────────────────────────────
   const handleDragStart = (i) => setDragIdx(i);
   const handleDragOver  = (e, i) => { e.preventDefault(); setOverIdx(i); };
   const handleDrop      = (i) => {
     if (dragIdx === null || dragIdx === i) { setDragIdx(null); setOverIdx(null); return; }
-    const reordered = [...savedQuestions];
-    const [moved]   = reordered.splice(dragIdx, 1);
-    reordered.splice(i, 0, moved);
-    onReorder(reordered);
+    const r = [...savedQuestions];
+    const [m] = r.splice(dragIdx, 1);
+    r.splice(i, 0, m);
+    onReorder(r);
     setDragIdx(null); setOverIdx(null);
   };
 
   // ── Download ──────────────────────────────────────────────────────────────
   const download = async (fmt, copyType) => {
-    const key = `${fmt}-${copyType}`;
-    setDownloading(key);
+    setDownloading(`${fmt}-${copyType}`);
+    setOpenDropdown(null);
     try {
       const res = await api.post('questions/download/', {
         question_ids: savedQuestions.map(q => q.id),
-        title:        testTitle,
-        format:       fmt,
-        copy_type:    copyType,
+        title: testTitle, format: fmt, copy_type: copyType,
       }, { responseType: 'blob' });
-
       const url  = URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href  = url;
       link.download = `${testTitle.replace(/\s+/g,'_')}_${copyType}.${fmt}`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('Download failed. Please try again.');
-    } finally {
-      setDownloading(null);
-    }
+    } catch { alert('Download failed. Please try again.'); }
+    finally { setDownloading(null); }
   };
 
-  const isPdfOnly = access?.pdf_only;
-  const isLoading = (key) => downloading === key;
+  const isPdfOnly  = access?.pdf_only;
   const anyLoading = !!downloading;
+
+  // Close dropdown on outside click
+  const closeDropdown = () => setOpenDropdown(null);
 
   return (
     <>
       <style>{styles}</style>
-      <button className="btn-back-sm" onClick={onBack}>← Back</button>
+      {openDropdown && (
+        <div style={{position:'fixed',inset:0,zIndex:99}} onClick={closeDropdown} />
+      )}
 
-      {/* Summary stats */}
-      <div className="s5-summary">
-        <div className="s5-stat"><div className="s5-stat-val accent">{total}</div><div className="s5-stat-label">Questions</div></div>
-        <div className="s5-stat"><div className="s5-stat-val gold">{totalMarks}</div><div className="s5-stat-label">Total Marks</div></div>
-        <div className="s5-stat"><div className="s5-stat-val accent">{objCount}</div><div className="s5-stat-label">Objective</div></div>
-        <div className="s5-stat"><div className="s5-stat-val green">{theoryCount}</div><div className="s5-stat-label">Theory</div></div>
+      {/* ══ Row 1: stats + actions ══ */}
+      <div className="s5-row1">
+        {/* Left half: stats */}
+        <div className="s5-stats-row">
+          <div className="s5-stat"><div className="s5-stat-val accent">{total}</div><div className="s5-stat-label">Questions</div></div>
+          <div className="s5-stat"><div className="s5-stat-val gold">{totalMarks}</div><div className="s5-stat-label">Total Marks</div></div>
+          <div className="s5-stat"><div className="s5-stat-val accent">{objCount}</div><div className="s5-stat-label">Objective</div></div>
+          <div className="s5-stat"><div className="s5-stat-val green">{theoryCount}</div><div className="s5-stat-label">Theory</div></div>
+        </div>
+
+        {/* Right half: My Tests + New Test + Back */}
+        <div className="s5-actions-row">
+          <button className="s5-test-btn my" disabled>My Tests</button>
+          <button className="s5-test-btn new" onClick={onNewTest}>+ New Test</button>
+          <button className="s5-back-btn" onClick={onBack}>← Back to Questions</button>
+        </div>
       </div>
 
-      {/* Difficulty bar */}
+      {/* ══ Row 2: difficulty bar only (export now in step nav row) ══ */}
       {total > 0 && (
-        <div className="diff-bar-wrap">
-          <div className="diff-bar-label">Difficulty breakdown</div>
-          <div className="diff-bar">
-            <div className="diff-bar-seg easy"   style={{width:`${pct('EASY')}%`}} />
-            <div className="diff-bar-seg medium" style={{width:`${pct('MEDIUM')}%`}} />
-            <div className="diff-bar-seg hard"   style={{width:`${pct('HARD')}%`}} />
-            <div className="diff-bar-seg none"   style={{width:`${pct('null')}%`}} />
+        <div className="s5-diff-row">
+          <div className="s5-diff-bar">
+            <div className="s5-diff-seg easy"   style={{width:`${pct('EASY')}%`}} />
+            <div className="s5-diff-seg medium" style={{width:`${pct('MEDIUM')}%`}} />
+            <div className="s5-diff-seg hard"   style={{width:`${pct('HARD')}%`}} />
           </div>
-          <div className="diff-legend">
-            <div className="diff-legend-item"><div className="diff-dot" style={{background:'var(--green)'}} /> Easy {diffCounts.EASY}</div>
-            <div className="diff-legend-item"><div className="diff-dot" style={{background:'var(--gold)'}} /> Medium {diffCounts.MEDIUM}</div>
-            <div className="diff-legend-item"><div className="diff-dot" style={{background:'var(--red)'}} /> Hard {diffCounts.HARD}</div>
-            {diffCounts.null > 0 && <div className="diff-legend-item"><div className="diff-dot" style={{background:'var(--base)'}} /> Unrated {diffCounts.null}</div>}
+          <div className="s5-diff-legend">
+            <div className="s5-diff-legend-item"><div className="s5-diff-dot" style={{background:'var(--green)'}} />Easy {diffCounts.EASY}</div>
+            <div className="s5-diff-legend-item"><div className="s5-diff-dot" style={{background:'var(--gold)'}} />Medium {diffCounts.MEDIUM}</div>
+            <div className="s5-diff-legend-item"><div className="s5-diff-dot" style={{background:'var(--red)'}} />Hard {diffCounts.HARD}</div>
+            {diffCounts.null > 0 && <div className="s5-diff-legend-item"><div className="s5-diff-dot" style={{background:'var(--base)'}} />Unrated {diffCounts.null}</div>}
           </div>
         </div>
       )}
 
-      <div className="s5-layout">
-        {/* ── Left: question list with drag reorder ── */}
-        <div>
-          <div className="q4-list-title" style={{marginBottom:'0.75rem'}}>Question Order <span style={{color:'var(--muted)', fontWeight:400, fontSize:'0.72rem'}}>(drag to reorder)</span></div>
-          {savedQuestions.length === 0 ? (
-            <div style={{color:'var(--muted)', padding:'2rem', textAlign:'center', fontSize:'0.85rem'}}>No questions added yet.</div>
-          ) : (
-            <div className="s5-q-list">
-              {savedQuestions.map((q, i) => (
-                <div
-                  key={q.id}
-                  className={`s5-q-row ${dragIdx === i ? 'dragging' : ''} ${overIdx === i ? 'drag-over' : ''}`}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragOver={(e) => handleDragOver(e, i)}
-                  onDrop={() => handleDrop(i)}
-                  onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
-                >
-                  <span className="s5-drag-handle">⠿</span>
-                  <div className="s5-q-num">{i + 1}</div>
-                  <div className="s5-q-info">
-                    <div className="s5-q-title">
-                      Q{q.question_number} · {q.subject_name} · {q.exam_year ?? '—'}
-                    </div>
-                    <div className="q4-row-tags">
-                      <span className={`q4-tag ${q.question_type === 'OBJ' ? 'obj' : 'theory'}`}>
-                        {q.question_type === 'OBJ' ? 'OBJ' : 'Theory'}
-                      </span>
-                      {q.difficulty && <span className={`q4-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>}
-                    </div>
-                  </div>
-                  {/* Marks editor (especially useful for theory) */}
-                  <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'0.15rem'}}>
-                    <input
-                      className="s5-marks-input"
-                      type="number" min={1} max={50}
-                      value={q.customMarks ?? q.marks ?? 1}
-                      onChange={e => onUpdateMarks(q.id, parseInt(e.target.value) || 1)}
-                    />
-                    <span className="s5-marks-label">marks</span>
-                  </div>
-                  <button className="s5-remove-btn" onClick={() => onRemove(q.id)} title="Remove">✕</button>
+      {/* ══ Main: narrow list (left) + paper preview (right) ══ */}
+      <div className="s5-main">
+
+        {/* ── Left: narrow question list ── */}
+        <div className="s5-q-panel">
+          <div className="s5-q-panel-head">
+            <span>Questions</span>
+            <span style={{fontSize:'0.65rem'}}>{displayed.length} shown</span>
+          </div>
+          <div className="s5-q-scroll">
+            {displayed.length === 0 ? (
+              <div style={{color:'var(--muted)', padding:'1.5rem', textAlign:'center', fontSize:'0.78rem'}}>
+                {total === 0 ? 'No questions added.' : 'No questions match filter.'}
+              </div>
+            ) : displayed.map((q, i) => (
+              <div key={q.id}
+                className={`s5-q-row ${dragIdx === i ? 'dragging' : ''} ${overIdx === i ? 'drag-over' : ''}`}
+                draggable onDragStart={() => handleDragStart(i)}
+                onDragOver={e => handleDragOver(e, i)} onDrop={() => handleDrop(i)}
+                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+              >
+                <span className="s5-drag-handle">⠿</span>
+                <div className="s5-q-num">{i + 1}</div>
+                <div className="s5-q-info">
+                  <div className="s5-q-title">{q.topic_names?.length > 0 ? q.topic_names[0] : q.subject_name}</div>
+                  <div style={{display:'flex', alignItems:'center', gap:'0.3rem', flexWrap:'wrap', marginTop:'0.25rem'}}>
+  <span className={`s5-q-tag ${q.question_type === 'OBJ' ? 'obj' : 'theory'}`}>
+    {q.question_type === 'OBJ' ? 'MCQ' : 'Theory'}
+  </span>
+  {q.exam_year && (
+    <span className="s5-q-tag year">
+      {q.sitting ? q.sitting.replace('MAY_JUNE','May/Jun').replace('NOV_DEC','Nov/Dec').replace('MOCK','Mock') + ' · ' : ''}
+      {String(q.exam_year).slice(-2)}
+    </span>
+  )}
+  {q.difficulty
+    ? <span className={`s5-q-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>
+    : <span className="s5-q-tag unrated">Unrated</span>
+  }
+  <input className="s5-marks-input" type="number" min={1} max={50}
+    value={q.customMarks ?? q.marks ?? 1}
+    onChange={e => onUpdateMarks(q.id, parseInt(e.target.value) || 1)} />
+  <span className="s5-marks-label">marks</span>
+</div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Right: export options ── */}
-        <div className="s5-export-panel">
-          <div className="s5-export-card">
-            <div className="s5-export-title">📄 Student Copy</div>
-            <div className="s5-export-btns">
-              <button className="s5-export-btn primary" disabled={total === 0 || anyLoading} onClick={() => download('pdf', 'student')}>
-                {isLoading('pdf-student') ? <><div className="s5-loading" /> Generating…</> : '⬇ Download PDF'}
-              </button>
-              {!isPdfOnly && (
-                <button className="s5-export-btn secondary" disabled={total === 0 || anyLoading} onClick={() => download('docx', 'student')}>
-                  {isLoading('docx-student') ? <><div className="s5-loading" /> Generating…</> : '⬇ Download Word (.docx)'}
-                </button>
-              )}
-              {isPdfOnly && <div className="pdf-only-note">Upgrade to Teacher Pro to unlock Word downloads.</div>}
-            </div>
-          </div>
-
-          <div className="s5-export-card">
-            <div className="s5-export-title">🔑 Teacher Copy <span style={{fontSize:'0.7rem', color:'var(--muted)'}}>with answers & topics</span></div>
-            <div className="s5-export-btns">
-              <button className="s5-export-btn gold-btn" disabled={total === 0 || anyLoading} onClick={() => download('pdf', 'teacher')}>
-                {isLoading('pdf-teacher') ? <><div className="s5-loading" /> Generating…</> : '⬇ Download PDF (with answers)'}
-              </button>
-              {!isPdfOnly && (
-                <button className="s5-export-btn secondary" disabled={total === 0 || anyLoading} onClick={() => download('docx', 'teacher')}>
-                  {isLoading('docx-teacher') ? <><div className="s5-loading" /> Generating…</> : '⬇ Download Word (with answers)'}
-                </button>
-              )}
-            </div>
+                <div style={{display:'none'}}>
+                  <span className="s5-marks-label">mk</span>
+                </div>
+                <button className="s5-remove-btn" onClick={() => onRemove(q.id)}>✕</button>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* ── Right: paper-style preview ── */}
+        <div className="s5-preview-panel">
+          <div className="s5-preview-head">
+            <span>📄 Paper Preview — {testTitle || 'Untitled Test'}</span>
+            <span style={{fontSize:'0.65rem'}}>{total} question{total !== 1 ? 's' : ''} · {totalMarks} marks</span>
+          </div>
+          <div className="s5-preview-scroll">
+            {savedQuestions.length === 0 ? (
+              <div style={{color:'var(--muted)', padding:'2rem', textAlign:'center', fontSize:'0.82rem'}}>
+                Add questions to see the paper preview.
+              </div>
+            ) : (
+              <>
+                {savedQuestions.map((q, i) => (
+                  <div key={q.id} className="s5-paper-q">
+                    <div className="s5-paper-q-header">
+                      <span className="s5-paper-q-num">{i + 1}.</span>
+                      <div
+                        className="s5-paper-q-content"
+                        dangerouslySetInnerHTML={{ __html: q.content }}
+                      />
+                    </div>
+
+                    {/* Image */}
+                    {q.image && (
+                      <img src={q.image} alt="" className="s5-paper-q-img" />
+                    )}
+
+                    {/* OBJ choices */}
+                    {q.question_type === 'OBJ' && q.choices?.length > 0 && (
+                      <ul className="s5-paper-choices">
+                        {q.choices.map(c => (
+                          <li key={c.id} className="s5-paper-choice">
+                            <span className="s5-paper-choice-label">{c.label}.</span>
+                            <span>{c.choice_text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Theory — show allocated marks */}
+                    {q.question_type === 'THEORY' && (
+                      <div className="s5-paper-marks">
+                        [{q.customMarks ?? q.marks ?? 1} mark{(q.customMarks ?? q.marks ?? 1) !== 1 ? 's' : ''}]
+                      </div>
+                    )}
+
+                    {/* OBJ also shows marks */}
+                    {q.question_type === 'OBJ' && (
+                      <div className="s5-paper-marks" style={{color:'var(--muted)'}}>
+                        [{q.customMarks ?? q.marks ?? 1} mark{(q.customMarks ?? q.marks ?? 1) !== 1 ? 's' : ''}]
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Total marks footer */}
+                <div className="s5-paper-total">
+                  Total: {totalMarks} mark{totalMarks !== 1 ? 's' : ''}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
       </div>
     </>
   );

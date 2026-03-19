@@ -1,0 +1,177 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+
+<style>
+  .ref-body { max-width: 860px; margin: 0 auto; padding: 2.5rem 2rem 5rem; }
+
+  .ref-hero {
+    background: var(--navy); border-radius: 16px;
+    padding: 2.5rem 2rem; margin-bottom: 2rem; text-align: center;
+  }
+  .ref-hero-title {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1.5rem;
+    margin-bottom: 0.4rem; color: #fff;
+  }
+  .ref-hero-sub { font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 1.75rem; line-height: 1.7; }
+
+  .ref-count-row { display: flex; justify-content: center; gap: 2.5rem; margin-bottom: 1.75rem; }
+  .ref-count-item { text-align: center; }
+  .ref-count-val { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 2.2rem; color: var(--cyan); }
+  .ref-count-label { font-size: 0.72rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.15rem; }
+
+  .ref-link-box {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px; padding: 0.65rem 1rem; max-width: 520px; margin: 0 auto;
+  }
+  .ref-link-text {
+    flex: 1; font-size: 0.82rem; color: rgba(255,255,255,0.75);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace;
+  }
+  .btn-copy {
+    background: var(--cream); color: var(--navy); border: none; border-radius: 100px;
+    padding: 0.4rem 1rem; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.78rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-copy:hover { background: #f0d690; }
+  .btn-copy.copied { background: var(--green-bg); color: var(--green); }
+
+  .ref-section-title {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1rem;
+    margin-bottom: 1rem; color: var(--navy);
+  }
+  .ref-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 2rem; }
+  .ref-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.85rem 1.1rem; display: flex; align-items: center; gap: 1rem;
+    box-shadow: 0 1px 3px rgba(11,45,114,0.04);
+  }
+  .ref-item-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(9,146,194,0.1); border: 1px solid rgba(9,146,194,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.85rem; color: var(--blue); flex-shrink: 0;
+  }
+  .ref-item-info { flex: 1; }
+  .ref-item-name { font-size: 0.875rem; font-weight: 600; color: var(--navy); }
+  .ref-item-date { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+  .ref-item-badge {
+    font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px;
+    background: var(--green-bg); color: var(--green);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  .ref-empty {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 3rem; text-align: center; color: var(--muted);
+    font-size: 0.875rem; line-height: 1.7; margin-bottom: 2rem;
+  }
+  .ref-empty span { font-size: 2rem; display: block; margin-bottom: 0.75rem; opacity: 0.5; }
+
+  /* Leaderboard */
+  .ref-leaderboard { margin-bottom: 2rem; }
+  .ref-lb-table { width: 100%; border-collapse: collapse; }
+  .ref-lb-table th {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.7rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .ref-lb-table td {
+    padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border);
+    font-size: 0.85rem; color: var(--muted);
+  }
+  .ref-lb-table tr:last-child td { border-bottom: none; }
+  .ref-lb-table tr:hover td { background: rgba(11,45,114,0.02); }
+  .ref-lb-rank { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1rem; }
+  .ref-lb-rank.gold   { color: #B8860B; }
+  .ref-lb-rank.silver { color: #808080; }
+  .ref-lb-rank.bronze { color: #9C5E2A; }
+  .ref-lb-rank.other  { color: var(--muted); }
+  .ref-lb-count { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; color: var(--blue); }
+  .ref-lb-me { background: rgba(9,146,194,0.04) !important; }
+  .ref-lb-me td { color: var(--navy); }
+</style>
+
+<div class="ref-body">
+
+  <div class="ref-hero">
+    <div class="ref-hero-title">🎁 Refer &amp; Grow</div>
+    <p class="ref-hero-sub">Share your link with friends. Every student who signs up using your link counts as a referral.</p>
+    <div class="ref-count-row">
+      <div class="ref-count-item">
+        <div class="ref-count-val">{{ referral_count }}</div>
+        <div class="ref-count-label">Total Referrals</div>
+      </div>
+    </div>
+    <div class="ref-link-box">
+      <span class="ref-link-text" id="refLink">{{ referral_link }}</span>
+      <button class="btn-copy" id="copyBtn" onclick="copyLink()">Copy Link</button>
+    </div>
+  </div>
+
+  <div class="ref-section-title">Your Referrals</div>
+
+  {% if my_referrals %}
+  <div class="ref-list">
+    {% for ref in my_referrals %}
+    <div class="ref-item">
+      <div class="ref-item-avatar">{{ ref.referred.first_name|first|upper }}{{ ref.referred.last_name|first|upper }}</div>
+      <div class="ref-item-info">
+        <div class="ref-item-name">{{ ref.referred.first_name|default:ref.referred.email }}{% if ref.referred.last_name %} {{ ref.referred.last_name }}{% endif %}</div>
+        <div class="ref-item-date">Joined {{ ref.created_at|date:"N j, Y" }}</div>
+      </div>
+      <span class="ref-item-badge">Referred</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ref-empty">
+    <span>👥</span>
+    You haven't referred anyone yet.<br>
+    Share your link above to get started!
+  </div>
+  {% endif %}
+
+  {% if show_leaderboard %}
+  <div class="ref-leaderboard">
+    <div class="ref-section-title">🏆 Referral Leaderboard</div>
+    <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+      <table class="ref-lb-table">
+        <thead><tr><th style="width:50px">Rank</th><th>Student</th><th style="text-align:right">Referrals</th></tr></thead>
+        <tbody>
+          {% for entry in leaderboard %}
+          <tr {% if entry.referrer__id == user.id %}class="ref-lb-me"{% endif %}>
+            <td>
+              <span class="ref-lb-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% else %}other{% endif %}">
+                {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}#{{ forloop.counter }}{% endif %}
+              </span>
+            </td>
+            <td>
+              {{ entry.referrer__first_name|default:entry.referrer__email }}
+              {% if entry.referrer__id == user.id %}<span style="font-size:0.7rem; color:var(--blue); margin-left:0.4rem;">(you)</span>{% endif %}
+            </td>
+            <td style="text-align:right"><span class="ref-lb-count">{{ entry.total }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('refLink').textContent).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy Link'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+{% endblock %}

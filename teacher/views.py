@@ -15,6 +15,10 @@ from docx import Document as DocxDocument
 from docx.oxml.ns import qn
 from django.core.files.base import ContentFile
 from django.db import transaction
+from Users.models import Referral, CustomUser
+from django.db.models import Count
+from django.utils import timezone
+from datetime import timedelta
 
 from catalog.models import LessonNote
 from catalog.feature_flags import feature_required, is_feature_enabled
@@ -732,3 +736,38 @@ def _parse_docx(file_bytes):
             questions.append(q)
  
     return header, questions
+
+
+@admin_required
+def referral_analytics(request):
+    """Admin view showing referral statistics and top referrers.""" 
+    total_referrals = Referral.objects.count()
+    total_referring_users = Referral.objects.values('referrer').distinct().count()
+ 
+    # Last 30 days
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    recent_referrals = Referral.objects.filter(created_at__gte=thirty_days_ago).count()
+ 
+    # Top referrers
+    top_referrers = (
+        Referral.objects
+        .values('referrer__id', 'referrer__first_name', 'referrer__last_name', 'referrer__email')
+        .annotate(total=Count('id'))
+        .order_by('-total')[:20]
+    )
+ 
+    # Recent referral events
+    recent_events = (
+        Referral.objects
+        .select_related('referrer', 'referred')
+        .order_by('-created_at')[:15]
+    )
+ 
+    context = {
+        'total_referrals':       total_referrals,
+        'total_referring_users': total_referring_users,
+        'recent_referrals':      recent_referrals,
+        'top_referrers':         top_referrers,
+        'recent_events':         recent_events,
+    }
+    return render(request, 'teacher/referral_analytics.html', context)

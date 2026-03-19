@@ -13,4 +13,5 @@ urlpatterns = [
     path('lesson-notes/',  views.lesson_notes,       name='lesson_notes'),
     path('feature-flags/', views.feature_flags_page, name='feature_flags'),
     path('feature-flags/toggle/', views.toggle_flag, name='toggle_flag'),
+    path('referral-analytics/', views.referral_analytics, name='referral_analytics'),
 ]

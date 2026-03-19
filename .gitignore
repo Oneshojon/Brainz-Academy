@@ -1,6 +1,6 @@
 # Files/folders
 src7/
-
+*.png
 # Byte-compiled / optimized files
 __pycache__/
 *.py[cod]

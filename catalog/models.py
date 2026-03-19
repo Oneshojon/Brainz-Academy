@@ -255,6 +255,13 @@ class FeatureFlag(models.Model):
 # Call _seed_flags() once after running migrations.
 
 INITIAL_FLAGS = [
+    {
+    'key':         'referral_leaderboard',
+    'label':       'Referral Leaderboard',
+    'description': 'Shows public referral leaderboard on the referrals page.',
+    'is_enabled':  False,   # admin toggles this on when ready
+    'visible_to':  'STUDENT',
+},
     {'key': 'test_builder_random',
      'label': 'Test Builder — Random Mode', 
      'is_enabled': True, 

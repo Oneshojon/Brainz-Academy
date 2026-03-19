@@ -1,18 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap");
 
 :root {
-  --black: #0e1f2c;
-  --deep: #162736;
-  --card: #1e3347;
-  --base: #355872;
-  --border: rgba(122, 170, 206, 0.18);
-  --border-hover: rgba(156, 213, 255, 0.35);
-  --accent: #9cd5ff;
-  --accent-dim: rgba(156, 213, 255, 0.12);
-  --mid: #7aaace;
-  --text: #f7f8f0;
-  --muted: rgba(247, 248, 240, 0.45);
-  --muted-light: rgba(247, 248, 240, 0.7);
+  --black: #ffffff;
+  --deep: #f4f6f9;
+  --card: #ffffff;
+  --base: #c8d6e5;
+  --border: rgba(11, 45, 114, 0.12);
+  --border-hover: rgba(11, 45, 114, 0.25);
+  --accent: #0992c2;
+  --accent-dim: rgba(9, 146, 194, 0.1);
+  --mid: #0b2d72;
+  --text: #0b2d72;
+  --muted: rgba(11, 45, 114, 0.45);
+  --muted-light: rgba(11, 45, 114, 0.7);
   --gold: #f5c842;
   --gold-dim: rgba(245, 200, 66, 0.12);
   --red: #f87171;

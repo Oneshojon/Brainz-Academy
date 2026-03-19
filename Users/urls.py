@@ -10,4 +10,6 @@ urlpatterns = [
     path('verify/', views.verify_otp, name="verify_otp"),
     path('logout_view/', views.logout_view, name='logout'),
     path('pricing/', views.pricing, name='pricing'),
+    path('referrals/', views.referrals, name='referrals'),
+    
 ]

@@ -1,53 +1,156 @@
 {% extends 'Users/layout.html' %}
 {% load static %}
-
-
 {% block body %}
+
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
 
 <style>
-  .revision-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.75rem; align-items: start; }
+  .revision-layout {
+    display: grid; grid-template-columns: 260px 1fr;
+    gap: 1.75rem; align-items: start;
+  }
 
-  /* Sidebar filters */
-  .revision-sidebar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; position: sticky; top: 80px; }
+  /* ── Sidebar ── */
+  .revision-sidebar {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; position: sticky; top: 80px;
+    box-shadow: 0 2px 12px rgba(11,45,114,0.07);
+  }
   .sidebar-section { margin-bottom: 1.25rem; }
   .sidebar-section:last-child { margin-bottom: 0; }
-  .sidebar-section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.6rem; }
-  .rev-select { width: 100%; background: var(--deep); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 0.85rem; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; outline: none; cursor: pointer; appearance: none; }
-  .rev-select:focus { border-color: rgba(156,213,255,0.4); }
-  .rev-select option { background: #1e3347; }
+  .sidebar-section-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--muted); margin-bottom: 0.6rem;
+  }
+  .rev-select {
+    width: 100%; background: var(--offwhite, #F3F6FA);
+    border: 1.5px solid var(--border); color: var(--text);
+    padding: 0.65rem 0.9rem; border-radius: 10px;
+    font-family: 'Inter', sans-serif; font-size: 0.875rem;
+    outline: none; cursor: pointer; appearance: none;
+    box-shadow: 0 1px 3px rgba(11,45,114,0.06);
+    transition: border-color 0.2s;
+  }
+  .rev-select:focus { border-color: var(--blue, #0992C2); box-shadow: 0 0 0 3px rgba(9,146,194,0.08); }
+  .rev-select option { background: #ffffff; }
 
-  .topic-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 300px; overflow-y: auto; }
-  .topic-link { display: block; padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.85rem; text-decoration: none; color: var(--muted-light); transition: all 0.15s; border: 1px solid transparent; }
-  .topic-link:hover { background: var(--deep); color: var(--text); }
-  .topic-link.active { background: var(--accent-dim); border-color: rgba(156,213,255,0.25); color: var(--accent); }
+  .topic-list {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    max-height: 300px; overflow-y: auto;
+  }
+  .topic-link {
+    display: block; padding: 0.5rem 0.75rem; border-radius: 8px;
+    font-size: 0.85rem; text-decoration: none; color: var(--muted);
+    transition: all 0.15s; border: 1.5px solid transparent;
+  }
+  .topic-link:hover { background: var(--offwhite, #F3F6FA); color: var(--navy, #0B2D72); border-color: var(--border); }
+  .topic-link.active {
+    background: rgba(11,45,114,0.06); border-color: rgba(11,45,114,0.2);
+    color: var(--navy, #0B2D72); font-weight: 600;
+  }
 
-  /* Question cards */
-  .revision-question { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 0.85rem; transition: border-color 0.2s; }
-  .revision-question:hover { border-color: var(--border-hover); }
-  .rev-q-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; }
-  .rev-q-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem; color: var(--muted); background: var(--deep); border: 1px solid var(--border); padding: 0.2rem 0.55rem; border-radius: 6px; flex-shrink: 0; }
-  .rev-q-type { font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
-  .rev-q-type.obj { background: var(--accent-dim); color: var(--accent); }
-  .rev-q-type.theory { background: var(--gold-dim); color: var(--gold); }
-  .rev-q-preview { flex: 1; font-size: 0.875rem; color: var(--muted-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rev-bm-btn { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted); transition: color 0.15s; padding: 0.2rem; flex-shrink: 0; }
-  .rev-bm-btn:hover { color: var(--gold); }
-  .rev-bm-btn.bookmarked { color: var(--gold); }
-  .rev-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; flex-shrink: 0; }
+  .btn-practice {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; padding: 0.65rem; border-radius: 100px;
+    background: var(--navy, #0B2D72); color: #ffffff; border: none;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.875rem; text-decoration: none; transition: all 0.15s;
+    box-shadow: 0 4px 12px rgba(11,45,114,0.2);
+  }
+  .btn-practice:hover { background: #0a2360; transform: translateY(-1px); }
+  .btn-practice:active { transform: scale(0.97); }
+
+  /* ── Question Cards ── */
+  .revision-question {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 14px; overflow: hidden; margin-bottom: 0.75rem;
+    transition: all 0.15s; border-left: 4px solid var(--border);
+    box-shadow: 0 1px 4px rgba(11,45,114,0.05);
+  }
+  .revision-question:hover { border-left-color: var(--navy, #0B2D72); box-shadow: 0 4px 16px rgba(11,45,114,0.1); }
+
+  .rev-q-header {
+    padding: 1rem 1.25rem; display: flex; align-items: center;
+    gap: 0.75rem; cursor: pointer; transition: background 0.15s;
+  }
+  .rev-q-header:hover { background: var(--offwhite, #F3F6FA); }
+  .rev-q-header:active { background: #EEF3FA; }
+
+  .rev-q-num {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.78rem;
+    background: var(--navy, #0B2D72); color: #ffffff;
+    padding: 0.2rem 0.6rem; border-radius: 5px; flex-shrink: 0;
+  }
+  .rev-q-type {
+    font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.55rem;
+    border-radius: 100px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+  }
+  .rev-q-type.obj    { background: rgba(9,146,194,0.08); color: var(--blue, #0992C2); }
+  .rev-q-type.theory { background: var(--gold-bg, #FEF3C7); color: var(--gold, #B8860B); }
+  .rev-q-preview {
+    flex: 1; font-size: 0.875rem; color: var(--muted); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .rev-bm-btn {
+    background: none; border: none; cursor: pointer; font-size: 1rem;
+    color: var(--muted); transition: all 0.15s; padding: 0.2rem 0.3rem;
+    border-radius: 5px; flex-shrink: 0;
+  }
+  .rev-bm-btn:hover { background: var(--offwhite, #F3F6FA); transform: scale(1.1); }
+  .rev-bm-btn:active { transform: scale(0.9); }
+  .rev-bm-btn.bookmarked { color: var(--gold, #B8860B); }
+
+  .rev-chevron { color: var(--muted); font-size: 0.7rem; transition: transform 0.2s; flex-shrink: 0; }
   .revision-question.expanded .rev-chevron { transform: rotate(180deg); }
 
-  .rev-q-body { padding: 0 1.25rem 1.25rem; display: none; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .rev-q-body {
+    padding: 1.25rem 1.5rem; display: none;
+    border-top: 1px solid var(--border); background: var(--offwhite, #F3F6FA);
+  }
   .revision-question.expanded .rev-q-body { display: block; }
 
-  .rev-q-content { font-size: 0.975rem; line-height: 1.75; margin-bottom: 1.25rem; }
-  .rev-choices { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
-  .rev-choice { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--deep); font-size: 0.875rem; }
-  .rev-choice.correct { background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
-  .rev-choice-label { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.75rem; background: var(--card); border: 1px solid var(--border); flex-shrink: 0; }
-  .rev-choice.correct .rev-choice-label { background: var(--green); color: #000; border-color: var(--green); }
+  .rev-q-content { font-size: 0.975rem; line-height: 1.75; margin-bottom: 1.25rem; color: var(--text); }
 
-  .rev-no-topics { font-size: 0.825rem; color: var(--muted); font-style: italic; }
+  .rev-choices { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+  .rev-choice {
+    display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.9rem;
+    border-radius: 10px; border: 1.5px solid var(--border); background: var(--card);
+    font-size: 0.875rem; transition: all 0.15s;
+  }
+  .rev-choice.correct {
+    background: var(--green-bg, #DCFCE7); border-color: rgba(21,128,61,0.3);
+  }
+  .rev-choice-label {
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.75rem; background: var(--offwhite, #F3F6FA);
+    border: 1.5px solid var(--border); flex-shrink: 0; color: var(--muted);
+  }
+  .rev-choice.correct .rev-choice-label { background: var(--green, #15803D); color: #fff; border-color: var(--green, #15803D); }
+
+  .rev-explanation {
+    font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin-top: 0.75rem;
+    background: var(--gold-bg, #FEF3C7); border: 1px solid rgba(184,134,11,0.2);
+    border-radius: 8px; padding: 0.75rem 1rem;
+  }
+
+  .rev-model-answer {
+    background: var(--green-bg, #DCFCE7); border: 1px solid rgba(21,128,61,0.2);
+    border-radius: 10px; padding: 1rem;
+  }
+  .rev-model-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--green, #15803D); margin-bottom: 0.5rem;
+  }
+  .rev-model-text { font-size: 0.875rem; line-height: 1.7; color: var(--text); }
+
+  .rev-video-link {
+    display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem;
+    font-size: 0.8rem; font-weight: 600; color: var(--blue, #0992C2); text-decoration: none;
+    padding: 0.35rem 0.85rem; background: rgba(9,146,194,0.08);
+    border: 1.5px solid rgba(9,146,194,0.2); border-radius: 100px; transition: all 0.15s;
+  }
+  .rev-video-link:hover { border-color: var(--blue, #0992C2); background: rgba(9,146,194,0.12); }
 
   @media (max-width: 768px) {
     .revision-layout { grid-template-columns: 1fr; }
@@ -55,11 +158,10 @@
   }
 </style>
 
-<div class="page-body" style="max-width:1100px;">
-
+<div class="page-body" style="max-width:1100px">
   <div class="page-eyebrow">Practice</div>
   <h1 class="page-title">Revision</h1>
-  <p class="pa  ge-sub">Browse questions by topic without a timer. Perfect for focused revision.</p>
+  <p class="page-sub">Browse questions by topic without a timer. Perfect for focused revision.</p>
 
   <div class="revision-layout">
 
@@ -71,16 +173,27 @@
           <select class="rev-select" name="subject" onchange="this.form.submit()">
             <option value="">— Select Subject —</option>
             {% for subject in subjects %}
-            <option value="{{ subject.id }}" {% if selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+            <option value="{{ subject.id }}" {% if selected_subject.id == subject.id %}selected{% endif %}>
+              {{ subject.name }}
+            </option>
             {% endfor %}
           </select>
         </form>
       </div>
 
       {% if topics %}
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">Topic</div>
-        <div class="topic-list">
+<div class="sidebar-section">
+  <div class="sidebar-section-label">Topic</div>
+  <input type="text" id="topicSearch" placeholder="Search topics..."
+    oninput="filterTopics(this.value)"
+    style="width:100%; background:#fff; border:1.5px solid var(--border);
+           color:var(--text); padding:0.55rem 0.75rem; border-radius:8px;
+           font-family:'Inter',sans-serif; font-size:0.82rem; outline:none;
+           margin-bottom:0.5rem; transition:border-color 0.2s;
+           box-shadow:0 1px 3px rgba(11,45,114,0.06);"
+    onfocus="this.style.borderColor='var(--blue)'"
+    onblur="this.style.borderColor='var(--border)'">
+  <div class="topic-list" id="topicList">
           {% for topic in topics %}
           <a href="?subject={{ selected_subject.id }}&topic={{ topic.id }}"
              class="topic-link {% if selected_topic.id == topic.id %}active{% endif %}">
@@ -93,7 +206,7 @@
 
       {% if selected_subject %}
       <div class="sidebar-section">
-        <a href="{% url 'practice:practice_home' %}?subject={{ selected_subject.id }}" class="btn btn-primary" style="width:100%; justify-content:center;">
+        <a href="{% url 'practice:practice_home' %}?subject={{ selected_subject.id }}" class="btn-practice">
           ⚡ Practice {{ selected_subject.name }}
         </a>
       </div>
@@ -103,61 +216,81 @@
     <!-- Questions -->
     <div>
       {% if selected_topic %}
-        <div style="margin-bottom:1rem;">
-          <div class="section-label">{{ selected_subject.name }}</div>
-          <div class="section-title">{{ selected_topic.name }} <span style="font-size:0.85rem; color:var(--muted); font-family:'DM Sans',sans-serif; font-weight:400;">({{ questions|length }} question{{ questions|length|pluralize }})</span></div>
+      <div style="margin-bottom:1rem;">
+        <div class="section-label">{{ selected_subject.name }}</div>
+        <div class="section-title">
+          {{ selected_topic.name }}
+          <span style="font-size:0.85rem; color:var(--muted); font-weight:400;">
+            ({{ questions|length }} question{{ questions|length|pluralize }})
+          </span>
         </div>
+      </div>
 
-        {% if questions %}
-          {% for item in questions %}
-          <div class="revision-question" id="rev-q-{{ item.question.id }}">
-            <div class="rev-q-header" onclick="toggleRevQ({{ item.question.id }})">
-              <span class="rev-q-num">Q{{ item.question.question_number }}</span>
-              <span class="rev-q-type {% if item.question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">{% if item.question.question_type == 'OBJ' %}OBJ{% else %}Theory{% endif %}</span>
-              <span class="rev-q-preview">{{ item.question.content|truncatechars:80 }}</span>
-              <button class="rev-bm-btn {% if item.is_bookmarked %}bookmarked{% endif %}" onclick="event.stopPropagation(); toggleRevBookmark({{ item.question.id }}, this)">{% if item.is_bookmarked %}🔖{% else %}🏷️{% endif %}</button>
-              <span class="rev-chevron">▼</span>
-            </div>
-            <div class="rev-q-body">
-              <p class="rev-q-content">{{ item.question.content }}</p>
-              {% if item.question.image %}<img src="{{ item.question.image.url }}" style="max-width:100%; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);">{% endif %}
+      {% if questions %}
+        {% for item in questions %}
+        <div class="revision-question expanded" id="rev-q-{{ item.question.id }}">
+          <div class="rev-q-header" onclick="toggleRevQ({{ item.question.id }})">
+            <span class="rev-q-num">Q{{ item.question.question_number }}</span>
+            <span class="rev-q-type {% if item.question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">
+              {% if item.question.question_type == 'OBJ' %}OBJ{% else %}Theory{% endif %}
+            </span>
+            <span class="rev-q-preview">{{ item.question.content|truncatechars:80 }}</span>
+            <button class="rev-bm-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
+              onclick="event.stopPropagation(); toggleRevBookmark({{ item.question.id }}, this)">
+              {% if item.is_bookmarked %}🔖{% else %}🏷️{% endif %}
+            </button>
+            <span class="rev-chevron">▼</span>
+          </div>
+          <div class="rev-q-body">
+            <p class="rev-q-content">{{ item.question.content }}</p>
+            {% if item.question.image %}
+              <img src="{{ item.question.image.url }}"
+                style="max-width:min(100%,480px); height:auto; display:block; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
+            {% endif %}
 
-              {% if item.question.question_type == 'OBJ' %}
+            {% if item.question.question_type == 'OBJ' %}
               <ul class="rev-choices">
                 {% for choice in item.question.choices.all %}
                 <li class="rev-choice {% if choice.is_correct %}correct{% endif %}">
                   <span class="rev-choice-label">{{ choice.label }}</span>
                   <span>{{ choice.choice_text }}</span>
-                  {% if choice.is_correct %}<span style="margin-left:auto; font-size:0.72rem; color:var(--green); font-weight:700;">✓ Correct</span>{% endif %}
+                  {% if choice.is_correct %}
+                    <span style="margin-left:auto; font-size:0.72rem; color:var(--green); font-weight:700;">✓ Correct</span>
+                  {% endif %}
                 </li>
                 {% endfor %}
               </ul>
-              {% if item.question.choices.filter %}
-                {% for choice in item.question.choices.all %}{% if choice.is_correct and choice.explanation %}<p style="font-size:0.8rem; color:var(--muted); font-style:italic; margin-top:0.75rem;">💡 {{ choice.explanation }}</p>{% endif %}{% endfor %}
-              {% endif %}
-              {% else %}
+              {% for choice in item.question.choices.all %}
+                {% if choice.is_correct and choice.explanation %}
+                  <p class="rev-explanation">💡 {{ choice.explanation }}</p>
+                {% endif %}
+                {% if choice.is_correct and choice.video_url %}
+                  <a href="{{ choice.video_url }}" target="_blank" rel="noreferrer" class="rev-video-link">▶ Watch explanation</a>
+                {% endif %}
+              {% endfor %}
+
+            {% else %}
               {% if item.question.theory_answer %}
-              <div style="background:rgba(245,200,66,0.06); border:1px solid rgba(245,200,66,0.15); border-radius:8px; padding:1rem;">
-                <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); margin-bottom:0.5rem;">Model Answer</div>
-                <p style="font-size:0.875rem; color:var(--muted-light); line-height:1.7;">{{ item.question.theory_answer.content }}</p>
+              <div class="rev-model-answer">
+                <div class="rev-model-label">Model Answer</div>
+                <p class="rev-model-text">{{ item.question.theory_answer.content }}</p>
               </div>
+              {% if item.question.theory_answer.video_url %}
+                <a href="{{ item.question.theory_answer.video_url }}" target="_blank" rel="noreferrer" class="rev-video-link" style="margin-top:0.75rem;">▶ Watch walkthrough</a>
               {% endif %}
               {% endif %}
-
-              {% if item.question.theory_answer.video_url or item.question.choices.all %}
-                {% for choice in item.question.choices.all %}{% if choice.is_correct and choice.video_url %}<a href="{{ choice.video_url }}" target="_blank" rel="noreferrer" style="display:inline-flex; align-items:center; gap:0.4rem; margin-top:0.85rem; font-size:0.8rem; font-weight:600; color:var(--mid); text-decoration:none; padding:0.35rem 0.8rem; background:var(--mid-dim); border:1px solid rgba(122,170,206,0.2); border-radius:6px;">▶ Watch explanation</a>{% endif %}{% endfor %}
-              {% endif %}
-            </div>
+            {% endif %}
           </div>
-          {% endfor %}
-
-        {% else %}
-        <div class="empty-state">
-          <span class="empty-icon">📖</span>
-          <div class="empty-title">No questions for this topic</div>
-          <div class="empty-desc">Questions haven't been added to this topic yet.</div>
         </div>
-        {% endif %}
+        {% endfor %}
+
+      {% else %}
+      <div class="empty-state">
+        <span class="empty-icon">📖</span>
+        <div class="empty-title">No questions for this topic</div>
+        <div class="empty-desc">Questions haven't been added to this topic yet.</div>
+      </div>
+      {% endif %}
 
       {% elif selected_subject %}
       <div class="empty-state">
@@ -179,32 +312,29 @@
 </div>
 
 <script>
-  const CSRF = '{{ csrf_token }}';
+  const CSRF = "{{ csrf_token }}";
   const BOOKMARK_URL = '{% url "practice:toggle_bookmark" %}';
 
   function toggleRevQ(id) {
     document.getElementById(`rev-q-${id}`)?.classList.toggle('expanded');
   }
-
   function toggleRevBookmark(questionId, btn) {
     fetch(BOOKMARK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ question_id: questionId })
-    })
-    .then(r => r.json())
-    .then(res => {
+      body: JSON.stringify({ question_id: questionId }),
+    }).then(r => r.json()).then(res => {
       btn.classList.toggle('bookmarked', res.bookmarked);
       btn.textContent = res.bookmarked ? '🔖' : '🏷️';
     });
   }
+
+  function filterTopics(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#topicList .topic-link').forEach(link => {
+    link.style.display = link.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
 </script>
 
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.revision-question').forEach(card => {
-      card.classList.add('expanded');
-    });
-  });
-</script>
 {% endblock %}

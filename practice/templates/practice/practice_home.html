@@ -1,7 +1,7 @@
 {% extends 'Users/layout.html' %}
 {% load static %}
-
 {% block body %}
+
 <link rel="stylesheet" href="{% static 'practice/css/practice_home.css' %}">
 
 <div id="practice-data"
@@ -9,81 +9,51 @@
   data-years-url="{% url 'catalog:available-years' %}"
   data-is-free="{{ access.is_free|yesno:'true,false' }}"
   data-max-questions="{{ access.max_questions }}"
-  style="display:none">
-</div>
+  style="display:none"></div>
 
 <div class="practice-body">
-
   <div class="page-eyebrow">Practice</div>
   <h1 class="page-title">Start a Session</h1>
   <p class="page-sub">Choose your exam, subject and preferences to begin.</p>
 
+  {# ── Free plan banners ── #}
   {% if access.is_free %}
     {% if not access.allowed %}
-    <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3);
-                border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.5rem;
-                display:flex; align-items:center; justify-content:space-between;
-                gap:1rem; flex-wrap:wrap;">
-      <div style="display:flex; align-items:center; gap:0.75rem;">
-        <span style="font-size:1.25rem;">🚫</span>
-        <div>
-          <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:0.9rem; color:var(--red); margin-bottom:0.15rem;">
-            Daily Limit Reached
-          </div>
-          <div style="font-size:0.8rem; color:var(--muted); line-height:1.5;">
-            You've used all <strong style="color:var(--text);">5 free sessions</strong> for today.
-            Come back tomorrow or upgrade for unlimited access.
-          </div>
+    <div class="limit-banner">
+      <div>
+        <div class="limit-banner-title">🚫 Daily Limit Reached</div>
+        <div class="limit-banner-sub">
+          You've used all <strong>5 free sessions</strong> for today.
+          Come back tomorrow or upgrade for unlimited access.
         </div>
       </div>
-      <a href="{% url 'Users:pricing' %}"
-         style="display:inline-block; padding:0.55rem 1.3rem; border-radius:9px;
-                background:var(--accent); color:var(--black);
-                font-family:'Syne',sans-serif; font-weight:700; font-size:0.82rem;
-                text-decoration:none; white-space:nowrap; flex-shrink:0;">
-        Upgrade Now →
-      </a>
+      <a href="{% url 'Users:pricing' %}" class="btn-upgrade-red">Upgrade Now →</a>
     </div>
-
     {% else %}
-    <div style="background:linear-gradient(120deg,rgba(245,200,66,0.07),rgba(156,213,255,0.04));
-                border:1px solid rgba(245,200,66,0.28); border-radius:12px;
-                padding:1rem 1.25rem; margin-bottom:1.5rem;">
-      <div style="display:flex; align-items:center; justify-content:space-between;
-                  gap:1rem; flex-wrap:wrap; margin-bottom:0.65rem;">
-        <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1rem;">🏷️</span>
-          <div>
-            <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:0.82rem; color:var(--gold);">
-              Free Plan
-            </div>
-            <div style="font-size:0.76rem; color:var(--muted-light); margin-top:0.1rem; line-height:1.5;">
-              {{ access.sessions_left }} session{{ access.sessions_left|pluralize }} left today
-              &nbsp;·&nbsp; Max {{ access.max_questions }} questions per session
-            </div>
+    <div class="free-banner">
+      <div class="free-banner-row">
+        <div>
+          <div class="free-banner-title">🏷️ Free Plan</div>
+          <div class="free-banner-sub">
+            {{ access.sessions_left }} session{{ access.sessions_left|pluralize }} left today
+            &nbsp;·&nbsp; Max {{ access.max_questions }} questions per session
           </div>
         </div>
-        <a href="{% url 'Users:pricing' %}"
-           style="display:inline-block; padding:0.5rem 1.2rem; border-radius:8px;
-                  background:var(--gold); color:#0e1f2c;
-                  font-family:'Syne',sans-serif; font-weight:700; font-size:0.78rem;
-                  text-decoration:none; white-space:nowrap; flex-shrink:0;">
-          Upgrade →
-        </a>
+        <a href="{% url 'Users:pricing' %}" class="btn-upgrade-sm">Upgrade →</a>
       </div>
-      <div style="height:5px; background:var(--deep); border-radius:100px; overflow:hidden;">
-        <div style="height:100%; border-radius:100px; background:var(--gold); transition:width 0.4s ease;
-                    width:{% widthratio access.sessions_left 5 100 %}%;"></div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:{% widthratio access.sessions_left 5 100 %}%"></div>
       </div>
     </div>
     {% endif %}
   {% endif %}
 
+  {# ── Error banner ── #}
   {% if error %}
   <div class="error-banner">
     ⚠️ {{ error }}
     {% if show_upgrade %}
-      <a href="{% url 'Users:pricing' %}" style="margin-left:0.75rem; color:var(--accent); font-weight:700;">Upgrade →</a>
+      <a href="{% url 'Users:pricing' %}" style="margin-left:0.75rem; color:var(--blue); font-weight:700">Upgrade →</a>
     {% endif %}
   </div>
   {% endif %}
@@ -93,6 +63,7 @@
     <input type="hidden" name="session_type" id="session_type_input" value="EXAM">
     <input type="hidden" name="question_type" id="question_type_input" value="OBJ">
 
+    {# ── Session type ── #}
     <div class="session-type-row">
       <button type="button" class="session-type-btn" id="stype-EXAM" onclick="setSessionType('EXAM')">
         <span class="stype-icon">📝</span>
@@ -155,21 +126,19 @@
       <div class="form-group full">
         <label class="form-label">Question Type</label>
         <div class="qtype-toggle">
-          <button type="button" class="qtype-btn" data-val="OBJ"    onclick="setQType('OBJ')">Objective (OBJ)</button>
+          <button type="button" class="qtype-btn" data-val="OBJ" onclick="setQType('OBJ')">Objective (OBJ)</button>
           <button type="button" class="qtype-btn" data-val="THEORY" onclick="setQType('THEORY')">Theory</button>
-          <button type="button" class="qtype-btn" data-val=""       onclick="setQType('')">Both</button>
+          <button type="button" class="qtype-btn" data-val="" onclick="setQType('')">Both</button>
         </div>
       </div>
 
       <div class="form-group full">
-        <label class="form-label" for="num_questions">
+        <label class="form-label">
           Number of Questions
           {% if access.is_free %}
-            <span style="font-size:0.72rem; font-weight:600; color:var(--gold);
-                         background:rgba(245,200,66,0.1); border:1px solid rgba(245,200,66,0.2);
-                         padding:0.15rem 0.5rem; border-radius:100px; margin-left:0.4rem;">
-              Free: max {{ access.max_questions }} · random
-            </span>
+          <span style="font-size:0.7rem; font-weight:600; color:var(--gold); background:var(--gold-bg); border:1px solid rgba(184,134,11,0.2); padding:0.12rem 0.5rem; border-radius:100px; margin-left:0.4rem;">
+            Free: max {{ access.max_questions }} · random
+          </span>
           {% endif %}
         </label>
 
@@ -179,21 +148,17 @@
         </div>
         <input type="number" class="form-input" name="num_questions" id="num_questions"
                value="{{ access.max_questions }}" min="1" max="{{ access.max_questions }}"
-               readonly style="width:120px; opacity:0.6; cursor:not-allowed;">
-        <div style="font-size:0.75rem; color:var(--muted); margin-top:0.5rem; line-height:1.6;">
+               readonly style="width:120px; opacity:0.6; cursor:not-allowed">
+        <div class="lock-note">
           🔒 Questions are chosen randomly.
-          <a href="{% url 'Users:pricing' %}"
-             style="color:var(--accent); font-weight:700; text-decoration:none; border-bottom:1px solid rgba(156,213,255,0.3);">
-            Upgrade
-          </a>
-          to choose any amount and filter freely.
+          <a href="{% url 'Users:pricing' %}">Upgrade</a> to choose any amount and filter freely.
         </div>
         {% else %}
         <div class="quick-nums">
-          <button type="button" class="quick-num" data-val="10"  onclick="setNum(10)">10</button>
-          <button type="button" class="quick-num" data-val="20"  onclick="setNum(20)">20</button>
-          <button type="button" class="quick-num" data-val="40"  onclick="setNum(40)">40</button>
-          <button type="button" class="quick-num" data-val="60"  onclick="setNum(60)">60</button>
+          <button type="button" class="quick-num" data-val="10" onclick="setNum(10)">10</button>
+          <button type="button" class="quick-num" data-val="20" onclick="setNum(20)">20</button>
+          <button type="button" class="quick-num" data-val="40" onclick="setNum(40)">40</button>
+          <button type="button" class="quick-num" data-val="60" onclick="setNum(60)">60</button>
           <button type="button" class="quick-num" data-val="100" onclick="setNum(100)">100</button>
         </div>
         <input type="number" class="form-input" name="num_questions" id="num_questions"
@@ -202,7 +167,7 @@
       </div>
     </div>
 
-    <div id="topic-section" style="display:none; margin-bottom:1.25rem;">
+    <div id="topic-section" style="display:none; margin-bottom:1.25rem">
       <hr class="section-divider">
       <div class="form-group">
         <label class="form-label">Topics <span class="optional">(select one or more)</span></label>
@@ -217,13 +182,12 @@
     <div class="form-footer">
       <div class="form-summary" id="summary-text">—</div>
       {% if access.allowed %}
-        <button type="submit" class="btn-start">Start Session →</button>
+      <button type="submit" class="btn-start">Start Session →</button>
       {% else %}
-        <button type="button" class="btn-start"
-                style="opacity:0.45; cursor:not-allowed;"
-                onclick="alert('You\'ve used all 5 free sessions for today. Come back tomorrow or upgrade.')">
-          Start Session →
-        </button>
+      <button type="button" class="btn-start" style="opacity:0.4; cursor:not-allowed"
+        onclick="alert('You\'ve used all 5 free sessions for today. Come back tomorrow or upgrade.')">
+        Start Session →
+      </button>
       {% endif %}
     </div>
   </form>
@@ -235,12 +199,9 @@
       {% for session in recent_sessions %}
       <a href="{% url 'practice:results_page' session.id %}" class="recent-card">
         <div class="recent-card-title">
-          {{ session.subject|default:"General" }}
-          {% if session.exam_series %} · {{ session.exam_series }}{% endif %}
+          {{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
         </div>
-        <div class="recent-card-meta">
-          {{ session.started_at|date:"M j, Y" }} · {{ session.get_session_type_display }}
-        </div>
+        <div class="recent-card-meta">{{ session.started_at|date:"M j, Y" }} · {{ session.get_session_type_display }}</div>
         {% if session.score_percentage is not None %}
           {% if session.score_percentage >= 70 %}
             <div class="recent-card-score score-high">{{ session.score_percentage }}%</div>

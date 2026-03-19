@@ -155,23 +155,104 @@ def verify_otp(request):
 
 
 @login_required
-def dashboard(request):
+def referrals(request):
+    """
+    Student referral page — shows all referrals made by this user,
+    their shareable link, and the leaderboard if admin has enabled it.
+    """
+    from Users.models import Referral
+    from catalog.models import FeatureFlag
+ 
     user = request.user
-    
-    # Last 3 practice sessions
-    recent_sessions = PracticeSession.objects.filter(
-        user=user, completed_at__isnull=False
-    ).select_related('subject', 'exam_series').order_by('-completed_at')[:3]
-
-    # Last completed session for score display
-    last_session = recent_sessions.first()
-
+ 
+    # Generate referral code if not set
+    if not user.referral_code:
+        user.referral_code = str(uuid.uuid4())[:8].upper()
+        user.save(update_fields=['referral_code'])
+ 
+    # All referrals made by this user
+    my_referrals = (
+        Referral.objects
+        .filter(referrer=user)
+        .select_related('referred')
+        .order_by('-created_at')
+    )
+ 
+    # Shareable link
+    referral_link = request.build_absolute_uri(f'/?ref={user.referral_code}')
+ 
+    # Leaderboard — only shown if admin has enabled the flag
+    show_leaderboard = FeatureFlag.objects.filter(
+        key='referral_leaderboard', is_enabled=True
+    ).exists()
+ 
+    leaderboard = []
+    if show_leaderboard:
+        from django.db.models import Count
+        leaderboard = (
+            Referral.objects
+            .values('referrer__id', 'referrer__first_name', 'referrer__email')
+            .annotate(total=Count('id'))
+            .order_by('-total')[:20]
+        )
+ 
     context = {
-        'user': user,
-        'recent_sessions': recent_sessions,
-        'last_session': last_session,
+        'my_referrals':    my_referrals,
+        'referral_count':  my_referrals.count(),
+        'referral_link':   referral_link,
+        'show_leaderboard': show_leaderboard,
+        'leaderboard':     leaderboard,
+    }
+    return render(request, 'Users/referrals.html', context)
+ 
+ 
+# ── Update dashboard view to include referral data ────────────────────────────
+# Replace the existing dashboard view with this:
+ 
+@login_required
+def dashboard(request):
+    from Users.models import Referral
+ 
+    user = request.user
+ 
+    # Last 3 practice sessions
+    recent_sessions = (
+        PracticeSession.objects
+        .filter(user=user, completed_at__isnull=False)
+        .select_related('subject', 'exam_series')
+        .order_by('-completed_at')[:3]
+    )
+    last_session = recent_sessions.first()
+ 
+    # Referral data for dashboard widget (students only)
+    referral_count  = 0
+    recent_referrals = []
+    referral_link   = ''
+ 
+    if user.role == 'STUDENT':
+        if not user.referral_code:
+            user.referral_code = str(uuid.uuid4())[:8].upper()
+            user.save(update_fields=['referral_code'])
+ 
+        referral_count = Referral.objects.filter(referrer=user).count()
+        recent_referrals = (
+            Referral.objects
+            .filter(referrer=user)
+            .select_related('referred')
+            .order_by('-created_at')[:3]
+        )
+        referral_link = request.build_absolute_uri(f'/?ref={user.referral_code}')
+ 
+    context = {
+        'user':             user,
+        'recent_sessions':  recent_sessions,
+        'last_session':     last_session,
+        'referral_count':   referral_count,
+        'recent_referrals': recent_referrals,
+        'referral_link':    referral_link,
     }
     return render(request, 'Users/dashboard.html', context)
+
 
 def logout_view(request):
     logout(request)

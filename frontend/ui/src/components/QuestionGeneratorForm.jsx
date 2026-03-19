@@ -3,7 +3,7 @@ import api from "../api";
 
 // Exported so App.jsx can import and call it once on mount
 export const getTestBuilderAccess = () =>
-  api.get('test-builder-access/').then(r => r.data);
+  api.get("test-builder-access/").then((r) => r.data);
 
 const SITTINGS = [
   { value: "", label: "All Sittings" },
@@ -89,7 +89,7 @@ const formStyles = `
     border-color: rgba(156,213,255,0.45);
     box-shadow: 0 0 0 3px rgba(156,213,255,0.08);
   }
-  .form-select option { background: #1e3347; }
+  .form-select option { background: #ffffff; }
 
   .selected-tags {
     display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem;
@@ -180,67 +180,86 @@ const formStyles = `
 
 // Free-tier quick number options are capped to 15
 // Paid teachers see the full set
-const ALL_QUICK_NUMS  = [10, 20, 30, 50];
+const ALL_QUICK_NUMS = [10, 20, 30, 50];
 const FREE_QUICK_NUMS = [10, 15];
 
 export default function QuestionGeneratorForm({ onResults, onClear, access }) {
-  const [subjects, setSubjects]           = useState([]);
-  const [examBoards, setExamBoards]       = useState([]);
-  const [topics, setTopics]               = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [examBoards, setExamBoards] = useState([]);
+  const [topics, setTopics] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
 
   const [form, setForm] = useState({
-    subject: "", exam_board: "", years: [], sitting: "",
-    question_type: "", topics: [], difficulty: "", num_questions: 15,
+    subject: "",
+    exam_board: "",
+    years: [],
+    sitting: "",
+    question_type: "",
+    topics: [],
+    difficulty: "",
+    num_questions: 15,
   });
 
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
+  const [error, setError] = useState(null);
 
   // Max questions this user is allowed — fallback to 15 while access loads
-  const maxQ      = access?.max_questions ?? 15;
-  const isFree    = access?.is_free ?? true;
+  const maxQ = access?.max_questions ?? 15;
+  const isFree = access?.is_free ?? true;
   const isBlocked = access ? !access.allowed : false;
   const quickNums = isFree ? FREE_QUICK_NUMS : ALL_QUICK_NUMS;
 
   useEffect(() => {
-    api.get("subjects/").then(res => setSubjects(res.data)).catch(() => {});
-    api.get("exam-boards/").then(res => setExamBoards(res.data)).catch(() => {});
+    api
+      .get("subjects/")
+      .then((res) => setSubjects(res.data))
+      .catch(() => {});
+    api
+      .get("exam-boards/")
+      .then((res) => setExamBoards(res.data))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (form.subject) {
-      api.get(`topics/?subject=${form.subject}`)
-        .then(res => setTopics(res.data)).catch(() => {});
+      api
+        .get(`topics/?subject=${form.subject}`)
+        .then((res) => setTopics(res.data))
+        .catch(() => {});
     } else {
       setTopics([]);
-      setForm(f => ({ ...f, topics: [] }));
+      setForm((f) => ({ ...f, topics: [] }));
     }
   }, [form.subject]);
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (form.subject)    params.set("subject", form.subject);
+    if (form.subject) params.set("subject", form.subject);
     if (form.exam_board) params.set("exam_board", form.exam_board);
     if (form.subject || form.exam_board) {
-      api.get(`years/?${params}`)
-        .then(res => setAvailableYears(res.data.years)).catch(() => {});
+      api
+        .get(`years/?${params}`)
+        .then((res) => setAvailableYears(res.data.years))
+        .catch(() => {});
     } else {
       setAvailableYears([]);
-      setForm(f => ({ ...f, years: [] }));
+      setForm((f) => ({ ...f, years: [] }));
     }
   }, [form.subject, form.exam_board]);
 
-  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const toggleMulti = (key, val) => {
-    setForm(f => {
+    setForm((f) => {
       const arr = f[key];
-      return { ...f, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] };
+      return {
+        ...f,
+        [key]: arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val],
+      };
     });
   };
 
-  const getLabel = (arr, id) => arr.find(i => String(i.id) === String(id));
+  const getLabel = (arr, id) => arr.find((i) => String(i.id) === String(id));
 
   // Clamp num_questions to the allowed max whenever access loads or changes
   useEffect(() => {
@@ -251,23 +270,30 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.subject) { setError("Please select a subject."); return; }
-    if (isBlocked)     { setError(access.reason);              return; }
+    if (!form.subject) {
+      setError("Please select a subject.");
+      return;
+    }
+    if (isBlocked) {
+      setError(access.reason);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await api.post("questions/generate/", {
         ...form,
-        years:         form.years.map(Number),
-        topics:        form.topics.map(Number),
+        years: form.years.map(Number),
+        topics: form.topics.map(Number),
         num_questions: Math.min(Number(form.num_questions), maxQ),
       });
       onResults(res.data);
     } catch (err) {
       setError(
         err.response?.status === 403
-          ? (err.response.data?.error || "Access denied. Please upgrade to continue.")
-          : "Something went wrong. Please try again."
+          ? err.response.data?.error ||
+              "Access denied. Please upgrade to continue."
+          : "Something went wrong. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -275,8 +301,16 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
   };
 
   const handleClear = () => {
-    setForm({ subject: "", exam_board: "", years: [], sitting: "",
-              question_type: "", topics: [], difficulty: "", num_questions: 15 });
+    setForm({
+      subject: "",
+      exam_board: "",
+      years: [],
+      sitting: "",
+      question_type: "",
+      topics: [],
+      difficulty: "",
+      num_questions: 15,
+    });
     onClear();
   };
 
@@ -294,44 +328,98 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
           <div className="access-banner free">
             <span>🏷️</span>
             <div style={{ flex: 1 }}>
-              <strong>{access.trials_remaining} free trial{access.trials_remaining !== 1 ? 's' : ''} remaining.</strong>
-              {' '}Up to {maxQ} questions per trial · PDF download only.
+              <strong>
+                {access.trials_remaining} free trial
+                {access.trials_remaining !== 1 ? "s" : ""} remaining.
+              </strong>{" "}
+              Up to {maxQ} questions per trial · PDF download only.
             </div>
-            <a href="/pricing/"
-               style={{ display: 'inline-block', padding: '0.4rem 0.9rem',
-                        background: 'rgba(245,200,66,0.15)', border: '1px solid rgba(245,200,66,0.35)',
-                        borderRadius: '7px', color: 'var(--gold)', fontWeight: 700,
-                        fontSize: '0.75rem', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <a
+              href="/pricing/"
+              style={{
+                display: "inline-block",
+                padding: "0.4rem 0.9rem",
+                background: "rgba(245,200,66,0.15)",
+                border: "1px solid rgba(245,200,66,0.35)",
+                borderRadius: "7px",
+                color: "var(--gold)",
+                fontWeight: 700,
+                fontSize: "0.75rem",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
               Upgrade →
             </a>
           </div>
         )}
         {/* ── Blocked banner ─────────────────────────────────────────── */}
         {access && isBlocked && (
-          <div style={{ background: 'linear-gradient(120deg, rgba(245,200,66,0.08), rgba(156,213,255,0.06))',
-                        border: '1px solid rgba(245,200,66,0.3)',
-                        borderRadius: '10px', padding: '1rem 1.1rem', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-              <span style={{ fontSize: '1.1rem' }}>🔒</span>
+          <div
+            style={{
+              background:
+                "linear-gradient(120deg, rgba(245,200,66,0.08), rgba(156,213,255,0.06))",
+              border: "1px solid rgba(245,200,66,0.3)",
+              borderRadius: "10px",
+              padding: "1rem 1.1rem",
+              marginBottom: "1.25rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              <span style={{ fontSize: "1.1rem" }}>🔒</span>
               <div>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700,
-                              fontSize: '0.88rem', color: 'var(--gold)', marginBottom: '0.2rem' }}>
+                <div
+                  style={{
+                    fontFamily: "Syne, sans-serif",
+                    fontWeight: 700,
+                    fontSize: "0.88rem",
+                    color: "var(--gold)",
+                    marginBottom: "0.2rem",
+                  }}
+                >
                   Free Trials Exhausted
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--muted-light)', lineHeight: 1.5 }}>
-                  {access.reason || "You've used both free test builder trials."}
+                <div
+                  style={{
+                    fontSize: "0.78rem",
+                    color: "var(--muted-light)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {access.reason ||
+                    "You've used both free test builder trials."}
                 </div>
               </div>
             </div>
-            <a href="/pricing/?tab=teacher"
-               style={{ display: 'block', width: '100%', padding: '0.6rem',
-                        background: 'var(--gold)', color: '#0e1f2c',
-                        borderRadius: '8px', fontFamily: 'Syne, sans-serif',
-                        fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
-                        textAlign: 'center', boxSizing: 'border-box' }}>
+            <a
+              href="/pricing/?tab=teacher"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "0.6rem",
+                background: "var(--gold)",
+                color: "#ffffff",
+                borderRadius: "8px",
+                fontFamily: "Syne, sans-serif",
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                textDecoration: "none",
+                textAlign: "center",
+                boxSizing: "border-box",
+              }}
+            >
               Upgrade to Teacher Pro →
             </a>
-          </div>)}
+          </div>
+        )}
 
         {/* Exam context */}
         <div className="form-section">
@@ -341,29 +429,48 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
             <label className="form-label">
               Subject <span style={{ color: "var(--red)" }}>*</span>
             </label>
-            <select className="form-select" value={form.subject}
-              onChange={e => set("subject", e.target.value)}>
+            <select
+              className="form-select"
+              value={form.subject}
+              onChange={(e) => set("subject", e.target.value)}
+            >
               <option value="">— Select Subject —</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
             <label className="form-label">Exam Board</label>
-            <select className="form-select" value={form.exam_board}
-              onChange={e => set("exam_board", e.target.value)}>
+            <select
+              className="form-select"
+              value={form.exam_board}
+              onChange={(e) => set("exam_board", e.target.value)}
+            >
               <option value="">— Any Board —</option>
-              {examBoards.map(b => (
-                <option key={b.id} value={b.id}>{b.name} ({b.abbreviation})</option>
+              {examBoards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.abbreviation})
+                </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
             <label className="form-label">Sitting</label>
-            <select className="form-select" value={form.sitting}
-              onChange={e => set("sitting", e.target.value)}>
-              {SITTINGS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            <select
+              className="form-select"
+              value={form.sitting}
+              onChange={(e) => set("sitting", e.target.value)}
+            >
+              {SITTINGS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -376,17 +483,33 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
               Select Years <span className="hint">(click to toggle)</span>
             </label>
             {availableYears.length === 0 ? (
-              <p style={{ fontSize: "0.8rem", color: "var(--muted)", fontStyle: "italic" }}>
+              <p
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--muted)",
+                  fontStyle: "italic",
+                }}
+              >
                 {form.subject || form.exam_board
                   ? "No years found for selection."
                   : "Select a subject or exam board first."}
               </p>
             ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.25rem" }}>
-                {availableYears.map(y => (
-                  <button key={y} type="button"
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.4rem",
+                  marginTop: "0.25rem",
+                }}
+              >
+                {availableYears.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
                     className={`quick-num ${form.years.includes(String(y)) ? "active" : ""}`}
-                    onClick={() => toggleMulti("years", String(y))}>
+                    onClick={() => toggleMulti("years", String(y))}
+                  >
                     {y}
                   </button>
                 ))}
@@ -394,9 +517,15 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
             )}
             {form.years.length > 0 && (
               <div className="selected-tags" style={{ marginTop: "0.6rem" }}>
-                {form.years.map(y => (
+                {form.years.map((y) => (
                   <span key={y} className="selected-tag">
-                    {y}<button type="button" onClick={() => toggleMulti("years", y)}>×</button>
+                    {y}
+                    <button
+                      type="button"
+                      onClick={() => toggleMulti("years", y)}
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
               </div>
@@ -412,23 +541,58 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
               Filter by Topics <span className="hint">(optional)</span>
             </label>
             {topics.length === 0 ? (
-              <p style={{ fontSize: "0.8rem", color: "var(--muted)", fontStyle: "italic" }}>
-                {form.subject ? "No topics found for this subject." : "Select a subject to see topics."}
+              <p
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--muted)",
+                  fontStyle: "italic",
+                }}
+              >
+                {form.subject
+                  ? "No topics found for this subject."
+                  : "Select a subject to see topics."}
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem",
-                            maxHeight: "180px", overflowY: "auto", padding: "0.25rem" }}>
-                {topics.map(t => (
-                  <label key={t.id} style={{
-                    display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer",
-                    padding: "0.3rem 0.5rem", borderRadius: "6px", transition: "background 0.15s",
-                    background: form.topics.includes(String(t.id)) ? "var(--accent-dim)" : "transparent",
-                  }}>
-                    <input type="checkbox" checked={form.topics.includes(String(t.id))}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.35rem",
+                  maxHeight: "180px",
+                  overflowY: "auto",
+                  padding: "0.25rem",
+                }}
+              >
+                {topics.map((t) => (
+                  <label
+                    key={t.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.6rem",
+                      cursor: "pointer",
+                      padding: "0.3rem 0.5rem",
+                      borderRadius: "6px",
+                      transition: "background 0.15s",
+                      background: form.topics.includes(String(t.id))
+                        ? "var(--accent-dim)"
+                        : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.topics.includes(String(t.id))}
                       onChange={() => toggleMulti("topics", String(t.id))}
-                      style={{ accentColor: "var(--accent)" }} />
-                    <span style={{ fontSize: "0.85rem",
-                      color: form.topics.includes(String(t.id)) ? "var(--accent)" : "var(--text)" }}>
+                      style={{ accentColor: "var(--accent)" }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "0.85rem",
+                        color: form.topics.includes(String(t.id))
+                          ? "var(--accent)"
+                          : "var(--text)",
+                      }}
+                    >
                       {t.name}
                     </span>
                   </label>
@@ -437,11 +601,17 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
             )}
             {form.topics.length > 0 && (
               <div className="selected-tags">
-                {form.topics.map(id => {
+                {form.topics.map((id) => {
                   const t = getLabel(topics, id);
                   return t ? (
                     <span key={id} className="selected-tag">
-                      {t.name}<button type="button" onClick={() => toggleMulti("topics", id)}>×</button>
+                      {t.name}
+                      <button
+                        type="button"
+                        onClick={() => toggleMulti("topics", id)}
+                      >
+                        ×
+                      </button>
                     </span>
                   ) : null;
                 })}
@@ -457,10 +627,13 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
           <div className="form-group">
             <label className="form-label">Question Type</label>
             <div className="type-toggle">
-              {QUESTION_TYPES.map(t => (
-                <button key={t.value} type="button"
+              {QUESTION_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
                   className={`type-btn ${form.question_type === t.value ? "active" : ""}`}
-                  onClick={() => set("question_type", t.value)}>
+                  onClick={() => set("question_type", t.value)}
+                >
                   {t.label}
                 </button>
               ))}
@@ -471,14 +644,17 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
             <label className="form-label">Difficulty</label>
             <div className="diff-toggle">
               {[
-                { val: "",       cls: "easy",   label: "Any"    },
-                { val: "EASY",   cls: "easy",   label: "Easy"   },
+                { val: "", cls: "easy", label: "Any" },
+                { val: "EASY", cls: "easy", label: "Easy" },
                 { val: "MEDIUM", cls: "medium", label: "Medium" },
-                { val: "HARD",   cls: "hard",   label: "Hard"   },
-              ].map(d => (
-                <button key={d.val} type="button"
+                { val: "HARD", cls: "hard", label: "Hard" },
+              ].map((d) => (
+                <button
+                  key={d.val}
+                  type="button"
                   className={`diff-btn ${d.cls} ${form.difficulty === d.val ? "active" : ""}`}
-                  onClick={() => set("difficulty", d.val)}>
+                  onClick={() => set("difficulty", d.val)}
+                >
                   {d.label}
                 </button>
               ))}
@@ -488,35 +664,51 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
           <div className="form-group">
             <label className="form-label">
               Number of Questions
-              {isFree && <span className="hint"> — max {maxQ} on free tier</span>}
+              {isFree && (
+                <span className="hint"> — max {maxQ} on free tier</span>
+              )}
             </label>
             <div className="quick-nums">
-              {quickNums.map(n => (
-                <button key={n} type="button"
+              {quickNums.map((n) => (
+                <button
+                  key={n}
+                  type="button"
                   className={`quick-num ${form.num_questions === n ? "active" : ""}`}
                   disabled={n > maxQ}
-                  onClick={() => set("num_questions", n)}>
+                  onClick={() => set("num_questions", n)}
+                >
                   {n}
                 </button>
               ))}
             </div>
-            <input type="number" className="form-input"
+            <input
+              type="number"
+              className="form-input"
               value={form.num_questions}
               min={1}
               max={maxQ}
               style={{ width: "100px" }}
-              onChange={e => set("num_questions", Math.min(Number(e.target.value), maxQ))}
+              onChange={(e) =>
+                set("num_questions", Math.min(Number(e.target.value), maxQ))
+              }
             />
           </div>
         </div>
 
         {error && <div className="form-error">⚠️ {error}</div>}
 
-        <button type="submit" className="submit-btn"
-          disabled={loading || isBlocked || !access}>
-          {loading
-            ? <><div className="spinner" /> Generating…</>
-            : <>Generate Questions →</>}
+        <button
+          type="submit"
+          className="submit-btn"
+          disabled={loading || isBlocked || !access}
+        >
+          {loading ? (
+            <>
+              <div className="spinner" /> Generating…
+            </>
+          ) : (
+            <>Generate Questions →</>
+          )}
         </button>
         <button type="button" className="clear-btn" onClick={handleClear}>
           Clear All

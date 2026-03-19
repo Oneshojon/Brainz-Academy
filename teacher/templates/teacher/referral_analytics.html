@@ -1,0 +1,83 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+
+<style>
+  .ra-body { max-width: 960px; margin: 0 auto; padding: 2rem; }
+  .ra-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .ra-stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem; text-align: center; }
+  .ra-stat-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.75rem; color: var(--accent); }
+  .ra-stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+  .ra-section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.85rem; }
+  .ra-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 2rem; }
+  .ra-table th { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); text-align: left; }
+  .ra-table td { padding: 0.7rem 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--muted-light); }
+  .ra-table tr:last-child td { border-bottom: none; }
+  .ra-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .ra-count { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--accent); }
+  .ra-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 2rem; }
+</style>
+
+<div class="ra-body">
+  <h1 style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem; margin-bottom:1.5rem;">
+    📊 Referral Analytics
+  </h1>
+
+  <!-- Stats -->
+  <div class="ra-stats">
+    <div class="ra-stat">
+      <div class="ra-stat-val">{{ total_referrals }}</div>
+      <div class="ra-stat-label">Total Referrals</div>
+    </div>
+    <div class="ra-stat">
+      <div class="ra-stat-val">{{ recent_referrals }}</div>
+      <div class="ra-stat-label">Last 30 Days</div>
+    </div>
+    <div class="ra-stat">
+      <div class="ra-stat-val">{{ total_referring_users }}</div>
+      <div class="ra-stat-label">Active Referrers</div>
+    </div>
+  </div>
+
+  <!-- Top referrers -->
+  <div class="ra-section-title">Top Referrers</div>
+  <div class="ra-card">
+    <table class="ra-table">
+      <thead><tr><th>#</th><th>Student</th><th>Email</th><th style="text-align:right">Referrals</th></tr></thead>
+      <tbody>
+        {% for r in top_referrers %}
+        <tr>
+          <td style="color:var(--muted)">{{ forloop.counter }}</td>
+          <td>{{ r.referrer__first_name|default:'—' }} {{ r.referrer__last_name|default:'' }}</td>
+          <td style="color:var(--muted)">{{ r.referrer__email }}</td>
+          <td style="text-align:right"><span class="ra-count">{{ r.total }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:1.5rem;">No referrals yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Recent events -->
+  <div class="ra-section-title">Recent Referral Events</div>
+  <div class="ra-card">
+    <table class="ra-table">
+      <thead><tr><th>Referrer</th><th>Referred</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for event in recent_events %}
+        <tr>
+          <td>{{ event.referrer.first_name|default:event.referrer.email }}</td>
+          <td>{{ event.referred.first_name|default:event.referred.email }}</td>
+          <td style="color:var(--muted)">{{ event.created_at|date:"N j, Y · g:i A" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:1.5rem;">No events yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
