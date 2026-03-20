@@ -10,13 +10,13 @@ const appStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
   :root {
-    --black: #ffffff; --deep: #f4f6f9; --card: #ffffff; --base: #c8d6e5;
-    --border: rgba(122,170,206,0.18); --border-hover: rgba(156,213,255,0.35);
-    --accent: #9CD5FF; --accent-dim: rgba(156,213,255,0.12); --mid: #7AAACE;
-    --text: #F7F8F0; --muted: rgba(247,248,240,0.45); --muted-light: rgba(247,248,240,0.7);
-    --gold: #f5c842; --green: #4ade80; --green-dim: rgba(74,222,128,0.1);
-    --red: #f87171; --red-dim: rgba(248,113,113,0.1);
-  }
+  --navy: #0B2D72; --blue: #0992C2; --cyan: #0AC4E0;
+  --bg: #EDF1F8; --card: #ffffff; --border: #C2D4EC;
+  --border-hover: #A8BDD8; --text: #0D1B3E; --muted: #6B7FA3;
+  --gold: #B8860B; --green: #15803D; --red: #DC2626;
+  --accent: #0992C2; --accent-dim: rgba(9,146,194,0.08);
+  --deep: #F3F6FA;
+}
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--black); color: var(--text); font-family: 'DM Sans', sans-serif; }
@@ -42,33 +42,26 @@ const appStyles = `
   .app-main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
 
   /* ── Mode selector ── */
-  .mode-selector {
-    max-width: 680px; margin: 3rem auto;
-    text-align: center;
-  }
-  .mode-selector h2 {
-    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.6rem;
-    margin-bottom: 0.5rem; letter-spacing: -0.5px;
-  }
-  .mode-selector p { font-size: 0.9rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
-
-  .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .mode-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-    padding: 1.75rem 1.5rem; cursor: pointer; transition: all 0.2s; text-align: left;
-  }
-  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
-  .mode-card.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-  .mode-card-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
-  .mode-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; }
-  .mode-card-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
-  .mode-card-badge {
-    display: inline-block; margin-top: 0.75rem; font-size: 0.65rem; font-weight: 700;
-    letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem;
-    border-radius: 100px; background: var(--accent-dim); color: var(--accent);
-    border: 1px solid rgba(156,213,255,0.2);
-  }
-
+  .mode-selector { max-width: 680px; margin: 3rem auto; text-align: center; }
+.mode-selector h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1.6rem; margin-bottom: 0.5rem; letter-spacing: -0.5px; color: #0B2D72; }
+.mode-selector p { font-size: 0.9rem; color: #6B7FA3; margin-bottom: 2rem; line-height: 1.6; }
+.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.mode-card {
+  background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 16px;
+  padding: 1.75rem 1.5rem; cursor: pointer; transition: all 0.2s; text-align: left;
+  box-shadow: 0 2px 12px rgba(11,45,114,0.07);
+}
+.mode-card:hover { border-color: #0B2D72; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(11,45,114,0.12); }
+.mode-card.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.mode-card-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+.mode-card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; color: #0B2D72; }
+.mode-card-desc { font-size: 0.8rem; color: #6B7FA3; line-height: 1.6; }
+.mode-card-badge {
+  display: inline-block; margin-top: 0.75rem; font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.6rem;
+  border-radius: 100px; background: rgba(9,146,194,0.1); color: #0992C2;
+  border: 1px solid rgba(9,146,194,0.2);
+}
   /* ── Random mode layout ── */
   .teacher-layout { display: grid; grid-template-columns: 380px 1fr; gap: 1.5rem; align-items: start; }
   .form-sidebar { position: sticky; top: 80px; }
@@ -288,7 +281,7 @@ export default function App() {
             </div>
           ) : (
             /* New manual builder */
-            <BuilderLayout access={access} />
+            <BuilderLayout access={access} onChangeMode={() => { setMode(null); handleClear(); }} />
           )}
         </main>
       </div>

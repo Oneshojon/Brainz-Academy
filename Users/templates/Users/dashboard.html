@@ -4,318 +4,296 @@
 {% block body %}
 <link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
 
-<style>
-  .upgrade-banner {
-    margin: 0 0 1.5rem;
-    background: linear-gradient(120deg, rgba(245,200,66,0.08), rgba(156,213,255,0.06));
-    border: 1px solid rgba(245,200,66,0.3);
-    border-radius: 14px;
-    padding: 1rem 1.4rem;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem; flex-wrap: wrap;
-  }
-  .upgrade-banner-left { display: flex; align-items: center; gap: 0.85rem; }
-  .upgrade-banner-icon { font-size: 1.5rem; flex-shrink: 0; }
-  .upgrade-banner-text strong {
-    display: block; font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 0.92rem; color: var(--gold); margin-bottom: 0.15rem;
-  }
-  .upgrade-banner-text span { font-size: 0.78rem; color: var(--muted-light); line-height: 1.4; }
-  .upgrade-banner-limits { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.4rem; }
-  .upgrade-limit-pill {
-    font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 100px;
-    background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2); color: var(--gold);
-  }
-  .btn-upgrade {
-    background: var(--gold); color: #0e1f2c; border: none; border-radius: 9px;
-    padding: 0.55rem 1.3rem; font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 0.85rem; text-decoration: none; white-space: nowrap;
-    flex-shrink: 0; transition: all 0.2s; display: inline-block;
-  }
-  .btn-upgrade:hover { background: #f7d96a; transform: translateY(-1px); }
-</style>
-
 <div class="dash-body">
 
-  <div class="greeting-block">
-    <div class="greeting-eyebrow">{% now "N j, Y" %} · Welcome back</div>
-    <h1 class="greeting-title">Hello, <span class="name">{{ user.first_name|default:"there" }}</span> 👋</h1>
-    <p class="greeting-sub">
-      {% if user.role == 'TEACHER' %}
-        Ready to build a test or review question sets for your class?
-      {% else %}
-        What would you like to practice today?
-      {% endif %}
-    </p>
-  </div>
+  <!-- ── CONTAINER 1: Greeting + Upgrade + CTA ── -->
+  <div class="dash-container">
+    <div class="greeting-block" style="margin-bottom:1.25rem;">
+      <div class="greeting-eyebrow">{% now "N j, Y" %} · Welcome back</div>
+      <h1 class="greeting-title">Hello, <span class="name">{{ user.first_name|default:"there" }}</span> 👋</h1>
+      <p class="greeting-sub">
+        {% if user.role == 'TEACHER' %}Ready to build a test or review question sets for your class?
+        {% else %}What would you like to practice today?{% endif %}
+      </p>
+    </div>
 
-  {# Upgrade banner — only for non-admin users without an active subscription #}
-  {% if not user.is_admin %}
-    {% with sub=user.active_subscription %}
-      {% if not sub %}
-      <div class="upgrade-banner">
-        <div class="upgrade-banner-left">
-          <div class="upgrade-banner-icon">⚡</div>
-          <div class="upgrade-banner-text">
-            {% if user.role == 'TEACHER' %}
-              <strong>You're on the Free Plan</strong>
-              <span>Unlock unlimited test builder, lesson notes &amp; practice.</span>
-              <div class="upgrade-banner-limits">
-                <span class="upgrade-limit-pill">2 test builder trials</span>
-                <span class="upgrade-limit-pill">5 lesson note topics</span>
-                <span class="upgrade-limit-pill">5 sessions/day</span>
-              </div>
-            {% else %}
-              <strong>You're on the Free Plan</strong>
-              <span>Upgrade for unlimited sessions, analytics &amp; lesson notes.</span>
-              <div class="upgrade-banner-limits">
-                <span class="upgrade-limit-pill">5 sessions/day</span>
-                <span class="upgrade-limit-pill">15 questions/session</span>
-                <span class="upgrade-limit-pill">No lesson notes</span>
-              </div>
-            {% endif %}
+    {% if not user.is_admin %}
+      {% with sub=user.active_subscription %}
+        {% if not sub %}
+        <div class="upgrade-banner">
+          <div class="upgrade-banner-left">
+            <div class="upgrade-banner-icon">⚡</div>
+            <div class="upgrade-banner-text">
+              {% if user.role == 'TEACHER' %}
+                <strong>You're on the Free Plan</strong>
+                <span>Unlock unlimited test builder, lesson notes &amp; practice.</span>
+                <div class="upgrade-banner-limits">
+                  <span class="upgrade-limit-pill">2 test builder trials</span>
+                  <span class="upgrade-limit-pill">5 lesson note topics</span>
+                  <span class="upgrade-limit-pill">5 sessions/day</span>
+                </div>
+              {% else %}
+                <strong>You're on the Free Plan</strong>
+                <span>Upgrade for unlimited sessions, analytics &amp; lesson notes.</span>
+                <div class="upgrade-banner-limits">
+                  <span class="upgrade-limit-pill">5 sessions/day</span>
+                  <span class="upgrade-limit-pill">15 questions/session</span>
+                  <span class="upgrade-limit-pill">No lesson notes</span>
+                </div>
+              {% endif %}
+            </div>
           </div>
+          <a href="{% url 'Users:pricing' %}{% if user.role == 'TEACHER' %}?tab=teacher{% endif %}" class="btn-upgrade">
+            Upgrade Now →
+          </a>
         </div>
-        <a href="{% url 'Users:pricing' %}{% if user.role == 'TEACHER' %}?tab=teacher{% endif %}"
-           class="btn-upgrade">
-          Upgrade Now →
-        </a>
-      </div>
-      {% endif %}
-    {% endwith %}
-  {% endif %}
+        {% endif %}
+      {% endwith %}
+    {% endif %}
 
-  <div class="cta-banner">
-    <div class="cta-text">
+    <div class="cta-banner" style="margin-bottom:0;">
+      <div class="cta-text">
+        {% if user.role == 'TEACHER' %}
+          <strong>Build a custom question set</strong>
+          <span>Filter by exam board, subject, year, topic and difficulty.</span>
+        {% else %}
+          <strong>Jump back into practice</strong>
+          <span>Pick up where you left off or start a new session.</span>
+        {% endif %}
+      </div>
       {% if user.role == 'TEACHER' %}
-        <strong>Build a custom question set</strong>
-        <span>Filter by exam board, subject, year, topic and difficulty.</span>
+        <a href="/app/" class="btn-cta">Open Test Builder</a>
       {% else %}
-        <strong>Jump back into practice</strong>
-        <span>Pick up where you left off or start a new session.</span>
+        <a href="{% url 'practice:practice_home' %}" class="btn-cta">Start Practicing</a>
       {% endif %}
     </div>
-    {% if user.role == 'TEACHER' %}
-      <a href="/app/" class="btn-cta">Open Test Builder</a>
+  </div>
+
+  <!-- ── CONTAINER 2: Stats ── -->
+  <div class="dash-container">
+    <div class="section-header">
+      <div class="section-label">Overview</div>
+      <div class="section-title">Your Stats</div>
+    </div>
+    <div class="stats-row" style="margin-bottom:0;">
+      <div class="stat-card">
+        <div class="stat-card-label">Sessions Completed</div>
+        <div class="stat-card-value accent">{{ recent_sessions|length }}</div>
+        <div class="stat-card-sub">recent sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Last Score</div>
+        {% if last_session and last_session.score_percentage is not None %}
+          {% if last_session.score_percentage >= 70 %}
+            <div class="stat-card-value green">{{ last_session.score_percentage }}%</div>
+          {% elif last_session.score_percentage >= 50 %}
+            <div class="stat-card-value gold">{{ last_session.score_percentage }}%</div>
+          {% else %}
+            <div class="stat-card-value accent">{{ last_session.score_percentage }}%</div>
+          {% endif %}
+          <div class="stat-card-sub">{{ last_session.subject }}</div>
+        {% else %}
+          <div class="stat-card-value accent">—</div>
+          <div class="stat-card-sub">no attempts yet</div>
+        {% endif %}
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Last Subject</div>
+        {% if last_session %}
+          <div class="stat-card-value gold" style="font-size:1.2rem; margin-top:0.4rem;">
+            {{ last_session.subject|default:"—" }}
+          </div>
+          <div class="stat-card-sub">{{ last_session.started_at|date:"M j, Y" }}</div>
+        {% else %}
+          <div class="stat-card-value accent">—</div>
+          <div class="stat-card-sub">no attempts yet</div>
+        {% endif %}
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-label">Current Streak</div>
+        {% if streak > 0 %}
+          <div class="stat-card-value gold">{{ streak }} 🔥</div>
+          <div class="stat-card-sub">day{{ streak|pluralize }} in a row</div>
+        {% else %}
+          <div class="stat-card-value accent">—</div>
+          <div class="stat-card-sub">practice to start a streak</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTAINER 3: Services ── -->
+  <div class="dash-container">
+    <div class="section-header">
+      <div class="section-label">Features</div>
+      <div class="section-title">Your Services</div>
+    </div>
+    <div class="services-grid" style="margin-bottom:0;">
+      <a href="{% url 'practice:practice_home' %}" class="service-card blue">
+        <span class="svc-icon">⚡</span>
+        <div class="svc-title">Exam Practice</div>
+        <div class="svc-desc">Work through past questions in timed exam conditions.</div>
+        <span class="svc-tag free">Free</span>
+      </a>
+      <a href="{% url 'practice:revision' %}" class="service-card green-card">
+        <span class="svc-icon">📖</span>
+        <div class="svc-title">Revision</div>
+        <div class="svc-desc">Browse questions by topic at your own pace.</div>
+        <span class="svc-tag free">Free</span>
+      </a>
+      <a href="{% url 'practice:history' %}" class="service-card blue">
+        <span class="svc-icon">📋</span>
+        <div class="svc-title">Review Sessions</div>
+        <div class="svc-desc">Go back to any past session and review your answers.</div>
+        <span class="svc-tag free">Free</span>
+      </a>
+      {% if user.role == 'TEACHER' %}
+      <a href="/app/?mode=teacher" class="service-card gold-card">
+        <span class="svc-icon">🛠️</span>
+        <div class="svc-title">Test Builder</div>
+        <div class="svc-desc">Generate custom question sets by topic, year and board.</div>
+        <span class="svc-tag teacher-tag">Teachers Only</span>
+      </a>
+      {% endif %}
+      <div class="service-card locked">
+        <span class="svc-icon">🌍</span>
+        <div class="svc-title">IGCSE Prep</div>
+        <div class="svc-desc">Cambridge IGCSE past papers — launching soon.</div>
+        <span class="svc-tag soon">Coming Soon</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTAINER 4: Recent Sessions ── -->
+  <div class="dash-container">
+    <div class="section-header">
+      <div class="section-label">History</div>
+      <div class="section-title">Recent Practice</div>
+    </div>
+    {% if recent_sessions %}
+      <div class="sessions-list">
+        {% for session in recent_sessions %}
+        <div class="session-row">
+          <div class="session-icon">
+            {% if session.session_type == 'EXAM' %}📝
+            {% elif session.session_type == 'TOPIC' %}📖
+            {% else %}🗂️{% endif %}
+          </div>
+          <div class="session-info">
+            <div class="session-title">
+              {{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
+            </div>
+            <div class="session-meta">
+              {{ session.started_at|date:"M j, Y · g:i A" }} · {{ session.get_session_type_display }}
+            </div>
+          </div>
+          {% if session.score_percentage is not None %}
+            {% if session.score_percentage >= 70 %}
+              <div class="session-score score-high">{{ session.score_percentage }}%</div>
+            {% elif session.score_percentage >= 50 %}
+              <div class="session-score score-mid">{{ session.score_percentage }}%</div>
+            {% else %}
+              <div class="session-score score-low">{{ session.score_percentage }}%</div>
+            {% endif %}
+          {% else %}
+            <div class="session-score" style="color:var(--muted);font-size:0.85rem;">Incomplete</div>
+          {% endif %}
+          {% if session.completed_at %}
+            <a href="{% url 'practice:results_page' session.id %}"
+               style="font-size:0.75rem; font-weight:700; color:var(--navy);
+                      text-decoration:none; padding:0.3rem 0.75rem;
+                      border:1.5px solid var(--border); border-radius:100px;
+                      flex-shrink:0; transition:all 0.15s; white-space:nowrap;
+                      background:#ffffff;">
+              Review →
+            </a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:0.85rem; text-align:right;">
+        <a href="{% url 'practice:history' %}"
+           style="font-size:0.8rem; color:var(--blue); text-decoration:none; font-weight:600;">
+          View all sessions →
+        </a>
+      </div>
     {% else %}
-      <a href="{% url 'practice:practice_home' %}" class="btn-cta">Start Practicing</a>
+      <div class="no-sessions">
+        <span>📋</span>
+        No practice sessions yet.<br>
+        Start your first session to see your history here.
+      </div>
     {% endif %}
   </div>
 
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-card-label">Sessions Completed</div>
-      <div class="stat-card-value accent">{{ recent_sessions|length }}</div>
-      <div class="stat-card-sub">recent sessions</div>
+  <!-- ── CONTAINER 5: Referrals (students only) ── -->
+  {% if user.role == 'STUDENT' %}
+  <div class="dash-container">
+    <div class="section-header">
+      <div class="section-label">Referrals</div>
+      <div class="section-title">Your Referrals</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-label">Last Score</div>
-      {% if last_session and last_session.score_percentage is not None %}
-        {% if last_session.score_percentage >= 70 %}
-          <div class="stat-card-value green">{{ last_session.score_percentage }}%</div>
-        {% elif last_session.score_percentage >= 50 %}
-          <div class="stat-card-value gold">{{ last_session.score_percentage }}%</div>
-        {% else %}
-          <div class="stat-card-value accent">{{ last_session.score_percentage }}%</div>
-        {% endif %}
-        <div class="stat-card-sub">{{ last_session.subject }}</div>
+    <div style="background:var(--offwhite,#F3F6FA); border:1.5px solid var(--border); border-radius:12px; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.1rem; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="font-size:1.25rem;">🎁</span>
+          <div>
+            <div style="font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:0.9rem; color:var(--navy);">
+              <span style="color:var(--blue); font-size:1.2rem;">{{ referral_count }}</span>
+              referral{{ referral_count|pluralize }} made
+            </div>
+            <div style="font-size:0.72rem; color:var(--muted);">Share your link to invite friends</div>
+          </div>
+        </div>
+        <a href="{% url 'Users:referrals' %}"
+           style="font-size:0.78rem; font-weight:700; color:var(--navy); text-decoration:none;
+                  border:1.5px solid var(--border); border-radius:100px; padding:0.35rem 0.85rem;
+                  background:#ffffff; transition:all 0.15s;">
+          View all →
+        </a>
+      </div>
+      {% if recent_referrals %}
+        {% for ref in recent_referrals %}
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1.1rem; border-bottom:1px solid var(--border);">
+          <div style="width:32px; height:32px; border-radius:50%; background:rgba(9,146,194,0.1);
+                      border:1px solid rgba(9,146,194,0.2); display:flex; align-items:center;
+                      justify-content:center; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
+                      font-size:0.78rem; color:var(--blue); flex-shrink:0;">
+            {{ ref.referred.first_name|first|upper }}
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:0.82rem; font-weight:600; color:var(--navy);">{{ ref.referred.first_name|default:ref.referred.email }}</div>
+            <div style="font-size:0.7rem; color:var(--muted);">Joined {{ ref.created_at|date:"N j, Y" }}</div>
+          </div>
+          <span style="font-size:0.62rem; font-weight:700; padding:0.18rem 0.5rem; border-radius:100px;
+                       background:var(--green-bg,#DCFCE7); color:var(--green,#15803D);
+                       text-transform:uppercase; letter-spacing:0.06em;">Referred</span>
+        </div>
+        {% endfor %}
       {% else %}
-        <div class="stat-card-value accent">—</div>
-        <div class="stat-card-sub">no attempts yet</div>
-      {% endif %}
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-label">Last Subject</div>
-      {% if last_session %}
-        <div class="stat-card-value gold" style="font-size:1.2rem; margin-top:0.4rem;">
-          {{ last_session.subject|default:"—" }}
-        </div>
-        <div class="stat-card-sub">{{ last_session.started_at|date:"M j, Y" }}</div>
-      {% else %}
-        <div class="stat-card-value accent">—</div>
-        <div class="stat-card-sub">no attempts yet</div>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="two-col">
-
-    <!-- Services -->
-    <div>
-      <div class="section-header">
-        <div class="section-label">Features</div>
-        <div class="section-title">Your Services</div>
-      </div>
-      <div class="services-grid">
-        <a href="{% url 'practice:practice_home' %}" class="service-card blue">
-          <span class="svc-icon">⚡</span>
-          <div class="svc-title">Exam Practice</div>
-          <div class="svc-desc">Work through past questions in timed exam conditions.</div>
-          <span class="svc-tag free">Free</span>
-        </a>
-        <a href="{% url 'practice:revision' %}" class="service-card green-card">
-          <span class="svc-icon">📖</span>
-          <div class="svc-title">Revision</div>
-          <div class="svc-desc">Browse questions by topic at your own pace.</div>
-          <span class="svc-tag free">Free</span>
-        </a>
-        <a href="{% url 'practice:history' %}" class="service-card blue">
-          <span class="svc-icon">📋</span>
-          <div class="svc-title">Review Sessions</div>
-          <div class="svc-desc">Go back to any past session and review your answers.</div>
-          <span class="svc-tag free">Free</span>
-        </a>
-        {% if user.role == 'TEACHER' %}
-        <a href="/app/?mode=teacher" class="service-card gold-card">
-          <span class="svc-icon">🛠️</span>
-          <div class="svc-title">Test Builder</div>
-          <div class="svc-desc">Generate custom question sets by topic, year and board.</div>
-          <span class="svc-tag teacher-tag">Teachers Only</span>
-        </a>
-        {% endif %}
-        <div class="service-card locked">
-          <span class="svc-icon">🌍</span>
-          <div class="svc-title">IGCSE Prep</div>
-          <div class="svc-desc">Cambridge IGCSE past papers — launching soon.</div>
-          <span class="svc-tag soon">Coming Soon</span>
-        </div>
-      </div>
-
-      {# Referral widget — students only #}
-      {% if user.role == 'STUDENT' %}
-      <div style="margin-top:1.5rem;">
-        <div class="section-header">
-          <div class="section-label">Referrals</div>
-          <div class="section-title">Your Referrals</div>
-        </div>
-        <div style="background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden;">
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.1rem; border-bottom:1px solid var(--border);">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <span style="font-size:1.25rem;">🎁</span>
-              <div>
-                <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:0.9rem;">
-                  <span style="color:var(--accent); font-size:1.2rem;">{{ referral_count }}</span>
-                  referral{{ referral_count|pluralize }} made
-                </div>
-                <div style="font-size:0.72rem; color:var(--muted);">Share your link to invite friends</div>
-              </div>
-            </div>
-            <a href="{% url 'Users:referrals' %}"
-               style="font-size:0.78rem; font-weight:700; color:var(--mid); text-decoration:none;
-                      border:1px solid var(--border); border-radius:7px; padding:0.35rem 0.75rem; transition:all 0.15s;"
-               onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--border-hover)'"
-               onmouseout="this.style.color='var(--mid)';this.style.borderColor='var(--border)'">
-              View all →
-            </a>
-          </div>
-          {% if recent_referrals %}
-            {% for ref in recent_referrals %}
-            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1.1rem; border-bottom:1px solid rgba(255,255,255,0.04);">
-              <div style="width:30px; height:30px; border-radius:50%; background:var(--accent-dim);
-                          border:1px solid rgba(156,213,255,0.2); display:flex; align-items:center;
-                          justify-content:center; font-family:'Syne',sans-serif; font-weight:700;
-                          font-size:0.75rem; color:var(--accent); flex-shrink:0;">
-                {{ ref.referred.first_name|first|upper }}
-              </div>
-              <div style="flex:1;">
-                <div style="font-size:0.82rem; font-weight:600;">{{ ref.referred.first_name|default:ref.referred.email }}</div>
-                <div style="font-size:0.7rem; color:var(--muted);">Joined {{ ref.created_at|date:"N j, Y" }}</div>
-              </div>
-              <span style="font-size:0.62rem; font-weight:700; padding:0.15rem 0.45rem; border-radius:100px;
-                           background:var(--green-dim); color:var(--green); border:1px solid rgba(74,222,128,0.2);
-                           text-transform:uppercase; letter-spacing:0.06em;">Referred</span>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div style="padding:1.25rem 1.1rem; font-size:0.82rem; color:var(--muted); text-align:center;">
-              No referrals yet.
-              <a href="{% url 'Users:referrals' %}" style="color:var(--accent); font-weight:700; text-decoration:none; margin-left:0.25rem;">
-                Get your link →
-              </a>
-            </div>
-          {% endif %}
-          <div style="padding:0.75rem 1.1rem; background:rgba(156,213,255,0.04); border-top:1px solid var(--border);
-                      display:flex; align-items:center; gap:0.5rem;">
-            <span style="font-size:0.72rem; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              {{ referral_link }}
-            </span>
-            <button onclick="navigator.clipboard.writeText('{{ referral_link }}').then(()=>{this.textContent='✓ Copied!';this.style.background='var(--green)';setTimeout(()=>{this.textContent='Copy';this.style.background='var(--accent)'},1800)})"
-                    style="background:var(--accent); color:var(--black); border:none; border-radius:6px;
-                           padding:0.3rem 0.7rem; font-family:'Syne',sans-serif; font-weight:700;
-                           font-size:0.7rem; cursor:pointer; flex-shrink:0; transition:all 0.2s;">
-              Copy
-            </button>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Recent sessions -->
-    <div>
-      <div class="section-header">
-        <div class="section-label">History</div>
-        <div class="section-title">Recent Practice</div>
-      </div>
-      {% if recent_sessions %}
-        <div class="sessions-list">
-          {% for session in recent_sessions %}
-          <div class="session-row">
-            <div class="session-icon">
-              {% if session.session_type == 'EXAM' %}📝
-              {% elif session.session_type == 'TOPIC' %}📖
-              {% else %}🗂️{% endif %}
-            </div>
-            <div class="session-info">
-              <div class="session-title">
-                {{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
-              </div>
-              <div class="session-meta">
-                {{ session.started_at|date:"M j, Y · g:i A" }} · {{ session.get_session_type_display }}
-              </div>
-            </div>
-            {% if session.score_percentage is not None %}
-              {% if session.score_percentage >= 70 %}
-                <div class="session-score score-high">{{ session.score_percentage }}%</div>
-              {% elif session.score_percentage >= 50 %}
-                <div class="session-score score-mid">{{ session.score_percentage }}%</div>
-              {% else %}
-                <div class="session-score score-low">{{ session.score_percentage }}%</div>
-              {% endif %}
-            {% else %}
-              <div class="session-score" style="color:var(--muted);font-size:0.85rem;">Incomplete</div>
-            {% endif %}
-            {% if session.completed_at %}
-              <a href="{% url 'practice:results_page' session.id %}"
-                 onclick="event.stopPropagation()"
-                 style="font-size:0.75rem; font-weight:700; color:var(--mid);
-                        text-decoration:none; padding:0.3rem 0.65rem;
-                        border:1px solid var(--border); border-radius:6px;
-                        flex-shrink:0; transition:all 0.15s; white-space:nowrap;"
-                 onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--border-hover)'"
-                 onmouseout="this.style.color='var(--mid)';this.style.borderColor='var(--border)'">
-                Review →
-              </a>
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-        <div style="margin-top:0.85rem; text-align:right;">
-          <a href="{% url 'practice:history' %}"
-             style="font-size:0.8rem; color:var(--mid); text-decoration:none; font-weight:600;">
-            View all sessions →
+        <div style="padding:1.25rem 1.1rem; font-size:0.82rem; color:var(--muted); text-align:center;">
+          No referrals yet.
+          <a href="{% url 'Users:referrals' %}" style="color:var(--blue); font-weight:700; text-decoration:none; margin-left:0.25rem;">
+            Get your link →
           </a>
         </div>
-      {% else %}
-        <div class="no-sessions">
-          <span>📋</span>
-          No practice sessions yet.<br>
-          Start your first session to see your history here.
-        </div>
       {% endif %}
+      <div style="padding:0.75rem 1.1rem; background:#ffffff; border-top:1px solid var(--border);
+                  display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-size:0.72rem; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          {{ referral_link }}
+        </span>
+        <button onclick="navigator.clipboard.writeText('{{ referral_link }}').then(()=>{this.textContent='✓ Copied!';this.style.background='var(--green,#15803D)';setTimeout(()=>{this.textContent='Copy';this.style.background='var(--navy)'},1800)})"
+                style="background:var(--navy); color:#ffffff; border:none; border-radius:100px;
+                       padding:0.35rem 0.85rem; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
+                       font-size:0.72rem; cursor:pointer; flex-shrink:0; transition:all 0.2s;">
+          Copy
+        </button>
+      </div>
     </div>
-
   </div>
-</div>
+  {% endif %}
 
+</div>
 {% endblock %}

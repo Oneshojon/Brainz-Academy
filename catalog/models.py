@@ -89,6 +89,11 @@ class LessonNote(models.Model):
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
 
+    video_url = models.URLField(
+    null=True, blank=True,
+    help_text="Short video summary for this topic"
+)
+
     class Meta:
         ordering = ['topic__name']
 
@@ -100,6 +105,32 @@ class LessonNote(models.Model):
     def subject(self):
         return self.topic.subject
 
+
+class Worksheet(models.Model):
+    """Solved problems worksheet per topic."""
+    topic = models.OneToOneField(
+        'Topic', on_delete=models.CASCADE,
+        related_name='worksheet'
+    )
+    title        = models.CharField(max_length=255)
+    pdf_file     = models.FileField(upload_to='worksheets/', null=True, blank=True)
+    ai_content   = models.TextField(blank=True)
+    video_url    = models.URLField(null=True, blank=True,
+                       help_text="Video walkthrough of worksheet solutions")
+    is_ai_generated = models.BooleanField(default=False)
+    uploaded_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='uploaded_worksheets'
+    )
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['topic__name']
+
+    def __str__(self):
+        return f"Worksheet: {self.topic.name}"
+    
 
 class ExamBoard(models.Model):
     """Represents an exam body e.g. WAEC, NECO, JAMB"""

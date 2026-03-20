@@ -35,7 +35,7 @@ body {
 }
 
 .practice-body {
-  max-width: 1000px; margin: 0 auto; padding: 2.5rem 5vw 5rem;
+  max-width: 1200px; margin: 0 auto; padding: 2.5rem 5vw 5rem;
 }
 
 /* ── PAGE HEADER ── */
@@ -106,8 +106,8 @@ body {
   transform: translateY(-2px);
 }
 .session-type-btn.active {
-  border-color: var(--navy);
-  background: var(--navy);
+  border-color: var(--navy-mid);
+  background: var(--navy-mid);
   box-shadow: 0 4px 20px rgba(11,45,114,0.25);
 }
 .session-type-btn.active .stype-label { color: #ffffff; }
@@ -167,7 +167,7 @@ body {
   box-shadow: 0 1px 3px rgba(11,45,114,0.06);
 }
 .qtype-btn:hover { border-color: var(--blue); color: var(--navy); }
-.qtype-btn.active { background: var(--navy); border-color: var(--navy); color: #ffffff; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
+.qtype-btn.active { background: var(--navy-mid); border-color: var(--navy-mid); color: #ffffff; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
 
 /* ── QUICK NUMS ── */
 .quick-nums { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
@@ -178,7 +178,7 @@ body {
   box-shadow: 0 1px 3px rgba(11,45,114,0.06);
 }
 .quick-num:hover { border-color: var(--blue); color: var(--navy); }
-.quick-num.active { background: var(--navy); border-color: var(--navy); color: #ffffff; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
+.quick-num.active { background: var(--navy-mid); border-color: var(--navy-mid); color: #ffffff; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
 
 /* ── SUBMIT ── */
 .form-footer {

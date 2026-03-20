@@ -4,7 +4,7 @@
   --navy:        #0B2D72;
   --navy-mid:    #1a4094;
   --blue:        #0992C2;
-  --cyan:        #0AC4E0;
+  --cyan:        rgb(10, 196, 224);
   --cream:       #F6E7BC;
   --bg:          #E8EDF5;
   --card:        #FFFFFF;
@@ -265,7 +265,7 @@ h1, h2, h3, h4, h5, h6,
 .btn-cta:hover { background: var(--cream); }
 
 /* Stats */
-.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
 .stat-card {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 1.25rem 1.5rem; transition: all 0.2s;

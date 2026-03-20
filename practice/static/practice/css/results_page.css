@@ -30,7 +30,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.results-body { max-width: 860px; margin: 0 auto; padding: 2.5rem 5vw 5rem; }
+.results-body { max-width: 960px; margin: 0 auto; padding: 2.5rem 5vw 5rem; }
 
 /* ══ SCORE HERO ══ */
 .score-hero {

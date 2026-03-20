@@ -1,4 +1,3 @@
-import { useState } from "react";
 import api from "../../api";
 import StepNav from "./StepNav";
 import Step1Board from "./Step1Board";
@@ -6,6 +5,7 @@ import Step2Subject from "./Step2Subject";
 import Step3Theme from "./Step3Theme";
 import Step4Questions from "./Step4Questions";
 import Step5Export from "./Step5Export";
+import { useState, useEffect, useRef } from "react";
 
 const styles = `
   @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
@@ -129,7 +129,9 @@ const styles = `
   .btn-back-sm:active { transform: scale(0.97); }
 `;
 
-export default function BuilderLayout({ access }) {
+
+
+export default function BuilderLayout({ access, onChangeMode }) {
   const [step, setStep]                     = useState(1);
   const [board, setBoard]                   = useState(null);
   const [subject, setSubject]               = useState(null);
@@ -138,6 +140,40 @@ export default function BuilderLayout({ access }) {
   const [testTitle, setTestTitle]           = useState('');
   const [qTypeFilter, setQTypeFilter]       = useState('');
   const [exportDropdown, setExportDropdown] = useState(null);
+
+
+const isPopState = useRef(false);
+
+// On mount
+useEffect(() => {
+  window.history.replaceState({ step: 1 }, '', window.location.pathname);
+}, []);
+
+// Push only on forward navigation
+useEffect(() => {
+  if (step > 1) {
+    if (isPopState.current) {
+      isPopState.current = false; // reset flag, don't push
+    } else {
+      window.history.pushState({ step }, '', window.location.pathname);
+    }
+  }
+}, [step]);
+
+// Handle browser back
+useEffect(() => {
+  const handlePop = (e) => {
+    const prevStep = e.state?.step;
+    if (prevStep && prevStep >= 1) {
+      isPopState.current = true;
+      setStep(prevStep);
+    } else {
+      onChangeMode?.();
+    }
+  };
+  window.addEventListener('popstate', handlePop);
+  return () => window.removeEventListener('popstate', handlePop);
+}, [onChangeMode]);
 
   const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
 
@@ -158,7 +194,7 @@ export default function BuilderLayout({ access }) {
 
   const downloadFile = async (fmt, copyType) => {
     try {
-      const res = await api.post('/api/catalog/questions/download/', {
+      const res = await api.post('questions/download/', {
         question_ids: savedQuestions.map(q => q.id),
         title: testTitle || 'My Test', format: fmt, copy_type: copyType,
       }, { responseType: 'blob' });
@@ -178,6 +214,15 @@ export default function BuilderLayout({ access }) {
 
         {/* Title bar */}
         <div className="builder-title-bar">
+
+          {onChangeMode && (
+              <button onClick={onChangeMode}
+                style={{background:'#ffffff', border:'1.5px solid #C2D4EC', color:'#0B2D72',
+                  borderRadius:'100px', padding:'0.4rem 1rem', fontFamily:'Plus Jakarta Sans, sans-serif',
+                  fontWeight:700, fontSize:'0.8rem', cursor:'pointer', marginLeft:'auto'}}>
+                ← Change Mode
+              </button>
+            )}
           <input className="builder-title-input" value={testTitle}
             onChange={e => setTestTitle(e.target.value)}
             placeholder="Name your test..." />
@@ -219,11 +264,11 @@ export default function BuilderLayout({ access }) {
                 {exportDropdown === 'pdf' && (
                   <div className="builder-copy-dropdown">
                     <button className="builder-copy-btn" onClick={() => { downloadFile('pdf','student'); setExportDropdown(null); }}>
-                      <span className="s5-copy-badge student">Student</span> Questions only
-                    </button>
-                    <button className="builder-copy-btn" onClick={() => { downloadFile('pdf','teacher'); setExportDropdown(null); }}>
-                      <span className="s5-copy-badge teacher">Teacher</span> With answers
-                    </button>
+                    Questions only
+                  </button>
+                  <button className="builder-copy-btn" onClick={() => { downloadFile('pdf','teacher'); setExportDropdown(null); }}>
+                    Mark scheme
+                  </button>
                   </div>
                 )}
               </div>
@@ -236,10 +281,10 @@ export default function BuilderLayout({ access }) {
                 {exportDropdown === 'docx' && (
                   <div className="builder-copy-dropdown">
                     <button className="builder-copy-btn" onClick={() => { downloadFile('docx','student'); setExportDropdown(null); }}>
-                      <span className="s5-copy-badge student">Student</span> Questions only
+                      Questions only
                     </button>
                     <button className="builder-copy-btn" onClick={() => { downloadFile('docx','teacher'); setExportDropdown(null); }}>
-                      <span className="s5-copy-badge teacher">Teacher</span> With answers
+                       Mark scheme
                     </button>
                   </div>
                 )}

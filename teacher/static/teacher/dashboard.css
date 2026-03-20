@@ -7,6 +7,7 @@
   margin-bottom: 1.25rem;
   box-shadow: 0 2px 12px rgba(11,45,114,0.07);
 }
+.page-body { max-width: 1200px; }
 .dash-container-inner { margin-bottom: 1.25rem; }
 .dash-divider { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
 

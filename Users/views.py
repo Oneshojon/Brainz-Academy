@@ -250,6 +250,7 @@ def dashboard(request):
         'referral_count':   referral_count,
         'recent_referrals': recent_referrals,
         'referral_link':    referral_link,
+        'streak':           user.streak or 0,
     }
     return render(request, 'Users/dashboard.html', context)
 
