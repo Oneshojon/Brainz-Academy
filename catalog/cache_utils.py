@@ -114,11 +114,13 @@ def get_available_years(subject_id, board_id):
 # ── Feature flags ─────────────────────────────────────────────────────────────
 
 def get_feature_flags():
-    """Returns all feature flags as a dict {key: is_enabled}."""
     from catalog.models import FeatureFlag
     return get_or_set(
         KEY_FEATURE_FLAGS,
-        lambda: {f.key: f.is_enabled for f in FeatureFlag.objects.all()},
+        lambda: {
+            f.key: {'enabled': f.is_enabled, 'visible_to': f.visible_to}
+            for f in FeatureFlag.objects.all()
+        },
         CACHE_5_MIN
     )
 

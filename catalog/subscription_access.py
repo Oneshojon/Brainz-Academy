@@ -8,11 +8,7 @@ from catalog.models import FreeUsageTracker, SubscriptionPlan
  
 def get_active_subscription(user):
     """Returns the user's active UserSubscription or None."""
-    from django.utils import timezone
-    return user.subscriptions.filter(
-        status='ACTIVE',
-        expires_at__gt=timezone.now()
-    ).select_related('plan').first()
+    return user.active_subscription  # uses cached property on model
  
  
 def has_subscription(user, plan_type=None):

@@ -354,6 +354,133 @@ def upload_docx(request):
     }
     return render(request, 'teacher/upload_docx.html', context)
 
+# Add this to teacher/views.py
+
+@admin_required
+def upload_notes(request):
+    """
+    Upload revision notes and/or worksheets as PDFs.
+    Each PDF can contain multiple topics — each topic starts on a new page.
+    """
+    from catalog.note_pdf_parser import parse_note_pdf
+    from catalog.models import LessonNote, Worksheet, Subject, Topic
+    from django.core.files.base import ContentFile
+
+    if request.method != 'POST':
+        return render(request, 'teacher/upload_notes.html', {
+            'subjects': Subject.objects.all().order_by('name'),
+        })
+
+    note_file      = request.FILES.get('note_pdf')
+    worksheet_file = request.FILES.get('worksheet_pdf')
+    overwrite      = request.POST.get('overwrite') == 'on'
+
+    if not note_file and not worksheet_file:
+        return render(request, 'teacher/upload_notes.html', {
+            'error': 'Please upload at least one PDF file.',
+            'subjects': Subject.objects.all().order_by('name'),
+        })
+
+    note_results      = []
+    worksheet_results = []
+    all_errors        = []
+
+    # ── Process revision notes ────────────────────────────────────────────────
+    if note_file:
+        parsed, errors = parse_note_pdf(note_file.read())
+        all_errors.extend([f'[Notes] {e}' for e in errors])
+
+        for item in parsed:
+            subject = Subject.objects.filter(name__iexact=item['subject']).first()
+            if not subject:
+                all_errors.append(f'[Notes] Subject "{item["subject"]}" not found — skipped.')
+                continue
+
+            topic = Topic.objects.filter(
+                name__iexact=item['topic'], subject=subject
+            ).first()
+            if not topic:
+                all_errors.append(f'[Notes] Topic "{item["topic"]}" not found in {subject.name} — skipped.')
+                continue
+
+            existing = getattr(topic, 'lesson_note', None)
+            if existing and not overwrite:
+                note_results.append({
+                    'topic': topic.name, 'subject': subject.name,
+                    'status': 'skipped', 'reason': 'already exists (overwrite not checked)'
+                })
+                continue
+
+            # Save PDF to model
+            filename = f"note_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
+            note, created = LessonNote.objects.update_or_create(
+                topic=topic,
+                defaults={
+                    'title':           f"{topic.name} — Revision Notes",
+                    'video_url':       item['video_url'],
+                    'is_ai_generated': False,
+                    'uploaded_by':     request.user,
+                }
+            )
+            note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+
+            note_results.append({
+                'topic': topic.name, 'subject': subject.name,
+                'status': 'created' if created else 'updated',
+                'video': item['video_url'] or '—',
+            })
+
+    # ── Process worksheets ────────────────────────────────────────────────────
+    if worksheet_file:
+        parsed, errors = parse_note_pdf(worksheet_file.read())
+        all_errors.extend([f'[Worksheet] {e}' for e in errors])
+
+        for item in parsed:
+            subject = Subject.objects.filter(name__iexact=item['subject']).first()
+            if not subject:
+                all_errors.append(f'[Worksheet] Subject "{item["subject"]}" not found — skipped.')
+                continue
+
+            topic = Topic.objects.filter(
+                name__iexact=item['topic'], subject=subject
+            ).first()
+            if not topic:
+                all_errors.append(f'[Worksheet] Topic "{item["topic"]}" not found in {subject.name} — skipped.')
+                continue
+
+            existing = getattr(topic, 'worksheet', None)
+            if existing and not overwrite:
+                worksheet_results.append({
+                    'topic': topic.name, 'subject': subject.name,
+                    'status': 'skipped', 'reason': 'already exists (overwrite not checked)'
+                })
+                continue
+
+            filename = f"ws_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
+            ws, created = Worksheet.objects.update_or_create(
+                topic=topic,
+                defaults={
+                    'title':           f"{topic.name} — Worksheet",
+                    'video_url':       item['video_url'],
+                    'is_ai_generated': False,
+                    'uploaded_by':     request.user,
+                }
+            )
+            ws.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+
+            worksheet_results.append({
+                'topic': topic.name, 'subject': subject.name,
+                'status': 'created' if created else 'updated',
+                'video': item['video_url'] or '—',
+            })
+
+    return render(request, 'teacher/upload_notes.html', {
+        'success':          True,
+        'note_results':     note_results,
+        'worksheet_results':worksheet_results,
+        'errors':           all_errors,
+        'subjects':         Subject.objects.all().order_by('name'),
+    })
 
 @admin_required
 def feature_flags_page(request):
@@ -402,17 +529,27 @@ def lesson_notes(request):
         return JsonResponse({'error': 'Unknown action'}, status=400)
 
     # ── GET ───────────────────────────────────────────────────────────────────
-    all_subjects     = Subject.objects.all().order_by('name')
-    covered_subjects = Subject.objects.filter(topics__isnull=False).distinct()
-    covered_ids      = set(covered_subjects.values_list('id', flat=True))
+    from catalog.cache_utils import get_or_set, CACHE_5_MIN, KEY_ALL_SUBJECTS
+
+    all_subjects = get_or_set(
+        KEY_ALL_SUBJECTS,
+        lambda: list(Subject.objects.all().order_by('name')),
+        CACHE_5_MIN
+    )
+    covered_ids = get_or_set(
+        'catalog:covered_subject_ids',
+        lambda: set(Subject.objects.filter(topics__isnull=False).values_list('id', flat=True)),
+        CACHE_5_MIN
+    )
 
     selected_subject_id = request.GET.get('subject')
     selected_topic_id   = request.GET.get('topic')
 
     selected_subject = None
     topics           = []
-    selected_topic   = None
+    selected_topic   = None 
     note             = None
+    worksheet        = None
     subject_covered  = True
     ai_enabled       = is_feature_enabled('ai_lesson_notes', user=request.user)
 
@@ -421,16 +558,20 @@ def lesson_notes(request):
             selected_subject = Subject.objects.get(id=selected_subject_id)
             subject_covered  = selected_subject.id in covered_ids
             if subject_covered:
-                topics = Topic.objects.filter(subject=selected_subject).order_by('name')
+                topics = Topic.objects.filter(subject=selected_subject).prefetch_related('lesson_note', 'worksheet').order_by('name')
         except Subject.DoesNotExist:
             pass
 
+    # Updated Topic retrieval
     if selected_topic_id and subject_covered:
         try:
-            selected_topic = Topic.objects.get(
-                id=selected_topic_id, subject=selected_subject
-            )
+            selected_topic = Topic.objects.prefetch_related(
+                'lesson_note', 
+                'worksheet'
+            ).get(id=selected_topic_id, subject=selected_subject)
+            
             note = getattr(selected_topic, 'lesson_note', None)
+            worksheet = getattr(selected_topic, 'worksheet', None)
         except Topic.DoesNotExist:
             pass
 
@@ -469,6 +610,7 @@ def lesson_notes(request):
         # Section 10 additions — used by lesson_notes.html template
         'lesson_access':        lesson_access,
         'lesson_access_denied': lesson_access_denied,
+        'worksheet': worksheet,
     }
     return render(request, 'teacher/lesson_notes.html', context)
 
@@ -536,6 +678,31 @@ def _handle_ai_accept(request, data):
 # DOCX PARSER HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
+"""
+Drop-in replacement for _parse_docx and helpers in teacher/views.py
+
+Handles:
+- Bold, italic, bold+italic runs
+- Superscript / subscript (vertAlign)
+- OMML math elements (Office Math Markup Language)
+- Empty lines preserved as <p class="empty-line">
+- Indented paragraphs (right-positioned answer blanks)
+- Center / right alignment
+- Tables (converted to HTML <table>)
+- Images (existing logic preserved)
+- Intentional blank space for student answers
+"""
+
+from docx import Document as DocxDocument
+from docx.oxml.ns import qn
+from django.utils.html import escape
+import re
+import io
+
+# ── Namespace constants ───────────────────────────────────────────────────────
+MATH_NS  = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+W_NS     = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
 _SITTING_MAP = {
     'may': 'MAY_JUNE', 'june': 'MAY_JUNE',
     'nov': 'NOV_DEC',  'dec':  'NOV_DEC',
@@ -551,11 +718,177 @@ def _resolve_sitting(paper_type_str):
     return 'MAY_JUNE'
 
 
+def _clean(text):
+    return text.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
+
+
+def _extract_omml_text(element):
+    """Extract readable text from an OMML math element."""
+    texts = []
+    # math:t elements
+    for t in element.findall('.//{%s}t' % MATH_NS):
+        if t.text:
+            texts.append(t.text)
+    # also w:t inside math (rare but happens)
+    for t in element.findall('.//' + qn('w:t')):
+        if t.text:
+            texts.append(t.text)
+    return ''.join(texts).strip()
+
+
+def _run_to_html(run_elem):
+    """
+    Convert a single <w:r> element to HTML.
+    Handles: bold, italic, superscript, subscript.
+    """
+    rpr = run_elem.find(qn('w:rPr'))
+    is_bold   = False
+    is_italic = False
+    is_super  = False
+    is_sub    = False
+
+    if rpr is not None:
+        is_bold   = rpr.find(qn('w:b'))  is not None
+        is_italic = rpr.find(qn('w:i'))  is not None
+        vert = rpr.find(qn('w:vertAlign'))
+        if vert is not None:
+            val = vert.get(qn('w:val'))
+            is_super = val == 'superscript'
+            is_sub   = val == 'subscript'
+
+    text = ''
+    for t in run_elem.findall(qn('w:t')):
+        text += (t.text or '')
+
+    if not text:
+        return ''
+
+    text = escape(text)
+
+    # Apply formatting (inner to outer)
+    if is_super: text = f'<sup>{text}</sup>'
+    if is_sub:   text = f'<sub>{text}</sub>'
+    if is_bold and is_italic: text = f'<strong><em>{text}</em></strong>'
+    elif is_bold:   text = f'<strong>{text}</strong>'
+    elif is_italic: text = f'<em>{text}</em>'
+
+    return text
+
+
+def _para_to_html(para, block_type='content'):
+    """
+    Convert a python-docx Paragraph to an HTML string.
+    Preserves: bold, italic, super/sub, math, alignment, indentation, empty lines.
+    block_type: 'content' | 'header'
+    """
+    p_elem = para._p
+
+    # ── Detect alignment ──────────────────────────────────────────────────────
+    jc = p_elem.find('.//' + qn('w:jc'))
+    align_val = jc.get(qn('w:val')) if jc is not None else None
+    align_css = ''
+    if align_val == 'center':
+        align_css = 'text-align:center;'
+    elif align_val == 'right':
+        align_css = 'text-align:right;'
+
+    # ── Detect indentation ────────────────────────────────────────────────────
+    ind = p_elem.find('.//' + qn('w:ind'))
+    indent_css = ''
+    if ind is not None:
+        left = ind.get(qn('w:left'))
+        if left and int(left) > 500:  # twips — significant indent
+            px = int(int(left) / 1440 * 96)  # twips → px (96dpi)
+            indent_css = f'margin-left:{px}px;'
+
+    style = (align_css + indent_css).strip(';')
+    style_attr = f' style="{style}"' if style else ''
+
+    # ── Build content by iterating child elements ─────────────────────────────
+    content = ''
+    for child in p_elem:
+        local = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+        if local == 'r':
+            # Regular run
+            content += _run_to_html(child)
+
+        elif local == 'hyperlink':
+            # Hyperlink — extract runs inside
+            for r in child.findall(qn('w:r')):
+                content += _run_to_html(r)
+
+        elif local == 'oMath' or child.tag == f'{{{MATH_NS}}}oMath':
+            # OMML math
+            math_text = _extract_omml_text(child)
+            content += f'<span class="math-expr">{escape(math_text)}</span>'
+
+        elif local == 'oMathPara' or child.tag == f'{{{MATH_NS}}}oMathPara':
+            # Math paragraph (display math)
+            math_texts = []
+            for om in child.findall('{%s}oMath' % MATH_NS):
+                math_texts.append(_extract_omml_text(om))
+            if math_texts:
+                content += f'<span class="math-expr">{"  ".join(math_texts)}</span>'
+
+        elif local in ('bookmarkStart', 'bookmarkEnd', 'proofErr', 'del', 'rPrChange'):
+            pass  # skip metadata elements
+
+        elif local == 'ins':
+            # Track changes — show inserted content
+            for r in child.findall(qn('w:r')):
+                content += _run_to_html(r)
+
+    # ── Return ────────────────────────────────────────────────────────────────
+    if not content.strip():
+        return '<p class="empty-line">&nbsp;</p>'
+
+    return f'<p{style_attr}>{content}</p>'
+
+
+def _table_to_html(table):
+    """Convert a python-docx Table to an HTML string."""
+    rows_html = []
+    for row in table.rows:
+        cells_html = []
+        for cell in row.cells:
+            # Each cell can have multiple paragraphs
+            cell_content = ''
+            for para in cell.paragraphs:
+                html = _para_to_html(para)
+                # Strip wrapping <p> for single-line cells
+                inner = re.sub(r'^<p[^>]*>(.*)</p>$', r'\1', html, flags=re.DOTALL)
+                if inner.strip() and inner.strip() != '&nbsp;':
+                    cell_content += inner + '<br>'
+            cell_content = cell_content.rstrip('<br>')
+            cells_html.append(f'<td>{cell_content or "&nbsp;"}</td>')
+        rows_html.append(f'<tr>{"".join(cells_html)}</tr>')
+    return (
+        '<div class="q-table"><table border="1" cellpadding="4" cellspacing="0">'
+        + ''.join(rows_html)
+        + '</table></div>'
+    )
+
+
+def _para_image(para, img_map):
+    """Extract image bytes/ext from a paragraph if present."""
+    for blip in para._element.findall('.//' + qn('a:blip')):
+        rid = blip.get(qn('r:embed'))
+        if rid and rid in img_map:
+            return img_map[rid]
+    return None, None
+
+
 def _parse_docx(file_bytes):
-    doc  = DocxDocument(io.BytesIO(file_bytes))
+    """
+    Robust DOCX parser.
+    Returns (header, questions) where each question has:
+        number, content (HTML string), image_bytes, image_ext, choices, answer, topics
+    """
+    doc   = DocxDocument(io.BytesIO(file_bytes))
     paras = doc.paragraphs
- 
-    # ── image map ────────────────────────────────────────────────────────────
+
+    # ── Build image map ───────────────────────────────────────────────────────
     img_map = {}
     for rel in doc.part.rels.values():
         if 'image' in rel.reltype:
@@ -566,82 +899,75 @@ def _parse_docx(file_bytes):
                 )
             except Exception:
                 pass
- 
-    def _para_image(para):
-        for blip in para._element.findall('.//' + qn('a:blip')):
-            rid = blip.get(qn('r:embed'))
-            if rid and rid in img_map:
-                return img_map[rid]
-        return None, None
- 
-    def _clean(text):
-        """Normalize non-breaking spaces and collapse extra whitespace."""
-        return text.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
-    
-    def _runs_to_html(para):
-        """Convert a paragraph's runs to HTML preserving bold/italic."""
-        html = ''
-        for run in para.runs:
-            text = run.text.replace('\xa0', ' ')
-            if not text:
-                continue
-            text = escape(text)
-            if run.bold and run.italic:
-                text = f'<strong><em>{text}</em></strong>'
-            elif run.bold:
-                text = f'<strong>{text}</strong>'
-            elif run.italic:
-                text = f'<em>{text}</em>'
-            html += text
-        return html.strip()
- 
-    # ── header parsing ────────────────────────────────────────────────────────
-    header      = {'subject': '', 'exam': '', 'year': '', 'sitting': 'MAY_JUNE'}
-    q_start_re  = re.compile(r'^(\d+)\.\s*')
-    first_q_idx = 0
- 
-    for i, para in enumerate(paras):
-        text = _clean(para.text)
-        if q_start_re.match(text):
-            first_q_idx = i
-            break
-        tl = text.lower()
-        if tl.startswith('subject:'):
-            header['subject'] = text.split(':', 1)[1].strip()
-        elif tl.startswith('exam:'):
-            header['exam'] = text.split(':', 1)[1].strip()
-        elif tl.startswith('year:'):
-            parts = text.split('\n')
-            header['year'] = parts[0].split(':', 1)[1].strip()
-            if len(parts) > 1 and 'paper' in parts[1].lower():
-                header['sitting'] = _resolve_sitting(parts[1].split(':', 1)[1].strip())
-        elif tl.startswith('paper type:'):
-            header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
-        elif tl.startswith('sitting:'):
-            header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
- 
-    # ── group paragraphs into per-question blocks ─────────────────────────────
-    blocks  = []
+
+    # ── Build body element map (paragraphs AND tables in order) ──────────────
+    # We need to process tables in their correct position relative to paragraphs
+    body = doc.element.body
+    body_elements = []  # list of ('p', para_obj) or ('table', table_obj)
+    para_idx  = 0
+    table_idx = 0
+
+    for child in body:
+        local = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+        if local == 'p':
+            if para_idx < len(paras):
+                body_elements.append(('p', paras[para_idx]))
+                para_idx += 1
+        elif local == 'tbl':
+            if table_idx < len(doc.tables):
+                body_elements.append(('table', doc.tables[table_idx]))
+                table_idx += 1
+
+    # ── Header parsing ────────────────────────────────────────────────────────
+    header = {'subject': '', 'exam': '', 'year': '', 'sitting': 'MAY_JUNE'}
+    q_start_re = re.compile(r'^(\d+)[.\)]\s*')
+    first_q_elem_idx = 0
+
+    for i, (etype, elem) in enumerate(body_elements):
+        if etype == 'p':
+            text = _clean(elem.text)
+            if q_start_re.match(text):
+                first_q_elem_idx = i
+                break
+            tl = text.lower()
+            if tl.startswith('subject:'):
+                header['subject'] = text.split(':', 1)[1].strip()
+            elif tl.startswith('exam:'):
+                header['exam'] = text.split(':', 1)[1].strip()
+            elif tl.startswith('year:'):
+                parts = text.split('\n')
+                header['year'] = parts[0].split(':', 1)[1].strip()
+            elif tl.startswith('paper type:') or tl.startswith('sitting:'):
+                header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
+
+    # ── Group elements into per-question blocks ───────────────────────────────
+    blocks  = []  # list of lists of (etype, elem)
     current = []
-    for i in range(first_q_idx, len(paras)):
-        text = _clean(paras[i].text)
-        if q_start_re.match(text) and current:
-            blocks.append(current)
-            current = [i]
-        elif q_start_re.match(text):
-            current = [i]
-        elif current:
-            current.append(i)
+
+    for i in range(first_q_elem_idx, len(body_elements)):
+        etype, elem = body_elements[i]
+        if etype == 'p':
+            text = _clean(elem.text)
+            if q_start_re.match(text):
+                if current:
+                    blocks.append(current)
+                current = [(etype, elem)]
+            elif current:
+                current.append((etype, elem))
+        elif etype == 'table':
+            if current:
+                current.append((etype, elem))
+
     if current:
         blocks.append(current)
- 
-    # ── per-question parsing ──────────────────────────────────────────────────
+
+    # ── Per-question parsing ──────────────────────────────────────────────────
     choice_re = re.compile(r'^([A-E])[.\)]\s+(.+)$', re.DOTALL)
     answer_re = re.compile(r'^answer\s*:\s*([A-E])', re.IGNORECASE)
     topic_re  = re.compile(r'^topic\s*:\s*(.+)$',   re.IGNORECASE)
     questions = []
- 
-    for block_idx in blocks:
+
+    for block in blocks:
         q = {
             'number':      None,
             'content':     '',
@@ -653,56 +979,60 @@ def _parse_docx(file_bytes):
         }
         content_parts = []
         in_choices    = False
- 
-        for idx in block_idx:
-            para         = paras[idx]
-            raw_text     = para.text            # keep original for run-by-run if needed
-            text         = _clean(raw_text)
-            img_b, img_e = _para_image(para)
- 
-            # ── question number line ──────────────────────────────────────────
-            m = q_start_re.match(text)
-            if m and q['number'] is None:
-                q['number'] = int(m.group(1))
-                remainder   = text[m.end():].strip()
-                if remainder:
-                    content_parts.append(remainder)
-                if img_b:
-                    q['image_bytes'] = img_b
-                    q['image_ext']   = img_e
+
+        for etype, elem in block:
+
+            # ── Table element ─────────────────────────────────────────────────
+            if etype == 'table':
+                content_parts.append(_table_to_html(elem))
                 continue
- 
-            # ── image-only paragraph ──────────────────────────────────────────
+
+            # ── Paragraph element ─────────────────────────────────────────────
+            para = elem
+            raw_text = para.text
+            text     = _clean(raw_text)
+
+            # ── Image ─────────────────────────────────────────────────────────
+            img_b, img_e = _para_image(para, img_map)
             if img_b and not text:
                 q['image_bytes'] = img_b
                 q['image_ext']   = img_e
                 continue
- 
-            # ── answer line ───────────────────────────────────────────────────
+
+            # ── Question number line ──────────────────────────────────────────
+            m = q_start_re.match(text)
+            if m and q['number'] is None:
+                q['number']   = int(m.group(1))
+                remainder_txt = text[m.end():].strip()
+                remainder_html = _para_to_html(para)
+                # Replace the full para HTML with just the remainder
+                if remainder_txt:
+                    content_parts.append(remainder_html)
+                if img_b:
+                    q['image_bytes'] = img_b
+                    q['image_ext']   = img_e
+                continue
+
+            # ── Answer line ───────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer'] = ma.group(1).upper()
                 in_choices  = False
                 continue
- 
-            # ── topic line ────────────────────────────────────────────────────
+
+            # ── Topic line ────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(mt.group(1).strip())
                 continue
- 
-            # ── skip blank paragraphs ─────────────────────────────────────────
-            if not text:
-                continue
- 
-            # ── choices (paragraph may contain A. ... \n B. ... \n C. ...) ───
-            # Split by newlines and check if first non-empty line is a choice
+
+            # ── Choices ───────────────────────────────────────────────────────
             raw_lines  = [_clean(ln) for ln in raw_text.split('\n')]
             first_line = raw_lines[0] if raw_lines else ''
- 
+
             if choice_re.match(first_line):
                 in_choices = True
-                seen       = set()
+                seen = set()
                 for line in raw_lines:
                     line = _clean(line)
                     if not line:
@@ -716,27 +1046,25 @@ def _parse_docx(file_bytes):
                             'is_correct': False,
                         })
                 continue
- 
-            # ── everything else is content (bold context, preamble, etc.) ────
+
+            # ── Regular content (empty lines, indented blanks, math, etc.) ────
             if not in_choices:
-                html = _runs_to_html(para)
-                if html:
-                    content_parts.append(html)
- 
-        # ── assemble question content (preserve line breaks) ─────────────────
-        q['content'] = '<br>'.join(content_parts).strip()
- 
-        # ── mark correct answer ───────────────────────────────────────────────
+                html = _para_to_html(para)
+                content_parts.append(html)
+
+        # ── Assemble content ──────────────────────────────────────────────────
+        q['content'] = '\n'.join(content_parts).strip()
+
+        # ── Mark correct answer ───────────────────────────────────────────────
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct'] = True
- 
+
         if q['number'] and q['content']:
             questions.append(q)
- 
-    return header, questions
 
+    return header, questions
 
 @admin_required
 def referral_analytics(request):
@@ -771,3 +1099,101 @@ def referral_analytics(request):
         'recent_events':         recent_events,
     }
     return render(request, 'teacher/referral_analytics.html', context)
+
+    # Add to teacher/views.py
+
+@admin_required
+def upload_past_paper(request):
+    """Upload a past paper PDF (questions and/or answers) for a specific exam series."""
+    from catalog.models import Subject, ExamBoard, ExamSeries, PastPaper
+    from django.core.files.base import ContentFile
+
+    subjects    = Subject.objects.all().order_by('name')
+    exam_boards = ExamBoard.objects.all().order_by('name')
+
+    if request.method != 'POST':
+        return render(request, 'teacher/upload_past_paper.html', {
+            'subjects': subjects, 'exam_boards': exam_boards,
+        })
+
+    # ── Get form fields ───────────────────────────────────────────────────────
+    subject_id    = request.POST.get('subject')
+    board_id      = request.POST.get('exam_board')
+    year_str      = request.POST.get('year', '').strip()
+    sitting       = request.POST.get('sitting', 'MAY_JUNE')
+    paper_type    = request.POST.get('paper_type', '').upper()
+    video_url     = request.POST.get('video_url', '').strip() or None
+    question_file = request.FILES.get('question_pdf')
+    answer_file   = request.FILES.get('answer_pdf')
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    errors = []
+    if not subject_id:    errors.append('Please select a subject.')
+    if not board_id:      errors.append('Please select an exam board.')
+    if not year_str:      errors.append('Please enter a year.')
+    if not paper_type:    errors.append('Please select a paper type.')
+    if paper_type not in ('OBJ', 'THEORY', 'PRACTICAL'):
+        errors.append('Invalid paper type.')
+    if not question_file and not answer_file and not video_url:
+        errors.append('Please provide at least one file or a video URL.')
+
+    try:
+        year = int(year_str)
+    except (ValueError, TypeError):
+        errors.append(f'Invalid year: "{year_str}".')
+        year = None
+
+    if errors:
+        return render(request, 'teacher/upload_past_paper.html', {
+            'subjects': subjects, 'exam_boards': exam_boards, 'errors': errors,
+            'post': request.POST,
+        })
+
+    # ── Get or create ExamSeries ──────────────────────────────────────────────
+    try:
+        subject    = Subject.objects.get(id=subject_id)
+        exam_board = ExamBoard.objects.get(id=board_id)
+    except (Subject.DoesNotExist, ExamBoard.DoesNotExist):
+        return render(request, 'teacher/upload_past_paper.html', {
+            'subjects': subjects, 'exam_boards': exam_boards,
+            'errors': ['Invalid subject or exam board.'], 'post': request.POST,
+        })
+
+    exam_series, _ = ExamSeries.objects.get_or_create(
+        exam_board=exam_board, subject=subject,
+        year=year, sitting=sitting,
+    )
+
+    # ── Get or create PastPaper — partial update ──────────────────────────────
+    paper, created = PastPaper.objects.get_or_create(
+        exam_series=exam_series,
+        paper_type=paper_type,
+    )
+
+    updated_fields = []
+
+    if question_file:
+        paper.question_pdf = question_file
+        updated_fields.append('question PDF')
+
+    if answer_file:
+        paper.answer_pdf = answer_file
+        updated_fields.append('answer PDF')
+
+    if video_url:
+        paper.video_url = video_url
+        updated_fields.append('video URL')
+
+    paper.uploaded_by = request.user
+    paper.save()
+
+    action  = 'Created' if created else 'Updated'
+    summary = f"{action}: {exam_board.abbreviation} {subject.name} {sitting} {year} — {paper_type}"
+    if updated_fields:
+        summary += f" ({', '.join(updated_fields)} added)"
+
+    return render(request, 'teacher/upload_past_paper.html', {
+        'subjects': subjects, 'exam_boards': exam_boards,
+        'success': True, 'summary': summary,
+        'paper': paper, 'created': created,
+    })

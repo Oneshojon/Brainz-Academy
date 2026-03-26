@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # ← add this first
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -65,6 +66,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'examproject.urls'
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 TEMPLATES = [
     {
@@ -189,7 +192,7 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #Set up email backend
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 # SESSION_COOKIE_AGE = 600
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
@@ -230,3 +233,82 @@ INTERNAL_IPS = [
     "127.0.0.1",
     # ...
 ]
+
+# CSRF_TRUSTED_ORIGINS = [f'https://{h}' for h in ALLOWED_HOSTS if h]
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# AWS_ACCESS_KEY_ID       = os.environ.get('AWS_ACCESS_KEY_ID')
+# AWS_SECRET_ACCESS_KEY   = os.environ.get('AWS_SECRET_ACCESS_KEY')
+# AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+# AWS_S3_REGION_NAME      = os.environ.get('AWS_S3_REGION_NAME', 'eu-west-1')
+# AWS_S3_FILE_OVERWRITE   = False
+# AWS_DEFAULT_ACL         = None
+
+# if AWS_ACCESS_KEY_ID:
+#     DEFAULT_FILE_STORAGE  = 'storages.backends.s3boto3.S3Boto3Storage'
+#     AWS_S3_CUSTOM_DOMAIN  = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+#     MEDIA_URL             = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+
+# ── Add these to the BOTTOM of examproject/settings.py ───────────────────────
+# Remove or comment out any existing AWS S3 settings
+
+# ── Cloudflare R2 (media storage) ────────────────────────────────────────────
+CLOUDFLARE_R2_ACCESS_KEY_ID     = os.environ.get('CLOUDFLARE_R2_ACCESS_KEY_ID')
+CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.environ.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
+CLOUDFLARE_R2_BUCKET_NAME       = os.environ.get('CLOUDFLARE_R2_BUCKET_NAME', 'examprep-media')
+CLOUDFLARE_R2_ACCOUNT_ID        = os.environ.get('CLOUDFLARE_R2_ACCOUNT_ID')
+
+if CLOUDFLARE_R2_ACCESS_KEY_ID:
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+    AWS_ACCESS_KEY_ID     = CLOUDFLARE_R2_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = CLOUDFLARE_R2_SECRET_ACCESS_KEY
+    AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
+    AWS_S3_ENDPOINT_URL   = f'https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com'
+    AWS_S3_REGION_NAME    = 'auto'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL       = None
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+    # Public URL for serving files
+    # Set this to your R2 public bucket URL or custom domain
+    CLOUDFLARE_R2_PUBLIC_URL = os.environ.get(
+        'CLOUDFLARE_R2_PUBLIC_URL',
+        f'https://pub-{CLOUDFLARE_R2_ACCOUNT_ID}.r2.dev'
+    )
+    MEDIA_URL = f'{CLOUDFLARE_R2_PUBLIC_URL}/'
+else:
+    # Local dev fallback
+    MEDIA_URL  = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── Brevo (transactional email) ───────────────────────────────────────────────
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
+
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+    ANYMAIL = {
+        'BREVO_API_KEY': BREVO_API_KEY,
+    }
+else:
+    # Local dev — print emails to console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'ExamPrep <noreply@examprep.ng>')
+SERVER_EMAIL       = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@examprep.ng')
+
+# ── Security (production only) ────────────────────────────────────────────────
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER     = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT         = True
+    SESSION_COOKIE_SECURE       = True
+    CSRF_COOKIE_SECURE          = True
+    SECURE_BROWSER_XSS_FILTER  = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    CSRF_TRUSTED_ORIGINS        = [
+        f'https://{h}' for h in ALLOWED_HOSTS if h and h not in ('localhost', '127.0.0.1')
+    ]
+
+# ── Static files (WhiteNoise) ─────────────────────────────────────────────────
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

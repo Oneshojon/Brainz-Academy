@@ -114,6 +114,10 @@ def verify_otp(request):
             user.last_name = last_name
             user.role = role
 
+            gender = request.POST.get('gender', '').strip()
+            if gender in ('M', 'F', 'O', 'N'):
+                user.gender = gender
+
             # Generate referral code for new user
             user.referral_code = str(uuid.uuid4())[:8].upper()
 

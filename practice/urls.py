@@ -4,6 +4,7 @@ from . import views
 app_name = 'practice'
 
 urlpatterns = [
+    path('past-papers/', views.past_papers, name='past_papers'),
     # Practice home — exam/session selection
     path('', views.practice_home, name='practice_home'),
 

@@ -124,7 +124,7 @@
             <span class="result-icon">
               {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
             </span>
-            <span class="review-q-num">Q{{ question.question_number }}</span>
+            <span class="review-q-num">Q{{ forloop.counter }}</span>
             <span class="review-q-preview">{{ question.content|truncatechars:80 }}</span>
             <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
               {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}

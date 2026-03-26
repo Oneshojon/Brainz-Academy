@@ -29,3 +29,22 @@ urllib3==2.6.3
 wcwidth==0.2.14
 websocket-client==1.9.0
 wsproto==1.3.2
+
+# Add these to your requirements.txt if not already present
+
+# Production server
+gunicorn==21.2.0
+
+# PostgreSQL
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# AWS S3 media storage
+django-storages==1.14.2
+boto3==1.34.0
+
+# Static files
+whitenoise==6.6.0
+
+# Redis cache
+django-redis==5.4.0

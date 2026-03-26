@@ -167,6 +167,83 @@ class ExamSeries(models.Model):
     def __str__(self):
         return f"{self.exam_board.abbreviation} {self.subject.name} {self.get_sitting_display()} {self.year}"
 
+# Add to catalog/models.py after ExamSeries model
+
+class PastPaper(models.Model):
+    """A full past paper PDF (questions and/or answers) for a specific exam series."""
+
+    PAPER_TYPE_CHOICES = [
+        ('OBJ',       'Objective'),
+        ('THEORY',    'Theory'),
+        ('PRACTICAL', 'Practical'),
+    ]
+
+    exam_series  = models.ForeignKey(
+        ExamSeries, on_delete=models.CASCADE,
+        related_name='past_papers'
+    )
+    paper_type   = models.CharField(max_length=20, choices=PAPER_TYPE_CHOICES)
+    question_pdf = models.FileField(
+        upload_to='past_papers/questions/',
+        null=True, blank=True,
+        help_text='PDF of the questions'
+    )
+    answer_pdf   = models.FileField(
+        upload_to='past_papers/answers/',
+        null=True, blank=True,
+        help_text='PDF of the answers/marking scheme'
+    )
+    video_url    = models.URLField(
+        null=True, blank=True,
+        help_text='YouTube or other video walkthrough URL'
+    )
+    uploaded_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='uploaded_papers'
+    )
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('exam_series', 'paper_type')
+        ordering        = ['-exam_series__year', 'paper_type']
+        indexes         = [
+            models.Index(fields=['exam_series', 'paper_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.exam_series} — {self.get_paper_type_display()}"
+
+    @property
+    def video_embed_url(self):
+        """Convert YouTube watch URL to embed URL."""
+        import re
+        url = self.video_url
+        if not url:
+            return None
+        if 'youtube.com/embed/' in url:
+            return url
+        m = re.match(r'https?://youtu\.be/([^?&]+)', url)
+        if m:
+            return f'https://www.youtube.com/embed/{m.group(1)}'
+        m = re.match(r'https?://(?:www\.)?youtube\.com/watch\?v=([^?&]+)', url)
+        if m:
+            return f'https://www.youtube.com/embed/{m.group(1)}'
+        return url
+
+    @property
+    def has_questions(self):
+        return bool(self.question_pdf)
+
+    @property
+    def has_answers(self):
+        return bool(self.answer_pdf)
+
+    @property
+    def has_video(self):
+        return bool(self.video_url)
 
 class Question(models.Model):
     QUESTION_TYPES = [
@@ -682,14 +759,14 @@ INITIAL_PLANS = [
 def _seed_plans():
     plans = [
         # Student Basic
-        dict(plan_type='STUDENT_BASIC', duration='MONTHLY', price=1500,
+        dict(plan_type='STUDENT_BASIC', duration='MONTHLY', price=3000,
              name='Student Basic — Monthly'),
-        dict(plan_type='STUDENT_BASIC', duration='YEARLY',  price=12000,
+        dict(plan_type='STUDENT_BASIC', duration='YEARLY',  price=30000,
              name='Student Basic — Yearly'),
         # Teacher Pro
-        dict(plan_type='TEACHER_PRO',   duration='MONTHLY', price=3000,
+        dict(plan_type='TEACHER_PRO',   duration='MONTHLY', price=5000,
              name='Teacher Pro — Monthly'),
-        dict(plan_type='TEACHER_PRO',   duration='YEARLY',  price=25000,
+        dict(plan_type='TEACHER_PRO',   duration='YEARLY',  price=45000,
              name='Teacher Pro — Yearly'),
     ]
     for p in plans:

@@ -1,0 +1,239 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/upload.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Upload Notes & Worksheets</h1>
+      <p class="page-sub" style="margin-bottom:0">
+        Upload revision notes and worksheets as PDFs. Each topic must start on a new page.
+      </p>
+    </div>
+  </div>
+
+     <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
+    {% if user.is_admin %}
+      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+      <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+    {% endif %}
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  {% if error %}
+  <div style="background:var(--red-bg,#FEE2E2); border:1px solid rgba(220,38,38,0.2); border-radius:10px; padding:1rem; margin-bottom:1.5rem; color:var(--red,#DC2626); font-size:0.875rem;">
+    ⚠️ {{ error }}
+  </div>
+  {% endif %}
+
+  {% if success %}
+  <!-- Results -->
+  {% if note_results %}
+  <div class="upload-card" style="margin-bottom:1rem;">
+    <div class="upload-card-title">📄 Revision Notes — {{ note_results|length }} topic{{ note_results|length|pluralize }}</div>
+    <table style="width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Topic</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Subject</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Video</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in note_results %}
+        <tr>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--navy);">{{ r.topic }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted);">{{ r.subject }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.78rem;">{{ r.video }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border);">
+            {% if r.status == 'created' %}
+              <span style="color:var(--green,#15803D); font-weight:700; font-size:0.75rem;">✓ Created</span>
+            {% elif r.status == 'updated' %}
+              <span style="color:var(--blue,#0992C2); font-weight:700; font-size:0.75rem;">↺ Updated</span>
+            {% else %}
+              <span style="color:var(--muted); font-size:0.75rem;">— Skipped</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if worksheet_results %}
+  <div class="upload-card" style="margin-bottom:1rem;">
+    <div class="upload-card-title">📝 Worksheets — {{ worksheet_results|length }} topic{{ worksheet_results|length|pluralize }}</div>
+    <table style="width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Topic</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Subject</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Video</th>
+          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in worksheet_results %}
+        <tr>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--navy);">{{ r.topic }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted);">{{ r.subject }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.78rem;">{{ r.video }}</td>
+          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border);">
+            {% if r.status == 'created' %}
+              <span style="color:var(--green,#15803D); font-weight:700; font-size:0.75rem;">✓ Created</span>
+            {% elif r.status == 'updated' %}
+              <span style="color:var(--blue,#0992C2); font-weight:700; font-size:0.75rem;">↺ Updated</span>
+            {% else %}
+              <span style="color:var(--muted); font-size:0.75rem;">— Skipped</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div class="upload-card" style="margin-bottom:1rem; border-left:4px solid var(--red,#DC2626);">
+    <div class="upload-card-title" style="color:var(--red,#DC2626);">⚠️ Errors ({{ errors|length }})</div>
+    <div class="error-list" style="margin-top:0.5rem;">
+      {% for e in errors %}<div class="error-item">{{ e }}</div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="{% url 'teacher:upload_notes' %}"
+     style="display:inline-block; margin-bottom:2rem; font-size:0.85rem; color:var(--blue); font-weight:600; text-decoration:none;">
+    ← Upload more files
+  </a>
+  {% endif %}
+
+  {% if not success %}
+  <!-- Upload form -->
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <!-- PDF format reminder -->
+    <div class="upload-card" style="margin-bottom:1.5rem; background:var(--offwhite,#F3F6FA);">
+      <div class="upload-card-title">📋 Required PDF Format</div>
+      <div class="upload-card-sub">Each topic must start on a new page with these headers:</div>
+      <div class="csv-spec">
+        <pre>SUBJECT: Physics
+TOPIC: Scalars and Vectors
+VIDEO: https://www.youtube.com/watch?v=VIDEO_ID  (optional)
+
+[topic content starts here — can span multiple pages]
+
+--- next page ---
+
+SUBJECT: Physics
+TOPIC: Fundamental Quantities
+VIDEO: https://youtu.be/VIDEO_ID  (optional)
+
+[topic content...]</pre>
+      </div>
+      <div style="margin-top:0.75rem; font-size:0.8rem; color:var(--muted); line-height:1.7;">
+        • YouTube links are automatically converted to embed format<br>
+        • Topic names must match exactly what's in the database<br>
+        • VIDEO line is optional — leave it out if no video available
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+
+      <!-- Revision Notes -->
+      <div class="upload-card">
+        <div class="upload-card-title">📄 Revision Notes PDF</div>
+        <div class="upload-card-sub">Contains lesson notes for one or more topics.</div>
+        <div class="drop-zone" id="noteDropZone" onclick="document.getElementById('noteInput').click()">
+          <span class="drop-zone-icon">📄</span>
+          <div class="drop-zone-text">Click to select PDF</div>
+          <div class="drop-zone-sub">or drag and drop</div>
+          <div class="file-chosen" id="noteChosen"></div>
+        </div>
+        <input type="file" name="note_pdf" id="noteInput" accept=".pdf"
+               onchange="showFile(this, 'noteChosen', 'noteDropZone')">
+      </div>
+
+      <!-- Worksheets -->
+      <div class="upload-card">
+        <div class="upload-card-title">📝 Worksheet PDF <span style="font-size:0.75rem; color:var(--muted); font-weight:400;">(optional)</span></div>
+        <div class="upload-card-sub">Contains solved problems for one or more topics.</div>
+        <div class="drop-zone" id="wsDropZone" onclick="document.getElementById('wsInput').click()">
+          <span class="drop-zone-icon">📝</span>
+          <div class="drop-zone-text">Click to select PDF</div>
+          <div class="drop-zone-sub">or drag and drop</div>
+          <div class="file-chosen" id="wsChosen"></div>
+        </div>
+        <input type="file" name="worksheet_pdf" id="wsInput" accept=".pdf"
+               onchange="showFile(this, 'wsChosen', 'wsDropZone')">
+      </div>
+
+    </div>
+
+    <!-- Overwrite option -->
+    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;
+                background:#ffffff; border:1.5px solid var(--border); border-radius:10px; padding:1rem 1.25rem;">
+      <input type="checkbox" name="overwrite" id="overwrite" style="width:16px; height:16px; accent-color:var(--navy);">
+      <label for="overwrite" style="font-size:0.875rem; color:var(--navy); cursor:pointer; font-weight:600;">
+        Overwrite existing notes/worksheets for matched topics
+      </label>
+    </div>
+
+    <button type="submit"
+            style="background:var(--navy,#0B2D72); color:#ffffff; border:none; border-radius:100px;
+                   padding:0.85rem 2.5rem; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
+                   font-size:0.95rem; cursor:pointer; transition:all 0.2s;
+                   box-shadow:0 4px 14px rgba(11,45,114,0.25);">
+      ⬆ Upload Files
+    </button>
+  </form>
+  {% endif %}
+
+</div>
+
+<script>
+function showFile(input, labelId, zoneId) {
+  if (input.files[0]) {
+    document.getElementById(labelId).textContent = '📄 ' + input.files[0].name;
+    document.getElementById(zoneId).style.borderColor = 'var(--navy,#0B2D72)';
+  }
+}
+
+// Drag and drop for both zones
+['noteDropZone', 'wsDropZone'].forEach(zoneId => {
+  const zone  = document.getElementById(zoneId);
+  if (!zone) return;
+  const inputId = zoneId === 'noteDropZone' ? 'noteInput' : 'wsInput';
+  const labelId = zoneId === 'noteDropZone' ? 'noteChosen' : 'wsChosen';
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--blue)'; zone.style.background = 'rgba(9,146,194,0.05)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; zone.style.background = ''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor = 'var(--navy)'; zone.style.background = '';
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.pdf')) {
+      const dt = new DataTransfer(); dt.items.add(file);
+      document.getElementById(inputId).files = dt.files;
+      document.getElementById(labelId).textContent = '📄 ' + file.name;
+    }
+  });
+});
+</script>
+{% endblock %}

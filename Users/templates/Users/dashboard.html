@@ -148,14 +148,23 @@
         <div class="svc-desc">Go back to any past session and review your answers.</div>
         <span class="svc-tag free">Free</span>
       </a>
+
+       <a href="{% url 'practice:past_papers' %}" class="service-card blue">
+      <span class="svc-icon">📂</span>
+      <div class="svc-title">Past Papers</div>
+      <div class="svc-desc">Download full past exam papers by subject, board and year.</div>
+      <span class="svc-tag free">Free</span>
+    </a>
+
       {% if user.role == 'TEACHER' %}
       <a href="/app/?mode=teacher" class="service-card gold-card">
         <span class="svc-icon">🛠️</span>
         <div class="svc-title">Test Builder</div>
         <div class="svc-desc">Generate custom question sets by topic, year and board.</div>
         <span class="svc-tag teacher-tag">Teachers Only</span>
-      </a>
+      </a> 
       {% endif %}
+      
       <div class="service-card locked">
         <span class="svc-icon">🌍</span>
         <div class="svc-title">IGCSE Prep</div>

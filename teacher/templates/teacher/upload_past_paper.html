@@ -1,0 +1,192 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/upload.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Upload Past Paper</h1>
+      <p class="page-sub">Upload question and answer PDFs for a specific exam series.</p>
+    </div>
+  </div>
+
+   <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
+    {% if user.is_admin %}
+      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+      <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+    {% endif %}
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  {% if success %}
+  <div class="success-box" style="margin-bottom:1.5rem;">
+    <div class="success-box-title">✅ {{ summary }}</div>
+    {% if paper.question_pdf %}
+    <div class="success-box-sub">Questions: <a href="{{ paper.question_pdf.url }}" target="_blank">View PDF</a></div>
+    {% endif %}
+    {% if paper.answer_pdf %}
+    <div class="success-box-sub">Answers: <a href="{{ paper.answer_pdf.url }}" target="_blank">View PDF</a></div>
+    {% endif %}
+    {% if paper.video_url %}
+    <div class="success-box-sub">Video: <a href="{{ paper.video_url }}" target="_blank">{{ paper.video_url }}</a></div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if errors %}
+  <div style="background:#FEE2E2; border:1px solid rgba(220,38,38,0.2); border-radius:10px; padding:1rem; margin-bottom:1.5rem;">
+    {% for e in errors %}<div style="color:#DC2626; font-size:0.875rem;">⚠️ {{ e }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+
+      <!-- Left: Exam details -->
+      <div class="upload-card">
+        <div class="upload-card-title">📋 Exam Details</div>
+
+        <div style="margin-bottom:1rem;">
+          <label class="ln-label">Subject</label>
+          <select name="subject" class="ln-select" required>
+            <option value="">Select subject…</option>
+            {% for s in subjects %}
+            <option value="{{ s.id }}" {% if post.subject == s.id|stringformat:"s" %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <label class="ln-label">Exam Board</label>
+          <select name="exam_board" class="ln-select" required>
+            <option value="">Select board…</option>
+            {% for b in exam_boards %}
+            <option value="{{ b.id }}" {% if post.exam_board == b.id|stringformat:"s" %}selected{% endif %}>
+              {{ b.name }} ({{ b.abbreviation }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <label class="ln-label">Year</label>
+            <input type="number" name="year" class="ln-select"
+                   min="1990" max="2030" placeholder="e.g. 2023"
+                   value="{{ post.year|default:'' }}" required>
+          </div>
+          <div>
+            <label class="ln-label">Sitting</label>
+            <select name="sitting" class="ln-select">
+              <option value="MAY_JUNE" {% if post.sitting == 'MAY_JUNE' or not post.sitting %}selected{% endif %}>May/June</option>
+              <option value="NOV_DEC"  {% if post.sitting == 'NOV_DEC' %}selected{% endif %}>Nov/Dec</option>
+              <option value="MOCK"     {% if post.sitting == 'MOCK' %}selected{% endif %}>Mock</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <label class="ln-label">Paper Type</label>
+          <select name="paper_type" class="ln-select" required>
+            <option value="">Select type…</option>
+            <option value="OBJ"       {% if post.paper_type == 'OBJ' %}selected{% endif %}>Objective (OBJ)</option>
+            <option value="THEORY"    {% if post.paper_type == 'THEORY' %}selected{% endif %}>Theory</option>
+            <option value="PRACTICAL" {% if post.paper_type == 'PRACTICAL' %}selected{% endif %}>Practical</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="ln-label">Video Walkthrough URL <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+          <input type="url" name="video_url" class="ln-select"
+                 placeholder="https://youtube.com/watch?v=..."
+                 value="{{ post.video_url|default:'' }}">
+        </div>
+      </div>
+
+      <!-- Right: File uploads -->
+      <div>
+        <div class="upload-card" style="margin-bottom:1rem;">
+          <div class="upload-card-title">📄 Questions PDF <span style="font-weight:400;color:var(--muted);font-size:0.78rem">(optional if updating)</span></div>
+          <div class="drop-zone" id="qDropZone" onclick="document.getElementById('qInput').click()">
+            <span class="drop-zone-icon">📄</span>
+            <div class="drop-zone-text">Click to select PDF</div>
+            <div class="drop-zone-sub">or drag and drop</div>
+            <div class="file-chosen" id="qChosen"></div>
+          </div>
+          <input type="file" name="question_pdf" id="qInput" accept=".pdf"
+                 onchange="showFile(this, 'qChosen', 'qDropZone')">
+        </div>
+
+        <div class="upload-card">
+          <div class="upload-card-title">✅ Answers PDF <span style="font-weight:400;color:var(--muted);font-size:0.78rem">(optional)</span></div>
+          <div class="drop-zone" id="aDropZone" onclick="document.getElementById('aInput').click()">
+            <span class="drop-zone-icon">✅</span>
+            <div class="drop-zone-text">Click to select PDF</div>
+            <div class="drop-zone-sub">or drag and drop</div>
+            <div class="file-chosen" id="aChosen"></div>
+          </div>
+          <input type="file" name="answer_pdf" id="aInput" accept=".pdf"
+                 onchange="showFile(this, 'aChosen', 'aDropZone')">
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.5rem;">
+      <button type="submit"
+              style="background:var(--navy,#0B2D72); color:#fff; border:none; border-radius:100px;
+                     padding:0.85rem 2.5rem; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
+                     font-size:0.95rem; cursor:pointer; box-shadow:0 4px 14px rgba(11,45,114,0.25);">
+        ⬆ Upload / Update Paper
+      </button>
+      <p style="margin-top:0.75rem; font-size:0.8rem; color:var(--muted);">
+        If this paper already exists, only the fields you provide will be updated — existing files are kept.
+      </p>
+    </div>
+  </form>
+</div>
+
+<script>
+function showFile(input, labelId, zoneId) {
+  if (input.files[0]) {
+    document.getElementById(labelId).textContent = '📄 ' + input.files[0].name;
+    document.getElementById(zoneId).style.borderColor = 'var(--navy,#0B2D72)';
+  }
+}
+
+['qDropZone','aDropZone'].forEach(zoneId => {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  const inputId = zoneId === 'qDropZone' ? 'qInput' : 'aInput';
+  const labelId = zoneId === 'qDropZone' ? 'qChosen' : 'aChosen';
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--blue)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor = 'var(--navy)';
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.pdf')) {
+      const dt = new DataTransfer(); dt.items.add(file);
+      document.getElementById(inputId).files = dt.files;
+      document.getElementById(labelId).textContent = '📄 ' + file.name;
+    }
+  });
+});
+</script>
+{% endblock %}

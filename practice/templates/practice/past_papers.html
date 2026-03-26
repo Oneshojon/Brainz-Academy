@@ -1,0 +1,223 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/past_papers.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Past Questions</div>
+      <h1 class="page-title">Past Exam Papers</h1>
+      <p class="page-sub">Browse and download full past papers by subject, board and year.</p>
+    </div>
+  </div>
+
+  <div class="pp-layout">
+
+    <!-- ── Left: Subject + Papers list ── -->
+    <aside class="pp-sidebar">
+
+      <!-- Subject selector -->
+      <div class="pp-sidebar-section">
+        <div class="pp-sidebar-label">Subject</div>
+        <div class="pp-subject-list">
+          {% for subj in all_subjects %}
+          <a href="?subject={{ subj.id }}"
+             class="pp-subject-item {% if selected_subject.id == subj.id %}active{% endif %}">
+            {{ subj.name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Papers list (shown after subject selected) -->
+      {% if selected_subject and papers_flat %}
+      <div class="pp-sidebar-section" style="margin-top:1.25rem;">
+        <div class="pp-sidebar-label">
+          Available Papers
+          <span class="pp-paper-count">{{ papers_flat|length }}</span>
+        </div>
+
+        <div class="pp-papers-list" id="papersList">
+          {% for paper in papers_flat %}
+          <button
+            class="pp-paper-row {% if selected_paper.id == paper.id %}active{% endif %} {% if forloop.counter > 10 %}pp-paper-extra{% endif %}"
+            onclick="selectPaper({{ paper.id }}, this)"
+            data-paperid="{{ paper.id }}"
+            {% if forloop.counter > 10 %}style="display:none"{% endif %}>
+            <span class="pp-row-sitting">{{ paper.exam_series.get_sitting_display }} {{ paper.exam_series.year }}</span>
+            <span class="pp-row-sep">·</span>
+            <span class="pp-row-board">{{ paper.exam_series.exam_board.abbreviation }}</span>
+            <span class="pp-row-sep">·</span>
+            <span class="pp-row-type pp-type-{{ paper.paper_type|lower }}">{{ paper.get_paper_type_display }}</span>
+            <div class="pp-row-dots">
+              {% if paper.question_pdf %}<span class="pp-dot green" title="Questions">Q</span>{% endif %}
+              {% if paper.answer_pdf %}<span class="pp-dot blue" title="Solutions">S</span>{% endif %}
+              {% if paper.video_url %}<span class="pp-dot gold" title="Video">▶</span>{% endif %}
+            </div>
+          </button>
+          {% endfor %}
+        </div>
+
+        {% if papers_flat|length > 10 %}
+        <button class="pp-show-more" id="showMoreBtn" onclick="toggleShowMore()">
+          Show all {{ papers_flat|length }} papers ▾
+        </button>
+        {% endif %}
+      </div>
+
+      {% elif selected_subject %}
+      <div class="pp-sidebar-section" style="margin-top:1.25rem;">
+        <div style="font-size:0.82rem; color:var(--muted); line-height:1.7;">
+          No papers uploaded for {{ selected_subject.name }} yet.
+        </div>
+      </div>
+      {% endif %}
+
+    </aside>
+
+    <!-- ── Right: Detail panel ── -->
+    <main class="pp-main">
+
+      {% if not selected_subject %}
+      <div class="pp-state">
+        <span class="pp-state-icon">📚</span>
+        <div class="pp-state-title">Select a Subject</div>
+        <div class="pp-state-body">Choose a subject from the left to browse available past papers.</div>
+      </div>
+
+      {% elif not papers_flat %}
+      <div class="pp-state">
+        <span class="pp-state-icon">📭</span>
+        <div class="pp-state-title">No Papers Yet</div>
+        <div class="pp-state-body">No past papers have been uploaded for {{ selected_subject.name }} yet. Check back soon.</div>
+      </div>
+
+      {% elif not selected_paper %}
+      <div class="pp-state">
+        <span class="pp-state-icon">👈</span>
+        <div class="pp-state-title">Select a Paper</div>
+        <div class="pp-state-body">Click any paper from the list on the left to view it here.</div>
+      </div>
+
+      {% else %}
+
+      <!-- ── Paper detail ── -->
+      <div class="pp-detail">
+
+        <!-- Header -->
+        <div class="pp-detail-head">
+          <div>
+            <div class="pp-detail-title">
+              {{ selected_paper.exam_series.exam_board.abbreviation }}
+              {{ selected_subject.name }}
+              · {{ selected_paper.exam_series.get_sitting_display }}
+              {{ selected_paper.exam_series.year }}
+            </div>
+            <div class="pp-detail-sub">{{ selected_paper.get_paper_type_display }}</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="pp-tabs">
+          {% if selected_paper.question_pdf %}
+          <button class="pp-tab active" id="tab-q" onclick="switchTab('q')">
+            📄 Questions
+          </button>
+          {% endif %}
+          {% if selected_paper.answer_pdf %}
+          <button class="pp-tab {% if not selected_paper.question_pdf %}active{% endif %}"
+                  id="tab-s" onclick="switchTab('s')">
+            ✅ Solutions
+          </button>
+          {% endif %}
+          {% if selected_paper.video_url %}
+          <button class="pp-tab" id="tab-v" onclick="switchTab('v')">
+            🎬 Video
+          </button>
+          {% endif %}
+        </div>
+
+        <!-- Questions panel -->
+        {% if selected_paper.question_pdf %}
+        <div class="pp-panel active" id="panel-q">
+          <div class="pp-pdf-actions">
+            <a href="{{ selected_paper.question_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
+            <a href="{{ selected_paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
+          </div>
+          <iframe src="{{ selected_paper.question_pdf.url }}"
+                  class="pp-pdf-embed" title="Questions"></iframe>
+        </div>
+        {% endif %}
+
+        <!-- Solutions panel -->
+        {% if selected_paper.answer_pdf %}
+        <div class="pp-panel {% if not selected_paper.question_pdf %}active{% endif %}" id="panel-s">
+          <div class="pp-pdf-actions">
+            <a href="{{ selected_paper.answer_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
+            <a href="{{ selected_paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
+          </div>
+          <iframe src="{{ selected_paper.answer_pdf.url }}"
+                  class="pp-pdf-embed" title="Solutions"></iframe>
+        </div>
+        {% endif %}
+
+        <!-- Video panel -->
+        {% if selected_paper.video_url %}
+        <div class="pp-panel" id="panel-v">
+          {% if selected_paper.video_embed_url %}
+          <div class="pp-video-wrap">
+            <iframe src="{{ selected_paper.video_embed_url }}"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+          </div>
+          {% endif %}
+          <div class="pp-pdf-actions" style="margin-top:0.75rem;">
+            <a href="{{ selected_paper.video_url }}" target="_blank" class="pp-btn-secondary">
+              ↗ Watch on YouTube
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+      {% endif %}
+
+    </main>
+  </div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(tab) {
+  document.querySelectorAll('.pp-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.pp-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + tab);
+  const btn   = document.getElementById('tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn)   btn.classList.add('active');
+}
+
+// Select paper — navigate to URL with paper param
+function selectPaper(paperId, btn) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('paper', paperId);
+  window.location.href = url.toString();
+}
+
+// Show more / less
+function toggleShowMore() {
+  const extras = document.querySelectorAll('.pp-paper-extra');
+  const btn    = document.getElementById('showMoreBtn');
+  const hidden = extras[0]?.style.display === 'none';
+  extras.forEach(el => el.style.display = hidden ? 'flex' : 'none');
+  btn.textContent = hidden
+    ? 'Show less ▴'
+    : `Show all {{ papers_flat|length }} papers ▾`;
+}
+</script>
+{% endblock %}

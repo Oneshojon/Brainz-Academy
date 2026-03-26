@@ -70,7 +70,7 @@
          id="q-{{ question.id }}" data-qid="{{ question.id }}">
 
       <div class="q-meta">
-        <span class="q-num-badge">Q{{ question.question_number }}</span>
+        <span class="q-num-badge">Q{{ forloop.counter }}</span>
         <span class="q-type-badge {% if question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">
           {% if question.question_type == 'OBJ' %}Objective{% else %}Theory{% endif %}
         </span>

@@ -8,19 +8,20 @@
 
 <div class="dash-body">
 
-  <nav class="teacher-nav">
+   <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
     <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
       <a href="{% url 'teacher:students' %}">Students</a>
       <a href="{% url 'teacher:upload' %}">Upload CSV</a>
       <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
-    {% endif %}
-    <a href="{% url 'teacher:lesson_notes' %}" class="active">Lesson Notes</a>
-    {% if user.is_admin %}
+      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
       <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
   </nav>
 
   <div class="section-header" style="margin-bottom:1.75rem;">
@@ -30,18 +31,15 @@
 
   <div class="ln-layout">
 
-    <!-- ── Sidebar filter ─────────────────────────────────────────────── -->
+    <!-- ── Sidebar ── -->
     <aside class="ln-sidebar">
       <div class="ln-sidebar-title">Filter Notes</div>
 
       <form method="get" id="filter-form">
         <div class="ln-field">
           <label class="ln-label" for="subject-select">Subject</label>
-          <select name="subject" id="subject-select" class="ln-select"
-                  onchange="this.form.submit()">
-            <option value="" disabled {% if not selected_subject %}selected{% endif %}>
-              Select subject…
-            </option>
+          <select name="subject" id="subject-select" class="ln-select" onchange="this.form.submit()">
+            <option value="" disabled {% if not selected_subject %}selected{% endif %}>Select subject…</option>
             {% for subj in all_subjects %}
               <option value="{{ subj.id }}"
                 {% if selected_subject.id == subj.id %}selected{% endif %}
@@ -56,12 +54,9 @@
         <div class="ln-field">
           <label class="ln-label" for="topic-select">Topic</label>
           <select name="topic" id="topic-select" class="ln-select">
-            <option value="" disabled {% if not selected_topic %}selected{% endif %}>
-              Select topic…
-            </option>
+            <option value="" disabled {% if not selected_topic %}selected{% endif %}>Select topic…</option>
             {% for t in topics %}
-              <option value="{{ t.id }}"
-                {% if selected_topic.id == t.id %}selected{% endif %}>
+              <option value="{{ t.id }}" {% if selected_topic.id == t.id %}selected{% endif %}>
                 {% if t.lesson_note %}📄 {% else %}○ {% endif %}{{ t.name }}
               </option>
             {% endfor %}
@@ -73,66 +68,48 @@
 
       {% if selected_subject and subject_covered %}
       <div style="margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid var(--border);">
-        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:0.6rem;">Coverage</div>
-        <div style="font-size:0.82rem; color:var(--muted-light); line-height:1.7;">
-          {% with total=topics|length %}
-          {{ total }} topic{{ total|pluralize }}
-          {% endwith %}
-          <br>
-          <span style="color:#4ade80;">📄</span> = note available
-          <br>
+        <div class="ln-label" style="margin-bottom:0.6rem;">Coverage</div>
+        <div style="font-size:0.82rem; color:var(--muted); line-height:1.8;">
+          {% with total=topics|length %}{{ total }} topic{{ total|pluralize }}{% endwith %}<br>
+          <span style="color:var(--navy);">📄</span> = note available<br>
           <span style="color:var(--muted);">○</span> = no note yet
         </div>
       </div>
       {% endif %}
     </aside>
 
-    <!-- ── Main content ───────────────────────────────────────────────── -->
+    <!-- ── Main content ── -->
     <main class="ln-main">
 
-      {# ── 1. Subject not in our coverage ───────────────────────────── #}
       {% if selected_subject and not subject_covered %}
       <div class="ln-state warning">
         <span class="ln-state-icon">📭</span>
         <div class="ln-state-title">Subject Not Yet Covered</div>
         <div class="ln-state-body">
-          We don't currently have lesson notes or topic data for
-          <strong>{{ selected_subject.name }}</strong>.
-          Our team is working to expand coverage — please check back soon,
-          or contact support to request prioritisation.
+          We don't currently have lesson notes for <strong>{{ selected_subject.name }}</strong>.
+          Our team is working to expand coverage — check back soon.
         </div>
       </div>
 
-      {# ── 2. No subject selected ────────────────────────────────────── #}
       {% elif not selected_subject %}
       <div class="ln-state">
         <span class="ln-state-icon">📚</span>
         <div class="ln-state-title">Select a Subject</div>
-        <div class="ln-state-body">
-          Choose a subject from the filter panel to browse available lesson notes by topic.
-        </div>
+        <div class="ln-state-body">Choose a subject from the filter panel to browse available lesson notes.</div>
       </div>
 
-      {# ── 3. Subject selected but no topic yet ─────────────────────── #}
       {% elif not selected_topic %}
       <div class="ln-state">
         <span class="ln-state-icon">🗂️</span>
         <div class="ln-state-title">Select a Topic</div>
-        <div class="ln-state-body">
-          Topics with a 📄 icon already have lesson notes ready to view or download.
-          Topics marked ○ have no notes yet — you can generate them with AI.
-        </div>
+        <div class="ln-state-body">Topics with 📄 already have notes ready. Topics marked ○ can be generated with AI.</div>
       </div>
 
-      {# ── 4. Topic selected — all note logic lives here ────────────── #}
       {% else %}
 
-        {# -- Free tier slot counter (shown for any free teacher with a topic open) -- #}
+        {# Free tier counter #}
         {% if lesson_access.is_free %}
-        <div style="margin-bottom:1rem; padding:0.65rem 1rem;
-                    background:rgba(245,200,66,0.07); border:1px solid rgba(245,200,66,0.2);
-                    border-radius:8px; font-size:0.8rem; color:var(--gold);
-                    display:flex; align-items:center; gap:0.5rem;">
+        <div class="ln-free-banner">
           🏷️
           {% if lesson_access.already_accessed %}
             You've viewed this topic before — it doesn't count against your limit.
@@ -144,202 +121,294 @@
         </div>
         {% endif %}
 
-        {# -- Access denied: free teacher has used all 5 slots -- #}
+        {# Access denied #}
         {% if lesson_access_denied %}
-        <div style="text-align:center; padding:3rem 1.5rem;
-                    background:var(--card); border:1px solid var(--border); border-radius:14px;">
-          <div style="font-size:2rem; margin-bottom:0.75rem;">🔒</div>
-          <div style="font-family:'Syne',sans-serif; font-weight:700; font-size:1.1rem;
-                      margin-bottom:0.5rem;">Free Limit Reached</div>
-          <p style="color:var(--muted); font-size:0.875rem; margin-bottom:1.25rem;">
+        <div class="ln-state">
+          <span class="ln-state-icon">🔒</span>
+          <div class="ln-state-title">Free Limit Reached</div>
+          <div class="ln-state-body">
             You've used all 5 free topic slots.<br>
             Upgrade to <strong>Teacher Pro</strong> for unlimited lesson notes.
-          </p>
-          <a href="/pricing/" class="btn btn-primary">Upgrade to Teacher Pro</a>
+          </div>
+          <a href="/pricing/?tab=teacher" class="ln-btn" style="margin-top:1.25rem; display:inline-block; width:auto; padding:0.65rem 1.5rem;">
+            Upgrade to Teacher Pro
+          </a>
         </div>
 
-        {# -- Access allowed and note exists -- show the note -- #}
-        {% elif note %}
-        <div class="ln-note-card">
-          <div class="ln-note-header">
-            <div>
-              <div class="ln-note-title">
-                {{ note.title }}
-                {% if note.is_ai_generated %}
-                  <span class="ai-badge" style="margin-left:0.5rem;">AI Generated</span>
+        {% else %}
+
+        {# ── 3-panel tab selector ── #}
+        <div class="ln-panels">
+
+          <!-- Panel tabs -->
+          <div class="ln-panel-tabs">
+            <button class="ln-panel-tab active" id="tab-note" onclick="switchPanel('note')">
+              📄 Revision Note
+            </button>
+            <button class="ln-panel-tab" id="tab-worksheet" onclick="switchPanel('worksheet')">
+              📝 Worksheet
+            </button>
+            <button class="ln-panel-tab" id="tab-video" onclick="switchPanel('video')">
+              🎬 Video
+            </button>
+          </div>
+
+          <!-- ══ PANEL 1: Revision Note ══ -->
+          <div class="ln-panel active" id="panel-note">
+
+            {# Video summary (if available) #}
+            {% if note and note.video_url %}
+            <div class="ln-video-embed">
+              <div class="ln-video-label">📹 Video Summary</div>
+              <div class="ln-video-wrap">
+                <iframe src="{{ note.video_url }}" frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen></iframe>
+              </div>
+            </div>
+            {% endif %}
+
+            {# Note content #}
+            {% if note %}
+            <div class="ln-note-card">
+              <div class="ln-note-header">
+                <div>
+                  <div class="ln-note-title">
+                    {{ note.title }}
+                    {% if note.is_ai_generated %}<span class="ai-badge">AI Generated</span>{% endif %}
+                  </div>
+                  <div class="ln-note-meta">
+                    {{ selected_topic.subject.name }} · {{ selected_topic.name }}
+                    · Updated {{ note.updated_at|date:"M j, Y" }}
+                  </div>
+                </div>
+                {# Download buttons #}
+                <div class="ln-download-btns">
+                  {% if note.pdf_file %}
+                  <a href="{{ note.pdf_file.url }}" target="_blank" class="btn-download">⬇ PDF</a>
+                  {% endif %}
+                  <button class="btn-download" onclick="downloadNote('docx')">⬇ Word</button>
+                </div>
+              </div>
+
+              <div class="ln-note-body">
+                {% if note.ai_content %}
+                  <div class="ai-content" id="ai-note-rendered"></div>
+                  <script>
+                    window._aiNoteRaw = {{ note.ai_content|escapejs|safe|json_script:"_raw" }};
+                  </script>
+                {% elif note.pdf_file %}
+                  <p style="color:var(--muted); font-size:0.9rem;">
+                    This lesson note is available as a PDF. Use the download button above to save it.
+                  </p>
+                {% endif %}
+                {% if note.description %}
+                  <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem; line-height:1.7;">{{ note.description }}</p>
                 {% endif %}
               </div>
-              <div class="ln-note-meta">
-                {{ selected_topic.subject.name }} · {{ selected_topic.name }}
-                · Updated {{ note.updated_at|date:"M j, Y" }}
+            </div>
+
+            {% elif ai_enabled %}
+            {# AI generation panel #}
+            <div class="ai-panel">
+              <div class="ai-panel-header">
+                <span class="ai-panel-icon">🤖</span>
+                <div>
+                  <div class="ai-panel-title">No Revision Note Found — Generate with AI?</div>
+                </div>
+              </div>
+              <div class="ai-panel-body">
+                There are no revision notes yet for <strong style="color:var(--navy);">{{ selected_topic.name }}</strong>.
+                Generate comprehensive notes instantly using AI.
+              </div>
+              <div class="ai-disclaimer">
+                ⚠️ AI-generated notes are a starting point. Always review against your curriculum guide before sharing with students.
+              </div>
+              <button class="btn-generate" id="btn-generate" onclick="generateNote({{ selected_topic.id }})">
+                ✨ Generate Revision Notes
+              </button>
+              <div id="ai-preview-section" style="display:none; margin-top:1.5rem;">
+                <div class="ln-label" style="margin-bottom:0.6rem;">Generated Notes Preview</div>
+                <div class="ai-preview-box ai-content" id="ai-preview-body"></div>
+                <div class="ai-accept-btns">
+                  <button class="btn-accept" onclick="acceptNote()">✅ Accept & Save Notes</button>
+                  <button class="btn-discard" onclick="discardNote()">✕ Discard</button>
+                </div>
               </div>
             </div>
-            {% if note.pdf_file %}
-              <a href="{{ note.pdf_file.url }}" target="_blank" class="btn-download">
-                ⬇ Download PDF
-              </a>
+
+            {% else %}
+            <div class="ln-state">
+              <span class="ln-state-icon">🚧</span>
+              <div class="ln-state-title">No Notes Available Yet</div>
+              <div class="ln-state-body">
+                There are no revision notes for <strong>{{ selected_topic.name }}</strong> yet.
+                Our team will upload notes for this topic soon.
+              </div>
+            </div>
             {% endif %}
           </div>
 
-          <div class="ln-note-body">
-            {% if note.ai_content %}
-              <div class="ai-content" id="ai-note-rendered">
-                <!-- Rendered by marked.js below -->
+          <!-- ══ PANEL 2: Worksheet ══ -->
+          <div class="ln-panel" id="panel-worksheet">
+            {% if worksheet %}
+            <div class="ln-note-card">
+              <div class="ln-note-header">
+                <div>
+                  <div class="ln-note-title">
+                    {{ worksheet.title }}
+                    {% if worksheet.is_ai_generated %}<span class="ai-badge">AI Generated</span>{% endif %}
+                  </div>
+                  <div class="ln-note-meta">
+                    {{ selected_topic.subject.name }} · {{ selected_topic.name }}
+                    · Updated {{ worksheet.updated_at|date:"M j, Y" }}
+                  </div>
+                </div>
+                <div class="ln-download-btns">
+                  {% if worksheet.pdf_file %}
+                  <a href="{{ worksheet.pdf_file.url }}" target="_blank" class="btn-download">⬇ PDF</a>
+                  {% endif %}
+                  <button class="btn-download" onclick="downloadWorksheet('docx')">⬇ Word</button>
+                </div>
               </div>
-              <script>
-                window._aiNoteRaw = {{ note.ai_content|escapejs|safe|json_script:"_raw" }};
-              </script>
-            {% elif note.pdf_file %}
-              <p style="color:var(--muted); font-size:0.9rem;">
-                This lesson note is available as a PDF. Use the download button above to save it.
-              </p>
+              <div class="ln-note-body">
+                {% if worksheet.ai_content %}
+                  <div class="ai-content" id="ai-worksheet-rendered"></div>
+                  <script>window._aiWorksheetRaw = {{ worksheet.ai_content|escapejs|safe|json_script:"_ws_raw" }};</script>
+                {% elif worksheet.pdf_file %}
+                  <p style="color:var(--muted); font-size:0.9rem;">Worksheet available as PDF. Use the download button above.</p>
+                {% endif %}
+              </div>
+            </div>
+            {% else %}
+            <div class="ln-state">
+              <span class="ln-state-icon">📝</span>
+              <div class="ln-state-title">No Worksheet Yet</div>
+              <div class="ln-state-body">
+                A worksheet for <strong>{{ selected_topic.name }}</strong> hasn't been added yet.
+                Our team will upload one soon.
+              </div>
+            </div>
             {% endif %}
+          </div>
 
-            {% if note.description %}
-              <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem; line-height:1.7;">
-                {{ note.description }}
-              </p>
+          <!-- ══ PANEL 3: Video ══ -->
+          <div class="ln-panel" id="panel-video">
+            {% if worksheet and worksheet.video_url %}
+            <div class="ln-video-embed" style="margin-bottom:0;">
+              <div class="ln-video-label">🎬 Worksheet Video Walkthrough</div>
+              <div class="ln-video-wrap">
+                <iframe src="{{ worksheet.video_url }}" frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen></iframe>
+              </div>
+            </div>
+            {% else %}
+            <div class="ln-state">
+              <span class="ln-state-icon">🎬</span>
+              <div class="ln-state-title">No Video Available</div>
+              <div class="ln-state-body">
+                A video walkthrough for <strong>{{ selected_topic.name }}</strong> hasn't been added yet.
+              </div>
+            </div>
             {% endif %}
           </div>
-        </div>
 
-        {# -- Access allowed but no note yet — offer AI generation -- #}
-        {% else %}
-          {% if ai_enabled %}
-          <div class="ai-panel">
-            <div class="ai-panel-header">
-              <span class="ai-panel-icon">🤖</span>
-              <div>
-                <div class="ai-panel-title">No Note Found — Generate with AI?</div>
-              </div>
-            </div>
-            <div class="ai-panel-body">
-              There are no lesson notes yet for
-              <strong style="color:var(--text);">{{ selected_topic.name }}</strong>.
-              You can generate comprehensive notes instantly using AI, then save them
-              to your account for future reference.
-            </div>
-            <div class="ai-disclaimer">
-              ⚠️ AI-generated notes are a starting point. Always review the content
-              against your curriculum guide before sharing with students.
-              Admin can replace these with verified PDF notes at any time.
-            </div>
-            <button class="btn-generate" id="btn-generate"
-                    onclick="generateNote({{ selected_topic.id }})">
-              ✨ Generate Lesson Notes
-            </button>
+        </div>{# end ln-panels #}
 
-            <!-- Preview + accept/discard -->
-            <div id="ai-preview-section" style="display:none;">
-              <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--mid); margin-bottom:0.6rem;">Generated Notes Preview</div>
-              <div class="ai-preview-box ai-content" id="ai-preview-body"></div>
-              <div class="ai-accept-btns">
-                <button class="btn-accept" onclick="acceptNote()">✅ Accept & Save Notes</button>
-                <button class="btn-discard" onclick="discardNote()">✕ Discard</button>
-              </div>
-            </div>
-          </div>
+        {% endif %}{# end lesson_access_denied #}
 
-          {% else %}
-          <div class="ln-state">
-            <span class="ln-state-icon">🚧</span>
-            <div class="ln-state-title">No Notes Available Yet</div>
-            <div class="ln-state-body">
-              There are no lesson notes for <strong>{{ selected_topic.name }}</strong> yet.
-              AI-assisted generation is currently disabled. Our team will upload notes for this topic soon.
-            </div>
-          </div>
-          {% endif %}
-
-        {% endif %}{# end lesson_access_denied / note / else #}
-
-      {% endif %}{# end topic selected block #}
+      {% endif %}{# end topic selected #}
 
     </main>
-
-  </div><!-- /.ln-layout -->
+  </div>
 </div>
 
-<!-- marked.js for rendering AI markdown -->
+<!-- marked.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 
 <script>
   const CSRF     = '{{ csrf_token }}'
   const TOPIC_ID = {{ selected_topic.id|default:"null" }}
-  let   _aiRaw   = ''
+  let _aiRaw = ''
 
-  // Render stored AI note if present
-  const el = document.getElementById('ai-note-rendered')
-  if (el) {
+  // Render stored AI note
+  const noteEl = document.getElementById('ai-note-rendered')
+  if (noteEl) {
     const raw = document.getElementById('_raw')?.textContent || ''
-    if (raw) el.innerHTML = marked.parse(JSON.parse(raw))
+    if (raw) noteEl.innerHTML = marked.parse(JSON.parse(raw))
   }
 
+  // Render stored worksheet
+  const wsEl = document.getElementById('ai-worksheet-rendered')
+  if (wsEl) {
+    const raw = document.getElementById('_ws_raw')?.textContent || ''
+    if (raw) wsEl.innerHTML = marked.parse(JSON.parse(raw))
+  }
+
+  // Panel switching
+  function switchPanel(name) {
+    document.querySelectorAll('.ln-panel').forEach(p => p.classList.remove('active'))
+    document.querySelectorAll('.ln-panel-tab').forEach(t => t.classList.remove('active'))
+    document.getElementById('panel-' + name).classList.add('active')
+    document.getElementById('tab-' + name).classList.add('active')
+  }
+
+  // AI generation
   async function generateNote(topicId) {
     const btn = document.getElementById('btn-generate')
     btn.disabled = true
     btn.innerHTML = '<span class="ai-spinner"></span> Generating…'
-
     try {
       const res  = await fetch('{% url "teacher:lesson_notes" %}', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body:    JSON.stringify({ action: 'generate_ai', topic_id: topicId }),
+        body: JSON.stringify({ action: 'generate_ai', topic_id: topicId }),
       })
       const data = await res.json()
-
-      if (data.error) {
-        alert('Error: ' + data.error)
-        btn.disabled = false
-        btn.innerHTML = '✨ Generate Lesson Notes'
-        return
-      }
-
+      if (data.error) { alert('Error: ' + data.error); btn.disabled = false; btn.innerHTML = '✨ Generate Revision Notes'; return; }
       _aiRaw = data.content
       document.getElementById('ai-preview-body').innerHTML = marked.parse(data.content)
       document.getElementById('ai-preview-section').style.display = 'block'
       btn.innerHTML = '🔄 Regenerate'
       btn.disabled  = false
-
     } catch (err) {
       alert('Network error. Please try again.')
       btn.disabled = false
-      btn.innerHTML = '✨ Generate Lesson Notes'
+      btn.innerHTML = '✨ Generate Revision Notes'
     }
   }
 
   async function acceptNote() {
     if (!_aiRaw || !TOPIC_ID) return
-
     const res  = await fetch('{% url "teacher:lesson_notes" %}', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body:    JSON.stringify({ action: 'accept_ai', topic_id: TOPIC_ID, content: _aiRaw }),
+      body: JSON.stringify({ action: 'accept_ai', topic_id: TOPIC_ID, content: _aiRaw }),
     })
     const data = await res.json()
-
-    if (data.success) {
-      window.location.reload()
-    } else {
-      alert('Error saving note: ' + (data.error || 'Unknown error'))
-    }
+    if (data.success) window.location.reload()
+    else alert('Error saving note: ' + (data.error || 'Unknown error'))
   }
 
   function discardNote() {
     _aiRaw = ''
     document.getElementById('ai-preview-section').style.display = 'none'
     const btn = document.getElementById('btn-generate')
-    btn.innerHTML = '✨ Generate Lesson Notes'
+    btn.innerHTML = '✨ Generate Revision Notes'
     btn.disabled  = false
   }
 
-  // Auto-submit topic select on change
-  const topicSel = document.getElementById('topic-select')
-  if (topicSel) {
-    topicSel.addEventListener('change', () => {
-      document.getElementById('filter-form').submit()
-    })
+  function downloadNote(fmt) {
+    alert('Word download for revision notes — coming soon.')
   }
-</script>
 
+  function downloadWorksheet(fmt) {
+    alert('Word download for worksheets — coming soon.')
+  }
+
+  // Auto-submit topic on change
+  const topicSel = document.getElementById('topic-select')
+  if (topicSel) topicSel.addEventListener('change', () => document.getElementById('filter-form').submit())
+</script>
 {% endblock %}

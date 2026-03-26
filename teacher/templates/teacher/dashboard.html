@@ -13,21 +13,21 @@
       <div class="page-eyebrow">Teacher Portal</div>
       <h1 class="page-title">Welcome, <span style="color:var(--blue);">{{ request.user.first_name }}</span> 👋</h1>
     </div>
-    <nav class="teacher-nav">
-      <a href="{% url 'teacher:dashboard' %}" class="active">Dashboard</a>
-      <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
-      {% if is_admin %}
-        <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
-        <a href="{% url 'teacher:students' %}">Students</a>
-        <a href="{% url 'teacher:referral_analytics' %}">Referral Analytics</a>
-        <a href="{% url 'teacher:upload' %}">Upload Questions</a>
-        <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
-      {% endif %}
-      <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
-      {% if is_admin %}
-        <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
-      {% endif %}
-    </nav>
+     <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
+    {% if user.is_admin %}
+      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+      <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+    {% endif %}
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
   </div>
 
   <!-- ── CONTAINER 2: Stats + Quick Actions ── -->

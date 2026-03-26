@@ -230,7 +230,7 @@
         {% for item in questions %}
         <div class="revision-question expanded" id="rev-q-{{ item.question.id }}">
           <div class="rev-q-header" onclick="toggleRevQ({{ item.question.id }})">
-            <span class="rev-q-num">Q{{ item.question.question_number }}</span>
+            <span class="rev-q-num">Q{{ forloop.counter }}</span>
             <span class="rev-q-type {% if item.question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">
               {% if item.question.question_type == 'OBJ' %}OBJ{% else %}Theory{% endif %}
             </span>

@@ -1,0 +1,69 @@
+version: '3.9'
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-examprep}
+      POSTGRES_USER:     ${POSTGRES_USER:-examprep}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-examprep}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Django app ────────────────────────────────────────────────────────────
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      DEBUG:             "False"
+      SECRET_KEY:        ${SECRET_KEY}
+      ALLOWED_HOSTS:     ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-examprep}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-examprep}
+      REDIS_URL:         redis://redis:6379/0
+      AWS_ACCESS_KEY_ID:        ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY:    ${AWS_SECRET_ACCESS_KEY}
+      AWS_STORAGE_BUCKET_NAME:  ${AWS_STORAGE_BUCKET_NAME}
+      AWS_S3_REGION_NAME:       ${AWS_S3_REGION_NAME:-eu-west-1}
+      PAYSTACK_SECRET_KEY:      ${PAYSTACK_SECRET_KEY}
+      ANTHROPIC_API_KEY:        ${ANTHROPIC_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_files:/app/media
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn examproject.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 3
+             --timeout 120"
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
