@@ -24,10 +24,5 @@ RUN addgroup --system django && adduser --system --ingroup django django
 RUN chown -R django:django /app
 USER django
 EXPOSE 8000
-CMD ["gunicorn", "examproject.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "3", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+CMD gunicorn examproject.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120 --access-logfile - --error-logfile -
 # cache bust
