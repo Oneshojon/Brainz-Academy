@@ -284,19 +284,13 @@ else:
     MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Brevo (transactional email) ───────────────────────────────────────────────
-BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
-
-if BREVO_API_KEY:
-    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
-    ANYMAIL = {
-        'BREVO_API_KEY': BREVO_API_KEY,
-    }
-else:
-    # Local dev — print emails to console
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'ExamPrep <noreply@examprep.ng>')
-SERVER_EMAIL       = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@examprep.ng')
+EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST        = 'smtp-relay.brevo.com'
+EMAIL_PORT        = 587
+EMAIL_USE_TLS     = True
+EMAIL_HOST_USER   = os.environ.get('BREVO_SMTP_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD')
+DEFAULT_FROM_EMAIL = 'ExamPrep <noreply@brainzacademy.com>'
 
 # ── Security (production only) ────────────────────────────────────────────────
 if not DEBUG:

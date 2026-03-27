@@ -46,3 +46,4 @@ CMD ["gunicorn", "examproject.wsgi:application", \
      "--timeout", "120", \
      "--access-logfile", "-", \
      "--error-logfile", "-"]
+
