@@ -35,6 +35,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    'anymail',
     'payments',
     'teacher',
     'corsheaders',
@@ -284,12 +285,14 @@ else:
     MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Brevo (transactional email) ───────────────────────────────────────────────
-EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST        = 'smtp-relay.brevo.com'
-EMAIL_PORT        = 587
-EMAIL_USE_TLS     = True
-EMAIL_HOST_USER   = os.environ.get('BREVO_SMTP_USER')
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD')
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
+
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+    ANYMAIL = {'BREVO_API_KEY': BREVO_API_KEY}
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 DEFAULT_FROM_EMAIL = 'ExamPrep <noreply@brainzacademy.com>'
 
 # ── Security (production only) ────────────────────────────────────────────────
