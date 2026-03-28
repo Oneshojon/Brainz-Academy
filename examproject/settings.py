@@ -286,7 +286,7 @@ else:
 
 
 # ── Brevo (transactional email) ───────────────────────────────────────────────
-BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
+BREVO_API_KEY = os.environ.get('ANYMAIL_BREVO_API_KEY') or os.environ.get('BREVO_API_KEY')
 
 if BREVO_API_KEY:
     EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
