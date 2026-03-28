@@ -42,13 +42,20 @@ def request_otp(request):
             request.session['ref_code'] = ref
 
         # Send OTP email
-        send_mail(
+        from django.core.mail import send_mail
+        from django.core.mail import EmailMultiAlternatives
+
+        msg = EmailMultiAlternatives(
             subject='Your ExamPrep Login Code',
-            message=f'Your ExamPrep login code is: {otp}\n\nThis code expires in 10 minutes.',
+            body=f'Your ExamPrep login code is: {otp}\n\nThis code expires in 10 minutes.',
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
+            to=[email],
         )
+        msg.attach_alternative(
+            f'<p>Your ExamPrep login code is: <strong>{otp}</strong></p><p>This code expires in 10 minutes.</p>',
+            "text/html"
+        )
+        msg.send(fail_silently=False)
 
         return redirect('Users:verify_otp')
 
