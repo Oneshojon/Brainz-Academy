@@ -26,3 +26,4 @@ USER django
 EXPOSE 8000
 CMD gunicorn examproject.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120 --access-logfile - --error-logfile -
 # cache bust
+# force rebuild Sat, Mar 28, 2026  1:49:17 AM
