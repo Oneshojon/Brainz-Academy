@@ -5,7 +5,7 @@ class Command(BaseCommand):
     help = 'Seed Physics themes and topics'
 
     def handle(self, *args, **kwargs):
-        subject = Subject.objects.get(name__iexact='Physics')
+        subject, _ = Subject.objects.get_or_create(name='Physics')
 
         data = {
             'Interaction of Matter, Space and Time': ['Concepts of Matter','Fundamental and Derived Quantities and Units','Position, Distance and Displacement','Mass and Weight','Time','Fluid at Rest','Motion','Speed and Velocity','Rectilinear Acceleration','Scalars and Vectors','Equilibrium of Forces','Simple Harmonic Motion','Newtons Laws of Motion'],

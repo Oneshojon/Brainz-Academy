@@ -5,7 +5,7 @@ class Command(BaseCommand):
     help = 'Seed Mathematics themes and topics'
 
     def handle(self, *args, **kwargs):
-        subject = Subject.objects.get(name__iexact='Mathematics')
+        subject, _ = Subject.objects.get_or_create(name='Mathematics')
 
 
         data = {
