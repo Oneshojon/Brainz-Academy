@@ -17,7 +17,7 @@
   <p class="page-sub">Choose your exam, subject and preferences to begin.</p>
 
   {# ── Free plan banners ── #}
-  {% if access.is_free %}
+ {% if access.is_free and not user.is_admin %}
     {% if not access.allowed %}
     <div class="limit-banner">
       <div>
