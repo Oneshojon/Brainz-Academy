@@ -135,14 +135,14 @@
       <div class="form-group full">
         <label class="form-label">
           Number of Questions
-          {% if access.is_free %}
+          if access.is_free and not user.is_admin
           <span style="font-size:0.7rem; font-weight:600; color:var(--gold); background:var(--gold-bg); border:1px solid rgba(184,134,11,0.2); padding:0.12rem 0.5rem; border-radius:100px; margin-left:0.4rem;">
             Free: max {{ access.max_questions }} · random
           </span>
           {% endif %}
         </label>
 
-        {% if access.is_free %}
+        if access.is_free and not user.is_admin
         <div class="quick-nums">
           <button type="button" class="quick-num active" disabled>{{ access.max_questions }}</button>
         </div>
