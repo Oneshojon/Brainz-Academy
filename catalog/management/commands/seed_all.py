@@ -1,11 +1,16 @@
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
+from catalog.models import Subject
 
 
 class Command(BaseCommand):
     help = 'Seed all WAEC subjects'
 
     def handle(self, *args, **kwargs):
+        # Ensure Mathematics and Physics exist before their seeders run
+        Subject.objects.get_or_create(name='Mathematics')
+        Subject.objects.get_or_create(name='Physics')
+
         commands = [
             'maths_seed',
             'seed_physics',
