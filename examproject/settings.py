@@ -297,17 +297,22 @@ else:
 DEFAULT_FROM_EMAIL = 'ExamPrep <noreply@brainzacademy.com>'
 
 # ── Security (production only) ────────────────────────────────────────────────
+# ── CSRF Trusted Origins (always set) ────────────────────────────────────────
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+
 if not DEBUG:
+    
     SECURE_PROXY_SSL_HEADER     = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT         = True
     SESSION_COOKIE_SECURE       = True
     CSRF_COOKIE_SECURE          = True
     SECURE_BROWSER_XSS_FILTER  = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    CSRF_TRUSTED_ORIGINS        = [
-        f'https://{h}' for h in ALLOWED_HOSTS if h and h not in ('localhost', '127.0.0.1')
-    ]
-
+    
 # ── Static files (WhiteNoise) ─────────────────────────────────────────────────
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
