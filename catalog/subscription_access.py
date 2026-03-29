@@ -64,6 +64,16 @@ def check_practice_access(user):
         'reason':           str,          # shown to user if not allowed
     }
     """
+    # Admins — unlimited
+    if getattr(user, 'is_admin', False):
+        return {
+            'allowed':       True,
+            'max_questions': 9999,
+            'sessions_left': 9999,
+            'is_free':       False,
+            'reason':        '',
+        }
+    
     # Subscribed students — unlimited
     if has_subscription(user, 'STUDENT_BASIC'):
         return {
