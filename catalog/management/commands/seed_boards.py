@@ -7,18 +7,21 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         boards = [
-            {'name': 'West African Examinations Council', 'abbreviation': 'WAEC'},
-            {'name': 'National Examinations Council', 'abbreviation': 'NECO'},
-            {'name': 'Joint Admissions and Matriculation Board', 'abbreviation': 'JAMB'},
+            {'name': 'WAEC', 'abbreviation': 'WAEC'},
+            {'name': 'NECO', 'abbreviation': 'NECO'},
+            {'name': 'JAMB', 'abbreviation': 'JAMB'},
         ]
 
         ct = 0
         for board in boards:
-            _, created = ExamBoard.objects.get_or_create(
+            obj, created = ExamBoard.objects.get_or_create(
                 abbreviation=board['abbreviation'],
                 defaults={'name': board['name']}
             )
+            if not created and obj.name != board['name']:
+                obj.name = board['name']
+                obj.save(update_fields=['name'])
             if created:
                 ct += 1
 
-        self.stdout.write(self.style.SUCCESS(f'Exam boards done — {ct} boards created.'))
+        self.stdout.write(self.style.SUCCESS(f'Exam boards done — {ct} created.'))
