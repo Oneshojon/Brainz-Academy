@@ -134,19 +134,15 @@
       <div class="upload-card-title">📋 Required PDF Format</div>
       <div class="upload-card-sub">Each topic must start on a new page with these headers:</div>
       <div class="csv-spec">
-        <pre>SUBJECT: Physics
-TOPIC: Scalars and Vectors
-VIDEO: https://www.youtube.com/watch?v=VIDEO_ID  (optional)
+        <pre>CHEMISTRY REVISION NOTE
+Introduction to Chemistry
 
-[topic content starts here — can span multiple pages]
+Topics:
+- Meaning of Chemistry
+- Measurement of physical quantities
+- Scientific Methods
 
---- next page ---
-
-SUBJECT: Physics
-TOPIC: Fundamental Quantities
-VIDEO: https://youtu.be/VIDEO_ID  (optional)
-
-[topic content...]</pre>
+[Each topic starts on a new page with its name as a bold underlined ALL CAPS heading]</pre>
       </div>
       <div style="margin-top:0.75rem; font-size:0.8rem; color:var(--muted); line-height:1.7;">
         • YouTube links are automatically converted to embed format<br>
@@ -169,7 +165,17 @@ VIDEO: https://youtu.be/VIDEO_ID  (optional)
         </div>
         <input type="file" name="note_pdf" id="noteInput" accept=".pdf"
                onchange="showFile(this, 'noteChosen', 'noteDropZone')">
+        <div style="margin-top:1rem;">
+        <label style="font-size:0.8rem; font-weight:600; color:var(--navy); display:block; margin-bottom:0.4rem;">
+          Video URL <span style="font-weight:400; color:var(--muted);">(optional)</span>
+        </label>
+        <input type="url" name="note_video_url" placeholder="https://youtube.com/..."
+              style="width:100%; padding:0.6rem 0.8rem; border:1.5px solid var(--border);
+                      border-radius:8px; font-size:0.85rem; font-family:inherit; color:var(--navy);
+                      outline:none; box-sizing:border-box;">
       </div>
+      </div>
+      
 
       <!-- Worksheets -->
       <div class="upload-card">
@@ -183,6 +189,15 @@ VIDEO: https://youtu.be/VIDEO_ID  (optional)
         </div>
         <input type="file" name="worksheet_pdf" id="wsInput" accept=".pdf"
                onchange="showFile(this, 'wsChosen', 'wsDropZone')">
+        <div style="margin-top:1rem;">
+        <label style="font-size:0.8rem; font-weight:600; color:var(--navy); display:block; margin-bottom:0.4rem;">
+          Video URL <span style="font-weight:400; color:var(--muted);">(optional)</span>
+        </label>
+        <input type="url" name="worksheet_video_url" placeholder="https://youtube.com/..."
+              style="width:100%; padding:0.6rem 0.8rem; border:1.5px solid var(--border);
+                      border-radius:8px; font-size:0.85rem; font-family:inherit; color:var(--navy);
+                      outline:none; box-sizing:border-box;">
+      </div>   
       </div>
 
     </div>

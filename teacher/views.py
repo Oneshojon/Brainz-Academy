@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from functools import wraps
 from django.utils.html import escape
 
-from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, Topic
+from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, Topic, LessonNote, Worksheet,Theme 
 from practice.models import PracticeSession, UserAnswer
 from catalog.cache_utils import invalidate_feature_flags
 
@@ -377,6 +377,8 @@ def upload_notes(request):
     note_file      = request.FILES.get('note_pdf')
     worksheet_file = request.FILES.get('worksheet_pdf')
     overwrite      = request.POST.get('overwrite') == 'on'
+    note_video_url      = request.POST.get('note_video_url', '').strip() or None
+    worksheet_video_url = request.POST.get('worksheet_video_url', '').strip() or None
 
     if not note_file and not worksheet_file:
         return render(request, 'teacher/upload_notes.html', {
@@ -399,12 +401,33 @@ def upload_notes(request):
                 all_errors.append(f'[Notes] Subject "{item["subject"]}" not found — skipped.')
                 continue
 
-            topic = Topic.objects.filter(
-                name__iexact=item['topic'], subject=subject
-            ).first()
+            # 1. Exact match
+            topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
+
+            # 2. Fuzzy match against all topics in the subject
             if not topic:
-                all_errors.append(f'[Notes] Topic "{item["topic"]}" not found in {subject.name} — skipped.')
-                continue
+                all_topic_names = list(
+                    Topic.objects.filter(subject=subject).values_list('name', flat=True)
+                )
+                import difflib
+                matches = difflib.get_close_matches(
+                    item['topic'], all_topic_names, n=1, cutoff=0.7
+                )
+                if matches:
+                    topic = Topic.objects.filter(name=matches[0], subject=subject).first()
+
+            # 3. Create topic (and theme) if still not found
+            if not topic:
+                theme_obj = None
+                if item.get('theme'):
+                    theme_obj, _ = Theme.objects.get_or_create(
+                        subject=subject, name=item['theme']
+                    )
+                topic = Topic.objects.create(
+                    name=item['topic'],
+                    subject=subject,
+                    theme=theme_obj,
+                )
 
             existing = getattr(topic, 'lesson_note', None)
             if existing and not overwrite:
@@ -420,7 +443,7 @@ def upload_notes(request):
                 topic=topic,
                 defaults={
                     'title':           f"{topic.name} — Revision Notes",
-                    'video_url':       item['video_url'],
+                    'video_url':       note_video_url,
                     'is_ai_generated': False,
                     'uploaded_by':     request.user,
                 }
@@ -444,12 +467,30 @@ def upload_notes(request):
                 all_errors.append(f'[Worksheet] Subject "{item["subject"]}" not found — skipped.')
                 continue
 
-            topic = Topic.objects.filter(
-                name__iexact=item['topic'], subject=subject
-            ).first()
+            topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
+
             if not topic:
-                all_errors.append(f'[Worksheet] Topic "{item["topic"]}" not found in {subject.name} — skipped.')
-                continue
+                all_topic_names = list(
+                    Topic.objects.filter(subject=subject).values_list('name', flat=True)
+                )
+                import difflib
+                matches = difflib.get_close_matches(
+                    item['topic'], all_topic_names, n=1, cutoff=0.7
+                )
+                if matches:
+                    topic = Topic.objects.filter(name=matches[0], subject=subject).first()
+
+            if not topic:
+                theme_obj = None
+                if item.get('theme'):
+                    theme_obj, _ = Theme.objects.get_or_create(
+                        subject=subject, name=item['theme']
+                    )
+                topic = Topic.objects.create(
+                    name=item['topic'],
+                    subject=subject,
+                    theme=theme_obj,
+                )
 
             existing = getattr(topic, 'worksheet', None)
             if existing and not overwrite:
@@ -464,7 +505,7 @@ def upload_notes(request):
                 topic=topic,
                 defaults={
                     'title':           f"{topic.name} — Worksheet",
-                    'video_url':       item['video_url'],
+                    'video_url':       worksheet_video_url,
                     'is_ai_generated': False,
                     'uploaded_by':     request.user,
                 }
