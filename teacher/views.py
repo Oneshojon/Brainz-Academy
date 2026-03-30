@@ -448,13 +448,15 @@ def upload_notes(request):
                     'uploaded_by':     request.user,
                 }
             )
-            note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
-
-            note_results.append({
-                'topic': topic.name, 'subject': subject.name,
-                'status': 'created' if created else 'updated',
-                'video': item['video_url'] or '—',
-            })
+            try:
+                note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+                note_results.append({
+                    'topic': topic.name, 'subject': subject.name,
+                    'status': 'created' if created else 'updated',
+                    'video': note_video_url or '—',
+                })
+            except Exception as e:
+                all_errors.append(f'[Notes] File save failed for "{topic.name}": {e}')
 
     # ── Process worksheets ────────────────────────────────────────────────────
     if worksheet_file:
