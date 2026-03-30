@@ -363,20 +363,21 @@ def upload_docx(request):
 def upload_notes(request):
     """
     Upload revision notes and/or worksheets as PDFs.
-    Each PDF can contain multiple topics — each topic starts on a new page.
     """
     from catalog.note_pdf_parser import parse_note_pdf
     from catalog.models import LessonNote, Worksheet, Subject, Topic
     from django.core.files.base import ContentFile
+    import difflib
+    import traceback
 
     if request.method != 'POST':
         return render(request, 'teacher/upload_notes.html', {
             'subjects': Subject.objects.all().order_by('name'),
         })
 
-    note_file      = request.FILES.get('note_pdf')
-    worksheet_file = request.FILES.get('worksheet_pdf')
-    overwrite      = request.POST.get('overwrite') == 'on'
+    note_file           = request.FILES.get('note_pdf')
+    worksheet_file      = request.FILES.get('worksheet_pdf')
+    overwrite           = request.POST.get('overwrite') == 'on'
     note_video_url      = request.POST.get('note_video_url', '').strip() or None
     worksheet_video_url = request.POST.get('worksheet_video_url', '').strip() or None
 
@@ -390,79 +391,71 @@ def upload_notes(request):
     worksheet_results = []
     all_errors        = []
 
+    def resolve_topic(item, subject):
+        """Find or create the topic for a parsed item."""
+        # 1. Exact match
+        topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
+
+        # 2. Fuzzy match
+        if not topic:
+            all_names = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
+            matches = difflib.get_close_matches(item['topic'], all_names, n=1, cutoff=0.7)
+            if matches:
+                topic = Topic.objects.filter(name=matches[0], subject=subject).first()
+
+        # 3. Create with theme
+        if not topic:
+            theme_obj = None
+            if item.get('theme'):
+                theme_obj, _ = Theme.objects.get_or_create(subject=subject, name=item['theme'])
+            topic = Topic.objects.create(name=item['topic'], subject=subject, theme=theme_obj)
+
+        return topic
+
     # ── Process revision notes ────────────────────────────────────────────────
     if note_file:
         parsed, errors = parse_note_pdf(note_file.read())
         all_errors.extend([f'[Notes] {e}' for e in errors])
 
         for item in parsed:
-            subject = Subject.objects.filter(name__iexact=item['subject']).first()
-            if not subject:
-                all_errors.append(f'[Notes] Subject "{item["subject"]}" not found — skipped.')
-                continue
-
-            # 1. Exact match
-            topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
-
-            # 2. Fuzzy match against all topics in the subject
-            if not topic:
-                all_topic_names = list(
-                    Topic.objects.filter(subject=subject).values_list('name', flat=True)
-                )
-                import difflib
-                matches = difflib.get_close_matches(
-                    item['topic'], all_topic_names, n=1, cutoff=0.7
-                )
-                if matches:
-                    topic = Topic.objects.filter(name=matches[0], subject=subject).first()
-
-            # 3. Create topic (and theme) if still not found
-            if not topic:
-                theme_obj = None
-                if item.get('theme'):
-                    theme_obj, _ = Theme.objects.get_or_create(
-                        subject=subject, name=item['theme']
-                    )
-                topic = Topic.objects.create(
-                    name=item['topic'],
-                    subject=subject,
-                    theme=theme_obj,
-                )
-
-            existing = getattr(topic, 'lesson_note', None)
-            if existing and not overwrite:
-                note_results.append({
-                    'topic': topic.name, 'subject': subject.name,
-                    'status': 'skipped', 'reason': 'already exists (overwrite not checked)'
-                })
-                continue
-
-            # Save PDF to model
-            from django.core.files.base import ContentFile
-
             try:
-                filename = f"note_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
-                pdf_content = ContentFile(item['pdf_bytes'], name=filename)
+                subject = Subject.objects.filter(name__iexact=item['subject']).first()
+                if not subject:
+                    all_errors.append(f'[Notes] Subject "{item["subject"]}" not found — skipped.')
+                    continue
+
+                topic = resolve_topic(item, subject)
+
+                existing = getattr(topic, 'lesson_note', None)
+                if existing and not overwrite:
+                    note_results.append({
+                        'topic': topic.name, 'subject': subject.name,
+                        'status': 'skipped', 'reason': 'already exists',
+                    })
+                    continue
+
+                filename = f"note_{subject.name.lower().replace(' ', '_')}_{topic.name.lower().replace(' ', '_')}.pdf"
 
                 note, created = LessonNote.objects.update_or_create(
                     topic=topic,
                     defaults={
                         'title':           f"{topic.name} — Revision Notes",
-                        'pdf_file':        pdf_content,
                         'video_url':       note_video_url,
                         'is_ai_generated': False,
                         'uploaded_by':     request.user,
                     }
                 )
+                note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+
                 note_results.append({
-                    'topic': topic.name, 'subject': subject.name,
-                    'status': 'created' if created else 'updated',
-                    'video': note_video_url or '—',
+                    'topic':   topic.name,
+                    'subject': subject.name,
+                    'status':  'created' if created else 'updated',
+                    'video':   note_video_url or '—',
                 })
+
             except Exception as e:
-                import traceback
-                all_errors.append(f'[Notes] Failed to save "{item["topic"]}": {e} | {traceback.format_exc()}')
-        
+                all_errors.append(f'[Notes] Failed "{item.get("topic", "?")}": {e} | {traceback.format_exc()}')
 
     # ── Process worksheets ────────────────────────────────────────────────────
     if worksheet_file:
@@ -470,69 +463,51 @@ def upload_notes(request):
         all_errors.extend([f'[Worksheet] {e}' for e in errors])
 
         for item in parsed:
-            subject = Subject.objects.filter(name__iexact=item['subject']).first()
-            if not subject:
-                all_errors.append(f'[Worksheet] Subject "{item["subject"]}" not found — skipped.')
-                continue
+            try:
+                subject = Subject.objects.filter(name__iexact=item['subject']).first()
+                if not subject:
+                    all_errors.append(f'[Worksheet] Subject "{item["subject"]}" not found — skipped.')
+                    continue
 
-            topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
+                topic = resolve_topic(item, subject)
 
-            if not topic:
-                all_topic_names = list(
-                    Topic.objects.filter(subject=subject).values_list('name', flat=True)
+                existing = getattr(topic, 'worksheet', None)
+                if existing and not overwrite:
+                    worksheet_results.append({
+                        'topic': topic.name, 'subject': subject.name,
+                        'status': 'skipped', 'reason': 'already exists',
+                    })
+                    continue
+
+                filename = f"ws_{subject.name.lower().replace(' ', '_')}_{topic.name.lower().replace(' ', '_')}.pdf"
+
+                ws, created = Worksheet.objects.update_or_create(
+                    topic=topic,
+                    defaults={
+                        'title':           f"{topic.name} — Worksheet",
+                        'video_url':       worksheet_video_url,
+                        'is_ai_generated': False,
+                        'uploaded_by':     request.user,
+                    }
                 )
-                import difflib
-                matches = difflib.get_close_matches(
-                    item['topic'], all_topic_names, n=1, cutoff=0.7
-                )
-                if matches:
-                    topic = Topic.objects.filter(name=matches[0], subject=subject).first()
+                ws.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
 
-            if not topic:
-                theme_obj = None
-                if item.get('theme'):
-                    theme_obj, _ = Theme.objects.get_or_create(
-                        subject=subject, name=item['theme']
-                    )
-                topic = Topic.objects.create(
-                    name=item['topic'],
-                    subject=subject,
-                    theme=theme_obj,
-                )
-
-            existing = getattr(topic, 'worksheet', None)
-            if existing and not overwrite:
                 worksheet_results.append({
-                    'topic': topic.name, 'subject': subject.name,
-                    'status': 'skipped', 'reason': 'already exists (overwrite not checked)'
+                    'topic':   topic.name,
+                    'subject': subject.name,
+                    'status':  'created' if created else 'updated',
+                    'video':   worksheet_video_url or '—',
                 })
-                continue
-            filename = f"ws_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
-            pdf_content = ContentFile(item['pdf_bytes'], name=filename)
 
-            ws, created = Worksheet.objects.update_or_create(
-                topic=topic,
-                defaults={
-                    'title':           f"{topic.name} — Worksheet",
-                    'pdf_file':        pdf_content,    
-                    'video_url':       worksheet_video_url,
-                    'is_ai_generated': False,
-                    'uploaded_by':     request.user,
-                }
-            )
-
-            worksheet_results.append({
-                'topic': topic.name, 'subject': subject.name,
-                'status': 'created' if created else 'updated',
-                'video': worksheet_video_url or '—', 
-            })
+            except Exception as e:
+                all_errors.append(f'[Worksheet] Failed "{item.get("topic", "?")}": {e} | {traceback.format_exc()}')
 
     return render(request, 'teacher/upload_notes.html', {
-        'success':          True,
-        'note_results':     note_results,
-        'worksheet_results':worksheet_results,
-        'errors':           all_errors,
-        'subjects':         Subject.objects.all().order_by('name'),
+        'success':           True,
+        'note_results':      note_results,
+        'worksheet_results': worksheet_results,
+        'errors':            all_errors,
+        'subjects':          Subject.objects.all().order_by('name'),
     })
 
 @admin_required
