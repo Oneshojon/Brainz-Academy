@@ -282,9 +282,12 @@ def upload_docx(request):
             'error': f'Subject "{subject_name}" not found. Available: {all_subjects}'
         })
 
-    exam_board = ExamBoard.objects.filter(name__iexact=board_name).first()
+    exam_board = (
+    ExamBoard.objects.filter(name__iexact=board_name).first() or
+    ExamBoard.objects.filter(abbreviation__iexact=board_name).first()
+    )
     if not exam_board:
-        all_boards = ', '.join(ExamBoard.objects.values_list('name', flat=True))
+        all_boards = ', '.join(ExamBoard.objects.values_list('abbreviation', flat=True))
         return render(request, 'teacher/upload_docx.html', {
             'error': f'Exam board "{board_name}" not found. Available: {all_boards}'
         })
