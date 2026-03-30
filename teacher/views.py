@@ -1010,6 +1010,8 @@ def _parse_docx(file_bytes):
                 remainder_html = _para_to_html(para)
                 # Replace the full para HTML with just the remainder
                 if remainder_txt:
+                    # Strip the leading number from the rendered HTML
+                    remainder_html = re.sub(r'^\s*\d+[.\)]\s*', '', remainder_html)
                     content_parts.append(remainder_html)
                 if img_b:
                     q['image_bytes'] = img_b
