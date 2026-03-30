@@ -438,25 +438,31 @@ def upload_notes(request):
                 continue
 
             # Save PDF to model
-            filename = f"note_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
-            note, created = LessonNote.objects.update_or_create(
-                topic=topic,
-                defaults={
-                    'title':           f"{topic.name} — Revision Notes",
-                    'video_url':       note_video_url,
-                    'is_ai_generated': False,
-                    'uploaded_by':     request.user,
-                }
-            )
+            from django.core.files.base import ContentFile
+
             try:
-                note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+                filename = f"note_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
+                pdf_content = ContentFile(item['pdf_bytes'], name=filename)
+
+                note, created = LessonNote.objects.update_or_create(
+                    topic=topic,
+                    defaults={
+                        'title':           f"{topic.name} — Revision Notes",
+                        'pdf_file':        pdf_content,
+                        'video_url':       note_video_url,
+                        'is_ai_generated': False,
+                        'uploaded_by':     request.user,
+                    }
+                )
                 note_results.append({
                     'topic': topic.name, 'subject': subject.name,
                     'status': 'created' if created else 'updated',
                     'video': note_video_url or '—',
                 })
             except Exception as e:
-                all_errors.append(f'[Notes] File save failed for "{topic.name}": {e}')
+                import traceback
+                all_errors.append(f'[Notes] Failed to save "{item["topic"]}": {e} | {traceback.format_exc()}')
+        
 
     # ── Process worksheets ────────────────────────────────────────────────────
     if worksheet_file:
@@ -501,23 +507,24 @@ def upload_notes(request):
                     'status': 'skipped', 'reason': 'already exists (overwrite not checked)'
                 })
                 continue
-
             filename = f"ws_{subject.name.lower().replace(' ','_')}_{topic.name.lower().replace(' ','_')}.pdf"
+            pdf_content = ContentFile(item['pdf_bytes'], name=filename)
+
             ws, created = Worksheet.objects.update_or_create(
                 topic=topic,
                 defaults={
                     'title':           f"{topic.name} — Worksheet",
+                    'pdf_file':        pdf_content,    
                     'video_url':       worksheet_video_url,
                     'is_ai_generated': False,
                     'uploaded_by':     request.user,
                 }
             )
-            ws.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
 
             worksheet_results.append({
                 'topic': topic.name, 'subject': subject.name,
                 'status': 'created' if created else 'updated',
-                'video': item['video_url'] or '—',
+                'video': worksheet_video_url or '—', 
             })
 
     return render(request, 'teacher/upload_notes.html', {
