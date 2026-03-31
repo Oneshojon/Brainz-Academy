@@ -539,7 +539,7 @@ def toggle_flag(request):
 # LESSON NOTES  (all teachers + admin)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@teacher_required
+@login_required
 @feature_required('lesson_notes')
 def lesson_notes(request):
     """
