@@ -121,68 +121,77 @@
           </div>
         </div>
 
-        <!-- Tabs -->
+        <!-- Tabs — always show all 3 -->
         <div class="pp-tabs">
-          {% if selected_paper.question_pdf %}
           <button class="pp-tab active" id="tab-q" onclick="switchTab('q')">
             📄 Questions
           </button>
-          {% endif %}
-          {% if selected_paper.answer_pdf %}
-          <button class="pp-tab {% if not selected_paper.question_pdf %}active{% endif %}"
-                  id="tab-s" onclick="switchTab('s')">
+          <button class="pp-tab" id="tab-s" onclick="switchTab('s')">
             ✅ Solutions
           </button>
-          {% endif %}
-          {% if selected_paper.video_url %}
           <button class="pp-tab" id="tab-v" onclick="switchTab('v')">
             🎬 Video
           </button>
-          {% endif %}
         </div>
 
         <!-- Questions panel -->
-        {% if selected_paper.question_pdf %}
         <div class="pp-panel active" id="panel-q">
+          {% if selected_paper.question_pdf %}
           <div class="pp-pdf-actions">
             <a href="{{ selected_paper.question_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
             <a href="{{ selected_paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
           </div>
           <iframe src="{{ selected_paper.question_pdf.url }}"
                   class="pp-pdf-embed" title="Questions"></iframe>
+          {% else %}
+          <div class="pp-state">
+            <span class="pp-state-icon">📄</span>
+            <div class="pp-state-title">No Questions PDF</div>
+            <div class="pp-state-body">Questions have not been uploaded for this paper yet.</div>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
 
         <!-- Solutions panel -->
-        {% if selected_paper.answer_pdf %}
-        <div class="pp-panel {% if not selected_paper.question_pdf %}active{% endif %}" id="panel-s">
+        <div class="pp-panel" id="panel-s">
+          {% if selected_paper.answer_pdf %}
           <div class="pp-pdf-actions">
             <a href="{{ selected_paper.answer_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
             <a href="{{ selected_paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
           </div>
           <iframe src="{{ selected_paper.answer_pdf.url }}"
                   class="pp-pdf-embed" title="Solutions"></iframe>
+          {% else %}
+          <div class="pp-state">
+            <span class="pp-state-icon">✅</span>
+            <div class="pp-state-title">No Solutions Yet</div>
+            <div class="pp-state-body">Solutions for this paper have not been uploaded yet.</div>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
 
         <!-- Video panel -->
-        {% if selected_paper.video_url %}
         <div class="pp-panel" id="panel-v">
-          {% if selected_paper.video_embed_url %}
+          {% if selected_paper.video_url %}
           <div class="pp-video-wrap">
             <iframe src="{{ selected_paper.video_embed_url }}"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowfullscreen></iframe>
           </div>
-          {% endif %}
           <div class="pp-pdf-actions" style="margin-top:0.75rem;">
             <a href="{{ selected_paper.video_url }}" target="_blank" class="pp-btn-secondary">
               ↗ Watch on YouTube
             </a>
           </div>
+          {% else %}
+          <div class="pp-state">
+            <span class="pp-state-icon">🎬</span>
+            <div class="pp-state-title">No Video Yet</div>
+            <div class="pp-state-body">A video walkthrough for this paper hasn't been added yet.</div>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
 
       </div>
       {% endif %}
