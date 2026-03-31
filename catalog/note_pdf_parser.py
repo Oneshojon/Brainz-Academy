@@ -237,6 +237,7 @@ def parse_note_pdf(file_bytes):
         topic_name = g['heading'].title()
 
         writer = PdfWriter()
+        writer.add_page(reader.pages[0])
         for idx in g['page_indices']:
             writer.add_page(reader.pages[idx])
         buf = io.BytesIO()
