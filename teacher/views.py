@@ -585,8 +585,17 @@ def lesson_notes(request):
         try:
             selected_subject = Subject.objects.get(id=selected_subject_id)
             subject_covered  = selected_subject.id in covered_ids
+            themes_grouped = {} 
             if subject_covered:
-                topics = Topic.objects.filter(subject=selected_subject).prefetch_related('lesson_note', 'worksheet').order_by('name')
+                topics = Topic.objects.filter(subject=selected_subject).select_related('theme').prefetch_related('lesson_note', 'worksheet').order_by('theme__order', 'theme__name', 'name')
+
+                # Group topics by theme
+                from collections import defaultdict
+                themes_dict = defaultdict(list)
+                for t in topics:
+                    theme_name = t.theme.name if t.theme else 'General'
+                    themes_dict[theme_name].append(t)
+                themes_grouped = dict(themes_dict)
         except Subject.DoesNotExist:
             pass
 
@@ -632,6 +641,7 @@ def lesson_notes(request):
         'selected_subject':     selected_subject,
         'subject_covered':      subject_covered,
         'topics':               topics,
+        'themes_grouped': themes_grouped,
         'selected_topic':       selected_topic,
         'note':                 note,
         'ai_enabled':           ai_enabled,
