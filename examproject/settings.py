@@ -260,30 +260,34 @@ CLOUDFLARE_R2_BUCKET_NAME       = os.environ.get('CLOUDFLARE_R2_BUCKET_NAME', 'e
 CLOUDFLARE_R2_ACCOUNT_ID        = os.environ.get('CLOUDFLARE_R2_ACCOUNT_ID')
 
 if CLOUDFLARE_R2_ACCESS_KEY_ID:
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    AWS_ACCESS_KEY_ID     = CLOUDFLARE_R2_ACCESS_KEY_ID
-    AWS_SECRET_ACCESS_KEY = CLOUDFLARE_R2_SECRET_ACCESS_KEY
-    AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
-    AWS_S3_ENDPOINT_URL   = f'https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com'
-    AWS_S3_REGION_NAME    = 'auto'
-    AWS_S3_FILE_OVERWRITE = True
-    AWS_DEFAULT_ACL       = None
+    AWS_ACCESS_KEY_ID        = CLOUDFLARE_R2_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY    = CLOUDFLARE_R2_SECRET_ACCESS_KEY
+    AWS_STORAGE_BUCKET_NAME  = CLOUDFLARE_R2_BUCKET_NAME
+    AWS_S3_ENDPOINT_URL      = f'https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com'
+    AWS_S3_REGION_NAME       = 'auto'
+    AWS_S3_FILE_OVERWRITE    = True
+    AWS_DEFAULT_ACL          = None
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
     AWS_S3_SIGNATURE_VERSION = 's3v4'
 
-    # Public URL for serving files
-    # Set this to your R2 public bucket URL or custom domain
     CLOUDFLARE_R2_PUBLIC_URL = os.environ.get(
         'CLOUDFLARE_R2_PUBLIC_URL',
         f'https://pub-{CLOUDFLARE_R2_ACCOUNT_ID}.r2.dev'
     )
     MEDIA_URL = f'{CLOUDFLARE_R2_PUBLIC_URL}/'
+
+    # Django 5.x new-style storage configuration
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+        },
+    }
 else:
-    # Local dev fallback
     MEDIA_URL  = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
-
 
 # ── Brevo (transactional email) ───────────────────────────────────────────────
 BREVO_API_KEY = os.environ.get('ANYMAIL_BREVO_API_KEY') or os.environ.get('BREVO_API_KEY')
