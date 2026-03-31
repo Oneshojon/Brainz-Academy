@@ -578,6 +578,7 @@ def lesson_notes(request):
     selected_topic   = None 
     note             = None
     worksheet        = None
+    themes_grouped = {} 
     subject_covered  = True
     ai_enabled       = is_feature_enabled('ai_lesson_notes', user=request.user)
 
@@ -585,7 +586,7 @@ def lesson_notes(request):
         try:
             selected_subject = Subject.objects.get(id=selected_subject_id)
             subject_covered  = selected_subject.id in covered_ids
-            themes_grouped = {} 
+            
             if subject_covered:
                 topics = Topic.objects.filter(subject=selected_subject).select_related('theme').prefetch_related('lesson_note', 'worksheet').order_by('theme__order', 'theme__name', 'name')
 
