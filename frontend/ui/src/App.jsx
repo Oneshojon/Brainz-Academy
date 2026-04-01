@@ -151,9 +151,12 @@ export default function App() {
         {/* ── Topbar ── */}
         <header className="app-topbar">
                     <a href="/" className="app-logo">
-            Brainz<span>Academy</span>
-          </a>
-
+                      <img 
+                        src="/static/Users/images/brainz_logo.png" 
+                        alt="Brainz Academy" 
+                        style={{ height: '36px', width: 'auto' }} 
+                      />
+                    </a>
           <div className="topbar-right">
             
             {isTeacher && mode === "random" && (
