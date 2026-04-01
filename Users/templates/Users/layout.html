@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ExamPrep</title>
+    <title>Brainz</title>
     <link rel="icon" type="image/x-icon" href="{% static 'Users/images/favicon.ico' %}">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'Users/images/favicon-32.png' %}">
     <link rel="apple-touch-icon" href="{% static 'Users/images/apple-touch-icon.png' %}">
@@ -32,8 +32,8 @@
         <!-- Nav links -->
         <div class="nav-menu" id="navMenu">
           {% if user.is_authenticated %}
-            <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
             <a href="{% url 'Users:dashboard' %}" class="nav-link">Dashboard</a>
+            <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
             <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
             {% if user.role == 'TEACHER' %}
               <a href="{% url 'teacher:dashboard' %}" class="nav-link">Teacher Portal</a>
