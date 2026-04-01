@@ -12,6 +12,7 @@ class Command(BaseCommand):
         Subject.objects.get_or_create(name='Physics')
 
         commands = [
+            'seed_plans',
             'seed_boards',
             'maths_seed',
             'seed_physics',
