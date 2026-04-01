@@ -713,7 +713,7 @@ INITIAL_PLANS = [
         'plan_type':    'STUDENT_BASIC',
         'duration':     'YEARLY',
         'name':         'Student Basic — Yearly',
-        'price':        24000,
+        'price':        27000,
         'description':  'Best value — full access for a whole year. Save ₦6,000.',
         'features':     'Unlimited practice sessions,Full analytics & weak topic insights,'
                         'Lesson notes access,AI-generated notes,Priority support',

@@ -189,7 +189,7 @@
         <div class="plan-name">Student Basic</div>
         <div class="plan-tagline">Full access for one month. Perfect for exam season.</div>
         <div class="plan-price">
-          <span class="currency">₦</span><span class="amount">1,500</span>
+          <span class="currency">₦</span><span class="amount">3,000</span>
           <div class="period">per month</div>
         </div>
         <ul class="plan-features">
@@ -206,7 +206,7 @@
           {% for plan in student_plans %}{% if plan.duration == 'MONTHLY' %}
           <form method="post" action="{% url 'payments:initialize' %}">
             {% csrf_token %}<input type="hidden" name="plan_id" value="{{ plan.id }}">
-            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦1,500/mo →</button>
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦3,000/mo →</button>
           </form>
           {% endif %}{% endfor %}
         {% else %}
@@ -219,9 +219,9 @@
         <div class="plan-name">Student Basic</div>
         <div class="plan-tagline">Full year access. Best value for serious students.</div>
         <div class="plan-price">
-          <span class="currency">₦</span><span class="amount">12,000</span>
+          <span class="currency">₦</span><span class="amount">27,000</span>
           <div class="period">per year</div>
-          <span class="saving">Save ₦6,000 vs monthly</span>
+          <span class="saving">Save ₦9,000 vs monthly</span>
         </div>
         <ul class="plan-features">
           <li><span class="feat-icon">✅</span><span>Unlimited practice sessions</span></li>
@@ -237,7 +237,7 @@
           {% for plan in student_plans %}{% if plan.duration == 'YEARLY' %}
           <form method="post" action="{% url 'payments:initialize' %}">
             {% csrf_token %}<input type="hidden" name="plan_id" value="{{ plan.id }}">
-            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦12,000/yr →</button>
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦27,000/yr →</button>
           </form>
           {% endif %}{% endfor %}
         {% else %}
@@ -294,7 +294,7 @@
         <div class="plan-name">Teacher Pro</div>
         <div class="plan-tagline">Full portal access. Ideal for occasional use.</div>
         <div class="plan-price">
-          <span class="currency">₦</span><span class="amount">3,000</span>
+          <span class="currency">₦</span><span class="amount">5,000</span>
           <div class="period">per month</div>
         </div>
         <ul class="plan-features">
@@ -309,7 +309,7 @@
           {% for plan in teacher_plans %}{% if plan.duration == 'MONTHLY' %}
           <form method="post" action="{% url 'payments:initialize' %}">
             {% csrf_token %}<input type="hidden" name="plan_id" value="{{ plan.id }}">
-            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦3,000/mo →</button>
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦5,000/mo →</button>
           </form>
           {% endif %}{% endfor %}
         {% else %}
@@ -322,9 +322,9 @@
         <div class="plan-name">Teacher Pro</div>
         <div class="plan-tagline">Best value for active teachers. Full year coverage.</div>
         <div class="plan-price">
-          <span class="currency">₦</span><span class="amount">25,000</span>
+          <span class="currency">₦</span><span class="amount">45,000</span>
           <div class="period">per year</div>
-          <span class="saving">Save ₦11,000 vs monthly</span>
+          <span class="saving">Save ₦15,000 vs monthly</span>
         </div>
         <ul class="plan-features">
           <li><span class="feat-icon">✅</span><span>Unlimited test builder sessions</span></li>
@@ -338,7 +338,7 @@
           {% for plan in teacher_plans %}{% if plan.duration == 'YEARLY' %}
           <form method="post" action="{% url 'payments:initialize' %}">
             {% csrf_token %}<input type="hidden" name="plan_id" value="{{ plan.id }}">
-            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦25,000/yr →</button>
+            <button type="submit" class="plan-cta cta-paid">Subscribe — ₦45,000/yr →</button>
           </form>
           {% endif %}{% endfor %}
         {% else %}
