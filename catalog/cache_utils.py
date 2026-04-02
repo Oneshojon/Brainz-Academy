@@ -18,6 +18,7 @@ KEY_ALL_BOARDS     = 'catalog:boards:all'
 KEY_THEMES         = 'catalog:themes:subject:{subject_id}'
 KEY_TOPICS         = 'catalog:topics:subject:{subject_id}'
 KEY_TOPICS_THEME   = 'catalog:topics:theme:{theme_id}'
+KEY_TOPICS_THEME_BOARD = 'catalog:topics:theme:{theme_id}:board:{board_id}'
 KEY_FEATURE_FLAGS  = 'catalog:feature_flags:all'
 KEY_LEADERBOARD    = 'practice:leaderboard:top50'
 KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
@@ -176,4 +177,39 @@ def invalidate_subject_caches(subject_id=None):
             KEY_TOPICS.format(subject_id=subject_id),
             KEY_AVAILABLE_YEARS.format(subject_id=subject_id, board_id='all'),
         ]
+    # Invalidate all theme+board count caches — use pattern delete if supported
+    # otherwise they expire naturally after CACHE_1_HOUR
     invalidate(*keys)
+
+
+def get_topics_for_theme_with_counts(theme_id, exam_board_id=None):
+    from catalog.models import Topic
+    from django.db.models import Count, Q
+
+    key = KEY_TOPICS_THEME_BOARD.format(
+        theme_id=theme_id,
+        board_id=exam_board_id or 'all'
+    )
+
+    def _fetch():
+        count_filter = (
+            Q(questions__exam_series__exam_board_id=exam_board_id)
+            if exam_board_id else Q()
+        )
+        topics = (
+            Topic.objects
+            .filter(theme_id=theme_id)
+            .annotate(question_count=Count('questions', filter=count_filter, distinct=True))
+            .order_by('name')
+        )
+        return [
+            {
+                'id': t.id,
+                'name': t.name,
+                'subject': t.subject_id,
+                'question_count': t.question_count,
+            }
+            for t in topics
+        ]
+
+    return get_or_set(key, _fetch, CACHE_1_HOUR)

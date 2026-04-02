@@ -1,4 +1,5 @@
 from urllib import request
+import re
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -73,16 +74,20 @@ class TopicListView(generics.ListAPIView):
             return get_topics_for_subject(subject_id)
         return []
 
-class TopicsByThemeView(generics.ListAPIView):
-    """Returns topics under a theme."""
+class TopicsByThemeView(APIView):
     permission_classes = [AllowAny]
-    serializer_class   = TopicSerializer
- 
-    def get_queryset(self):
-        theme_id = self.request.query_params.get('theme')
-        if theme_id:
-            return get_topics_for_theme(theme_id)
-        return []
+
+    def get(self, request):
+        theme_id = request.query_params.get('theme')
+        exam_board_id = request.query_params.get('exam_board')
+
+        if not theme_id:
+            return Response([])
+
+        from catalog.cache_utils import get_topics_for_theme_with_counts
+        return Response(
+            get_topics_for_theme_with_counts(theme_id, exam_board_id)
+        )
 
 class ThemeListView(generics.ListAPIView):
     """Returns themes for a subject."""
@@ -244,6 +249,14 @@ def _get_image_bytes(question):
         pass
     return None, None
 
+def _strip_html(text):
+    """Strip HTML tags and decode basic entities."""
+    if not text:
+        return ''
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&nbsp;', ' ')
+    return text.strip()
 
 # ── INTERNAL HELPER: build header metadata from questions ────────────────────
 
@@ -331,10 +344,8 @@ def _generate_docx(questions, title, include_answers=False):
 
     # ── Questions ────────────────────────────────────────────────────────────
     for i, q in enumerate(questions, 1):
-        num = q.question_number if q.question_number else i
-
-        # Question text
-        _para(f"{num}. {q.content.strip()}")
+        clean_content = _strip_html(q.content)
+        _para(f"{i}. {clean_content}")
 
         # Image (if the question has one stored in q.image)
         img_bytes, img_ext = _get_image_bytes(q)
@@ -463,10 +474,8 @@ def _generate_pdf(questions, title, include_answers=False):
     # ── Questions ────────────────────────────────────────────────────────────
     for i, q in enumerate(questions, 1):
         block = []
-        num = q.question_number if q.question_number else i
-
-        # Question text
-        block.append(Paragraph(f"{num}. {esc(q.content.strip())}", normal))
+        clean_content = esc(_strip_html(q.content))
+        block.append(Paragraph(f"{i}. {clean_content}", normal))
 
         # Image
         img_bytes, _ = _get_image_bytes(q)
