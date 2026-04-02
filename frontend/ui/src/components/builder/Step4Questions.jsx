@@ -154,7 +154,6 @@ export default function Step4Questions({
   const [search, setSearch] = useState("");
   const [previewQ, setPreviewQ] = useState(null);
   const [previewId, setPreviewId] = useState(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
   const [selectedYears, setSelectedYears]   = useState([]);
 
@@ -188,16 +187,11 @@ const toggleYear = (year) => {
   );
 };
 
-  const handlePreview = (q) => {
-    if (previewId === q.id) return;
-    setPreviewId(q.id);
-    setLoadingPreview(true);
-    api
-      .get(`questions/${q.id}/`)
-      .then((r) => setPreviewQ(r.data))
-      .catch(() => {})
-      .finally(() => setLoadingPreview(false));
-  };
+const handlePreview = (q) => {
+  if (previewId === q.id) return;
+  setPreviewId(q.id);
+  setPreviewQ(q); 
+};
 
 const handleAdd = (q) => {
   if (isAdded(q.id)) { onRemove(q.id); return; }
@@ -207,13 +201,7 @@ const handleAdd = (q) => {
       ? fullQ.topic_names
       : [topic?.name].filter(Boolean)
   });
-  if (previewQ && previewQ.id === q.id) {
-    onAdd(enrich(previewQ));
-  } else {
-    api.get(`questions/${q.id}/`)
-      .then(r => onAdd(enrich(r.data)))
-      .catch(() => onAdd(enrich(q)));
-  }
+  onAdd(enrich(q)); // q already has full data — no API call needed
 };
 
   const isAdded = (id) => savedQuestions.some((q) => q.id === id);
@@ -359,8 +347,7 @@ const filtered = questions.filter(q => {
                 <span style={{ fontSize: "2rem" }}>👆</span>
                 <span>Click a question to preview it here</span>
               </div>
-            ) : loadingPreview ? (
-              <div className="q4-preview-empty">Loading preview…</div>
+
             ) : previewQ ? (
               <>
                 <div
