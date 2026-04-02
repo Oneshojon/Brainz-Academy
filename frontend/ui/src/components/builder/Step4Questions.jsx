@@ -171,7 +171,7 @@ export default function Step4Questions({
   // Fetch questions and available years in parallel
   Promise.all([
     api.get(`questions-by-topic/?${params}`),
-    api.get(`available-years/?subject=${topic.subject}${board?.id && board.id !== 'mix' ? `&exam_board=${board.id}` : ''}`),
+    api.get(`years/?subject=${topic.subject}${board?.id && board.id !== 'mix' ? `&exam_board=${board.id}` : ''}`),
   ])
     .then(([qRes, yRes]) => {
       setQuestions(qRes.data);
