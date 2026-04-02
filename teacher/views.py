@@ -306,22 +306,41 @@ def upload_docx(request):
     skipped_nums  = []
     errors        = []
 
+    overwrite = request.POST.get('overwrite') == 'on'
+
     for q_data in questions:
         try:
-            if Question.objects.filter(exam_series=exam_series, question_number=q_data['number']).exists():
+            existing = Question.objects.filter(
+                exam_series=exam_series, 
+                question_number=q_data['number']
+            ).first()
+
+            if existing and not overwrite:
                 skipped_count += 1
                 skipped_nums.append(q_data['number'])
                 continue
 
             with transaction.atomic():
-                question = Question.objects.create(
-                    subject=subject, exam_series=exam_series,
-                    question_number=q_data['number'],
-                    question_type='OBJ' if q_data['choices'] else 'THEORY',
-                    content=q_data['content'], marks=1,
-                )
+                if existing and overwrite:
+                    # Update existing question
+                    existing.content = q_data['content']
+                    existing.question_type = 'OBJ' if q_data['choices'] else 'THEORY'
+                    existing.save()
+                    question = existing
+                    # Clear old choices and topics
+                    question.choices.all().delete()
+                    question.topics.clear()
+                else:
+                    # Create new question
+                    question = Question.objects.create(
+                        subject=subject, exam_series=exam_series,
+                        question_number=q_data['number'],
+                        question_type='OBJ' if q_data['choices'] else 'THEORY',
+                        content=q_data['content'], marks=1,
+                    )
+
                 if q_data['image_bytes']:
-                    ext      = q_data['image_ext'] or 'png'
+                    ext = q_data['image_ext'] or 'png'
                     filename = f"q_{subject.name.lower()}_{year}_{q_data['number']}.{ext}"
                     question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
 
@@ -334,6 +353,7 @@ def upload_docx(request):
                         question=question, label=c['label'],
                         choice_text=c['text'], is_correct=c['is_correct'],
                     )
+
                 for topic_name in q_data['topics']:
                     topic_name = topic_name.strip()
                     if topic_name:
@@ -349,13 +369,15 @@ def upload_docx(request):
             created_count += 1
             from catalog.cache_utils import invalidate_subject_caches
             invalidate_subject_caches(subject.id)
+
         except Exception as e:
             errors.append(f"Q{q_data['number']}: {e}")
-
     context = {
         'success': True, 'subject': subject.name, 'exam_board': exam_board.name,
         'year': year, 'sitting': sitting, 'total_parsed': len(questions),
-        'created_count': created_count, 'skipped_count': skipped_count,
+        'overwrite': overwrite,
+        'skipped_count': skipped_count, 
+        'created_count': created_count,
         'skipped_nums': skipped_nums, 'errors': errors,
     }
     return render(request, 'teacher/upload_docx.html', context)

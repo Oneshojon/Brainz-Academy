@@ -84,7 +84,8 @@ class Command(BaseCommand):
             if created:
                 ct += 1
             for name in topics:
-                topic, tc = Topic.objects.get_or_create(  # ← use 'tc' not 'ct'
+                name = name.strip().title()  # ← normalize before lookup
+                topic, tc = Topic.objects.get_or_create(
                     subject=subject, name=name, defaults={'theme': theme}
                 )
                 if tc:
