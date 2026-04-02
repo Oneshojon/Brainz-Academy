@@ -160,6 +160,8 @@ export default function Step4Questions({
 
   useEffect(() => {
   if (!topic) return;
+  console.log('board:', board);
+  console.log('topic:', topic);
   setLoading(true);
   setSelectedYears([]);
 
