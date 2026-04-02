@@ -78,13 +78,18 @@ class Command(BaseCommand):
 
         ct, ctp = 0, 0
         for order, (theme_name, topics) in enumerate(data.items()):
-            theme, created = Theme.objects.get_or_create(subject=subject, name=theme_name, defaults={'order': order+1})
+            theme, created = Theme.objects.get_or_create(
+                subject=subject, name=theme_name, defaults={'order': order+1}
+            )
             if created:
                 ct += 1
             for name in topics:
-                topic, ct = Topic.objects.get_or_create(subject=subject, name=name, defaults={'theme': theme})
-                if ct: ctp +=1 
+                topic, tc = Topic.objects.get_or_create(  # ← use 'tc' not 'ct'
+                    subject=subject, name=name, defaults={'theme': theme}
+                )
+                if tc:
+                    ctp += 1
                 elif not topic.theme:
                     topic.theme = theme
                     topic.save(update_fields=['theme'])
-        self.stdout.write(f'Done — {ct} themes, {ctp} topics created.')
+        self.stdout.write(self.style.SUCCESS(f'Mathematics done — {ct} themes, {ctp} topics created.'))
