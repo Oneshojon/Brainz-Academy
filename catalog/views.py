@@ -412,24 +412,23 @@ class QuestionsByTopicView(APIView):
         qs = (
             Question.objects
             .filter(topics__id=topic_id)
-            .select_related(
-                'subject',
-                'exam_series',
-                'exam_series__exam_board',
-            )
-            .prefetch_related(
-                'choices',
-                'topics',
-                'theory_answer',
-            )
+            .select_related('subject', 'exam_series', 'exam_series__exam_board')
+            .prefetch_related('choices', 'topics', 'theory_answer')
             .order_by('-exam_series__year', 'question_number')
         )
 
         if exam_board_id:
             qs = qs.filter(exam_series__exam_board_id=exam_board_id)
 
+        # DEBUG — remove after fixing
+        print(f"topic_id={topic_id} exam_board_id={exam_board_id}")
+        print(f"total questions found: {qs.count()}")
+        for q in qs:
+            print(f"  Q{q.id} year={q.exam_series.year if q.exam_series else 'None'}")
+
         serializer = QuestionSerializer(qs, many=True)
         return Response(serializer.data)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # PDF GENERATOR  (mirrors docx structure exactly)

@@ -273,7 +273,7 @@ const filtered = questions.filter(q => {
                 >
                   <div className="q4-row-meta">
                     <div className="q4-row-title">
-                      Q{q.question_number ?? i + 1} ·{" "}
+                      Q{i + 1} ·{" "}
                       {q.topic_names?.length > 0
                         ? q.topic_names[0]
                         : q.subject_name}
