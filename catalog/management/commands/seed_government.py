@@ -133,7 +133,7 @@ class Command(BaseCommand):
             if created:
                 ct += 1
             for name in topics:
-                topic, tc = Topic.objects.get_or_create(
+                topic, tc = Topic.get_or_create_normalized(
                     subject=subject, name=name, defaults={'theme': theme}
                 )
                 if tc:

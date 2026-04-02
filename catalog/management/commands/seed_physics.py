@@ -21,7 +21,7 @@ class Command(BaseCommand):
             theme, created = Theme.objects.get_or_create(subject=subject, name=theme_name, defaults={'order': order+1})
             if created: ct += 1
             for name in topics:
-                topic, tc = Topic.objects.get_or_create(subject=subject, name=name, defaults={'theme': theme})
+                topic, tc = Topic.get_or_create_normalized(subject=subject, name=name, defaults={'theme': theme})
                 if tc: ctp += 1
                 elif not topic.theme:
                     topic.theme = theme

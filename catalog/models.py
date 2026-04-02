@@ -55,7 +55,14 @@ class Topic(models.Model):
     def save(self, *args, **kwargs):
         self.name = self.name.strip().title()
         super().save(*args, **kwargs)
- 
+    
+    @classmethod
+    def get_or_create_normalized(cls, subject, name, defaults=None):
+        name = name.strip().title()
+        return cls.objects.get_or_create(
+            subject=subject, name=name, defaults=defaults or {}
+        )
+    
     def __str__(self):
         return f"{self.subject.name}: {self.name}"
 

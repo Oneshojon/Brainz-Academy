@@ -85,7 +85,7 @@ class Command(BaseCommand):
                 ct += 1
             for name in topics:
                 name = name.strip().title()  # ← normalize before lookup
-                topic, tc = Topic.objects.get_or_create(
+                topic, tc = Topic.get_or_create_normalized(
                     subject=subject, name=name, defaults={'theme': theme}
                 )
                 if tc:
