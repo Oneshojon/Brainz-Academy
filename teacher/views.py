@@ -337,11 +337,14 @@ def upload_docx(request):
                 for topic_name in q_data['topics']:
                     topic_name = topic_name.strip()
                     if topic_name:
-                        topic, _ = Topic.objects.get_or_create(
+                        topic = Topic.objects.filter(
                             name__iexact=topic_name,
-                            defaults={'name': topic_name, 'subject': subject}
-                        )
-                        question.topics.add(topic)
+                            subject=subject
+                        ).first()
+                        if topic:
+                            question.topics.add(topic)
+                        else:
+                            errors.append(f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped")
 
             created_count += 1
             from catalog.cache_utils import invalidate_subject_caches
