@@ -405,30 +405,27 @@ class QuestionsByTopicView(APIView):
     def get(self, request):
         topic_id      = request.query_params.get('topic')
         exam_board_id = request.query_params.get('exam_board')
- 
+        years         = request.query_params.getlist('year')  
+
         if not topic_id:
             return Response({'error': 'topic is required'}, status=400)
- 
+
         qs = (
             Question.objects
             .filter(topics__id=topic_id)
-            .select_related(
-                'subject',
-                'exam_series',
-                'exam_series__exam_board',
-            )
-            .prefetch_related(
-                'topics',           # needed for topic_names in serializer
-            )
+            .select_related('subject', 'exam_series', 'exam_series__exam_board')
+            .prefetch_related('topics')
             .order_by('-exam_series__year', 'question_number')
         )
- 
+
         if exam_board_id:
             qs = qs.filter(exam_series__exam_board_id=exam_board_id)
- 
-        # No choices or theory_answer prefetch — not needed for list view
+        if years:
+            qs = qs.filter(exam_series__year__in=years)
+
         serializer = QuestionListSerializer(qs, many=True)
         return Response(serializer.data)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # PDF GENERATOR  (mirrors docx structure exactly)

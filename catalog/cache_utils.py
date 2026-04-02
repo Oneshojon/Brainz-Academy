@@ -71,10 +71,16 @@ def get_all_boards():
 
 def get_themes_for_subject(subject_id):
     from catalog.models import Theme
+    from django.db.models import Count
     key = KEY_THEMES.format(subject_id=subject_id)
     return get_or_set(
         key,
-        lambda: list(Theme.objects.filter(subject_id=subject_id).order_by('order', 'name')),
+        lambda: list(
+            Theme.objects
+            .filter(subject_id=subject_id)
+            .annotate(topic_count=Count('topics'))
+            .order_by('order', 'name')
+        ),
         CACHE_1_HOUR
     )
 

@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 import api from "../../api";
 
 const styles = `
+.q4-year-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+.q4-year-pill {
+  padding: 0.25rem 0.65rem; border-radius: 100px; font-size: 0.72rem; font-weight: 700;
+  border: 1.5px solid #C2D4EC; background: #ffffff; color: #6B7FA3;
+  cursor: pointer; transition: all 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.q4-year-pill.active { background: #0B2D72; color: #ffffff; border-color: #0B2D72; }
+.q4-year-pill:hover:not(.active) { border-color: #0B2D72; color: #0B2D72; }
   .q4-layout { display: grid; grid-template-columns: 400px 1fr; gap: 1.25rem; align-items: start; }
   @media (max-width: 900px) { .q4-layout { grid-template-columns: 1fr; } }
 
@@ -147,18 +155,36 @@ export default function Step4Questions({
   const [previewQ, setPreviewQ] = useState(null);
   const [previewId, setPreviewId] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedYears, setSelectedYears]   = useState([]);
 
   useEffect(() => {
-    if (!topic) return;
-    setLoading(true);
-    const params = new URLSearchParams({ topic: topic.id });
-    if (board && board.id !== "mix") params.set("exam_board", board.id);
-    api
-      .get(`questions-by-topic/?${params}`)
-      .then((r) => setQuestions(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [topic, board]);
+  if (!topic) return;
+  setLoading(true);
+  setSelectedYears([]);
+
+  const params = new URLSearchParams({ topic: topic.id });
+  if (board && board.id !== 'mix') params.set('exam_board', board.id);
+
+  // Fetch questions and available years in parallel
+  Promise.all([
+    api.get(`questions-by-topic/?${params}`),
+    api.get(`available-years/?subject=${topic.subject}${board?.id && board.id !== 'mix' ? `&exam_board=${board.id}` : ''}`),
+  ])
+    .then(([qRes, yRes]) => {
+      setQuestions(qRes.data);
+      setAvailableYears(yRes.data.years || []);
+    })
+    .catch(() => {})
+    .finally(() => setLoading(false));
+}, [topic, board]);
+
+const toggleYear = (year) => {
+  const y = Number(year);
+  setSelectedYears(prev =>
+    prev.includes(y) ? prev.filter(n => n !== y) : [...prev, y]
+  );
+};
 
   const handlePreview = (q) => {
     if (previewId === q.id) return;
@@ -190,15 +216,16 @@ const handleAdd = (q) => {
 
   const isAdded = (id) => savedQuestions.some((q) => q.id === id);
 
-  const filtered = questions.filter((q) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    return (
-      String(q.exam_year).includes(s) ||
-      (q.difficulty || "").toLowerCase().includes(s) ||
-      (q.question_type || "").toLowerCase().includes(s)
-    );
-  });
+const filtered = questions.filter(q => {
+  if (selectedYears.length > 0 && !selectedYears.includes(Number(q.exam_year))) return false;
+  if (!search) return true;
+  const s = search.toLowerCase();
+  return (
+    String(q.exam_year).includes(s) ||
+    (q.difficulty || '').toLowerCase().includes(s) ||
+    (q.question_type || '').toLowerCase().includes(s)
+  );
+});
 
   return (
     <>
@@ -225,6 +252,20 @@ const handleAdd = (q) => {
                 : `${filtered.length} question${filtered.length !== 1 ? "s" : ""}`}
             </span>
           </div>
+
+          {availableYears.length > 1 && (
+            <div className="q4-year-bar">
+              {availableYears.map(year => (
+                <button
+                  key={year}
+                  className={`q4-year-pill ${selectedYears.includes(year) ? 'active' : ''}`}
+                  onClick={() => toggleYear(year)}>
+                  {year}
+                </button>
+              ))}
+            </div>
+          )}
+
           <input
             className="q4-search"
             placeholder="Search by year, type, difficulty…"

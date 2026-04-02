@@ -19,6 +19,9 @@ class ThemeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'order', 'topic_count']
 
     def get_topic_count(self, obj):
+        # Use annotated value if available, fall back to query
+        if hasattr(obj, 'topic_count'):
+            return obj.topic_count
         return obj.topics.count()
 
 

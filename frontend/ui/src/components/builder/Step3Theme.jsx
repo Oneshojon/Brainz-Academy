@@ -68,10 +68,14 @@ export default function Step3Theme({ board, subject, onSelect, selected, onBack,
   }, [subject]);
 
   const handleThemeClick = (theme) => {
-    setActiveTheme(theme);
-    setLoadingTopics(true);
-    api.get(`topics-by-theme/?theme=${theme.id}`).then(r => setTopics(r.data)).catch(() => {}).finally(() => setLoadingTopics(false));
-  };
+  setActiveTheme(theme);
+  setLoadingTopics(true);
+  const boardParam = board?.id ? `&exam_board=${board.id}` : '';
+  api.get(`topics-by-theme/?theme=${theme.id}${boardParam}`)
+    .then(r => setTopics(r.data))
+    .catch(() => {})
+    .finally(() => setLoadingTopics(false));
+};
 
   const handleTopicSelect = (topic) => {
     onSelect({ ...activeTheme, selectedTopic: topic });
@@ -120,13 +124,27 @@ export default function Step3Theme({ board, subject, onSelect, selected, onBack,
             ) : (
               <div className="topic-grid">
                 {topics.map(topic => (
-                  <div key={topic.id} className="topic-item">
+                <div key={topic.id} className="topic-item">
+                  <div>
                     <span className="topic-item-name">{topic.name}</span>
-                    <button className="topic-select-btn" onClick={() => handleTopicSelect(topic)}>
-                      Browse Questions →
-                    </button>
+                    <span style={{
+                      display: 'block', fontSize: '0.7rem', marginTop: '0.2rem',
+                      color: topic.question_count > 0 ? '#15803D' : '#6B7FA3',
+                    }}>
+                      {topic.question_count === 0
+                        ? 'No questions yet'
+                        : `${topic.question_count} question${topic.question_count !== 1 ? 's' : ''} available`}
+                    </span>
                   </div>
-                ))}
+                  <button
+                    className="topic-select-btn"
+                    style={topic.question_count === 0 ? {opacity: 0.4, cursor: 'not-allowed'} : {}}
+                    disabled={topic.question_count === 0}
+                    onClick={() => topic.question_count > 0 && handleTopicSelect(topic)}>
+                    Browse Questions →
+                  </button>
+                </div>
+              ))}
               </div>
             )}
           </div>
