@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
         ct, ctp = 0, 0
         for order, (theme_name, topics) in enumerate(data.items()):
-            theme, created = Theme.get_or_create_safe(subject=subject, name=theme_name, defaults={'order': order+1})
+            theme, created = Theme.get_or_create_safe(subject=subject, name=theme_name, order=order + 1)
             if created: ct += 1
             for name in topics:
                 topic, tc = Topic.get_or_create_normalized(subject=subject, name=name, defaults={'theme': theme})
