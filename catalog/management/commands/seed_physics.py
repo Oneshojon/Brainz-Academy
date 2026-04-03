@@ -5,7 +5,7 @@ class Command(BaseCommand):
     help = 'Seed Physics themes and topics'
 
     def handle(self, *args, **kwargs):
-        subject, _ = Subject.objects.get_or_create(name='Physics')
+        subject, _ = Subject.get_or_create_safe(name='Physics')
 
         data = {
             'Interaction of Matter, Space and Time': ['Concepts of Matter','Fundamental and Derived Quantities and Units','Position, Distance and Displacement','Mass and Weight','Time','Fluid at Rest','Motion','Speed and Velocity','Rectilinear Acceleration','Scalars and Vectors','Equilibrium of Forces','Simple Harmonic Motion','Newtons Laws of Motion'],
@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
         ct, ctp = 0, 0
         for order, (theme_name, topics) in enumerate(data.items()):
-            theme, created = Theme.objects.get_or_create(subject=subject, name=theme_name, defaults={'order': order+1})
+            theme, created = Theme.get_or_create_safe(subject=subject, name=theme_name, defaults={'order': order+1})
             if created: ct += 1
             for name in topics:
                 topic, tc = Topic.get_or_create_normalized(subject=subject, name=name, defaults={'theme': theme})

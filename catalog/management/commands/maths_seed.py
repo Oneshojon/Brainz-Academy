@@ -5,7 +5,7 @@ class Command(BaseCommand):
     help = 'Seed Mathematics themes and topics'
 
     def handle(self, *args, **kwargs):
-        subject, _ = Subject.objects.get_or_create(name='Mathematics')
+        subject, _ = Subject.get_or_create_safe(name='Mathematics')
 
 
         data = {
@@ -78,7 +78,7 @@ class Command(BaseCommand):
 
         ct, ctp = 0, 0
         for order, (theme_name, topics) in enumerate(data.items()):
-            theme, created = Theme.objects.get_or_create(
+            theme, created = Theme.get_or_create_safe(
                 subject=subject, name=theme_name, defaults={'order': order+1}
             )
             if created:

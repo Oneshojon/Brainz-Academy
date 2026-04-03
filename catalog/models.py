@@ -8,12 +8,22 @@ from datetime import timedelta
 User = get_user_model()
 
 
+from django.db import IntegrityError
+
 class Subject(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
     def save(self, *args, **kwargs):
         self.name = self.name.strip().title()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def get_or_create_safe(cls, name):
+        name = name.strip().title()
+        try:
+            return cls.objects.get_or_create(name=name)
+        except IntegrityError:
+            return cls.objects.get(name=name), False
 
     def __str__(self):
         return self.name
@@ -35,6 +45,14 @@ class Theme(models.Model):
     def topic_count(self):
         return self.topics.count()
 
+    @classmethod
+    def get_or_create_safe(cls, subject, name, order):
+        try:
+            return cls.objects.get_or_create(
+                subject=subject, name=name, defaults={'order': order}
+            )
+        except IntegrityError:
+            return cls.objects.get(subject=subject, name=name), False
 
 class Topic(models.Model):
     subject = models.ForeignKey(
@@ -65,6 +83,7 @@ class Topic(models.Model):
     
     def __str__(self):
         return f"{self.subject.name}: {self.name}"
+
 
 
 class LessonNote(models.Model):
