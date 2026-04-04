@@ -88,7 +88,7 @@
         <li class="choice-item" data-choice-id="{{ choice.id }}"
             onclick="selectChoice({{ question.id }}, {{ choice.id }}, this)">
           <span class="choice-label">{{ choice.label }}</span>
-          <span class="choice-text">{{ choice.choice_text }}</span>
+          <span class="choice-text">{{ choice.choice_text|safe }}</span>
         </li>
         {% endfor %}
       </ul>
