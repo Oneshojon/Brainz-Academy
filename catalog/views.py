@@ -16,14 +16,6 @@ from catalog.models import FreeUsageTracker
 
 # File
 from django.http import HttpResponse
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, KeepTogether
-from reportlab.platypus import Image as RLImage
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.lib import colors
-from docx import Document as DocxDocument
-from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 import os
@@ -298,13 +290,11 @@ import tempfile
 
 def _generate_docx(questions, title, include_answers=False):
     """Generate DOCX using pandoc for proper OMML math rendering."""
-    
     hdr = _header_info(questions, title)
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
-    
-    # Build HTML content
+
     html_parts = [
-        '<html><body>',
+        '<html><head><meta charset="utf-8"></head><body>',
         f'<p>Subject: {hdr["subject"]}</p>',
         f'<p>Exam: {hdr["exam"]}</p>',
         f'<p>Year: {hdr["year"]}</p>',
@@ -312,11 +302,12 @@ def _generate_docx(questions, title, include_answers=False):
         f'<p>{copy_line}</p>',
         '<p>&nbsp;</p>',
     ]
-    
+
     for i, q in enumerate(questions, 1):
-        # Question text
-        html_parts.append(f'<p><strong>{i}.</strong> {q.content}</p>')
-        
+        # Question content — already HTML with \(...\) math
+        html_parts.append(f'<p><strong>{i}.</strong></p>')
+        html_parts.append(q.content)  # full HTML preserved
+
         # Image
         img_bytes, img_ext = _get_image_bytes(q)
         if img_bytes:
@@ -326,23 +317,20 @@ def _generate_docx(questions, title, include_answers=False):
             html_parts.append(
                 f'<p><img src="data:{mime};base64,{b64}" style="max-width:400px"/></p>'
             )
-        
-        # Choices
+
+        # Choices — choice_text is also HTML with math
         if q.question_type == 'OBJ':
             choices = list(q.choices.all().order_by('label'))
             if choices:
-                html_parts.append('<p>')
-                for j, c in enumerate(choices):
-                    sep = '<br/>' if j < len(choices) - 1 else ''
-                    html_parts.append(f'{c.label}. {c.choice_text}{sep}')
-                html_parts.append('</p>')
-        
+                for c in choices:
+                    html_parts.append(f'<p>{c.label}. {c.choice_text}</p>')
+
         # Answer (teacher only)
         if include_answers and q.question_type == 'OBJ':
             correct = q.choices.filter(is_correct=True).first()
             if correct:
                 html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
-        
+
         # Topic (teacher only)
         if include_answers:
             topics = list(q.topics.all())
@@ -350,34 +338,34 @@ def _generate_docx(questions, title, include_answers=False):
                 html_parts.append(
                     f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
                 )
-        
+
         html_parts.append('<p>&nbsp;</p>')
-    
+
     html_parts.append('</body></html>')
     html_content = '\n'.join(html_parts)
-    
-    # Convert HTML → DOCX via pandoc
+
     with tempfile.TemporaryDirectory() as tmpdir:
         html_path = os.path.join(tmpdir, 'input.html')
         docx_path = os.path.join(tmpdir, 'output.docx')
-        
+
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
-        
+
         result = subprocess.run(
-            ['pandoc', html_path, '-o', docx_path,
-             '--from', 'html+tex_math_dollars',
-             '--to', 'docx',
-             '--mathml'],
+            [
+                'pandoc', html_path,
+                '-o', docx_path,
+                '--from', 'html+tex_math_single_backslash',
+                '--to', 'docx',
+            ],
             capture_output=True, timeout=60
         )
-        
+
         if result.returncode != 0:
-            raise ValueError(f'pandoc DOCX conversion failed: {result.stderr.decode()}')
-        
+            raise ValueError(f'pandoc DOCX failed: {result.stderr.decode()}')
+
         with open(docx_path, 'rb') as f:
             return f.read()
-
  
  
 class QuestionsByTopicView(APIView):
@@ -433,91 +421,77 @@ def clean_for_pdf(text):
     return text.strip()
 
 def _generate_pdf(questions, title, include_answers=False):
-    buffer = io.BytesIO()
-
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        leftMargin=2.54*cm, rightMargin=2.54*cm,
-        topMargin=2.54*cm,  bottomMargin=2.54*cm,
-    )
-
-    styles = getSampleStyleSheet()
-
-    normal = ParagraphStyle(
-        'N', parent=styles['Normal'],
-        fontSize=12, leading=18,
-        spaceBefore=0, spaceAfter=0,
-        fontName='Helvetica',
-    )
-    bold_s = ParagraphStyle(
-        'B', parent=normal,
-        fontName='Helvetica-Bold',
-    )
-
-    def esc(t):
-        return (t or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-    story = []
-
-    # ── Header ───────────────────────────────────────────────────────────────
     hdr = _header_info(questions, title)
-    story.append(Paragraph(esc(f"Subject: {hdr['subject']}"), normal))
-    story.append(Paragraph(esc(f"Exam: {hdr['exam']}"), normal))
-    story.append(Paragraph(esc(f"Year: {hdr['year']}"), normal))
-    story.append(Paragraph("Paper Type: CBT", normal))
-    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers &amp; Topics)"
-    story.append(Paragraph(copy_line, normal))
-    story.append(Spacer(1, 0.4*cm))
+    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
-    # ── Questions ────────────────────────────────────────────────────────────
+    html_parts = [
+        '<html><head><meta charset="utf-8"></head><body>',
+        f'<p>Subject: {hdr["subject"]}</p>',
+        f'<p>Exam: {hdr["exam"]}</p>',
+        f'<p>Year: {hdr["year"]}</p>',
+        '<p>Paper Type: CBT</p>',
+        f'<p>{copy_line}</p>',
+        '<p>&nbsp;</p>',
+    ]
+
     for i, q in enumerate(questions, 1):
-        block = []
-        clean_content = clean_for_pdf(q.content)
-        block.append(Paragraph(f"{i}. {clean_content}", normal))
+        html_parts.append(f'<p><strong>{i}.</strong></p>')
+        html_parts.append(q.content)
 
-        # Image
-        img_bytes, _ = _get_image_bytes(q)
+        img_bytes, img_ext = _get_image_bytes(q)
         if img_bytes:
-            try:
-                from PIL import Image as PILImage
-                pil = PILImage.open(io.BytesIO(img_bytes))
-                w_px, h_px = pil.size
-                max_w_cm = 10 * cm
-                # Convert pixels to points roughly (96 dpi → 1pt = 1/72 in)
-                w_pt = w_px * (72 / 96)
-                h_pt = h_px * (72 / 96)
-                scale = min(1.0, max_w_cm / w_pt)
-                img_w = w_pt * scale
-                img_h = h_pt * scale
-                block.append(RLImage(io.BytesIO(img_bytes), width=img_w, height=img_h))
-            except Exception:
-                pass
+            import base64
+            b64 = base64.b64encode(img_bytes).decode()
+            mime = f'image/{img_ext or "png"}'
+            html_parts.append(
+                f'<p><img src="data:{mime};base64,{b64}" style="max-width:400px"/></p>'
+            )
 
-        # Choices — one <br/> separated paragraph
         if q.question_type == 'OBJ':
             choices = list(q.choices.all().order_by('label'))
             if choices:
-                lines = '<br/>'.join(f"{c.label}. {clean_for_pdf(c.choice_text)}" for c in choices)
-                block.append(Paragraph(lines, normal))
+                for c in choices:
+                    html_parts.append(f'<p>{c.label}. {c.choice_text}</p>')
 
-        # Answer (teacher only)
         if include_answers and q.question_type == 'OBJ':
             correct = q.choices.filter(is_correct=True).first()
             if correct:
-                block.append(Paragraph(f"Answer: {correct.label}", normal))
+                html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
 
-        # Topic (teacher only, bold)
         if include_answers:
             topics = list(q.topics.all())
             if topics:
-                block.append(Paragraph(f"Topic: {esc(', '.join(t.name for t in topics))}", bold_s))
+                html_parts.append(
+                    f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
+                )
 
-        block.append(Spacer(1, 0.4*cm))
-        story.append(KeepTogether(block))
+        html_parts.append('<p>&nbsp;</p>')
 
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.read()
+    html_parts.append('</body></html>')
+    html_content = '\n'.join(html_parts)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = os.path.join(tmpdir, 'input.html')
+        pdf_path  = os.path.join(tmpdir, 'output.pdf')
+
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
+        result = subprocess.run(
+            [
+                'pandoc', html_path,
+                '-o', pdf_path,
+                '--from', 'html+tex_math_single_backslash',
+                '--pdf-engine', 'weasyprint',
+            ],
+            capture_output=True, timeout=120
+        )
+
+        if result.returncode != 0:
+            raise ValueError(f'pandoc PDF failed: {result.stderr.decode()}')
+
+        with open(pdf_path, 'rb') as f:
+            return f.read()
 
 
 # ════════════════════════════════════════════════════════════════════════════

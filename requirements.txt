@@ -21,6 +21,7 @@ gunicorn==25.3.0
 h11==0.16.0
 httpcore==1.0.9
 beautifulsoup4==4.13.4
+weasyprint==57.1.0
 httpx==0.28.1
 idna==3.11
 jiter==0.13.0
