@@ -289,67 +289,63 @@ import subprocess
 import tempfile
 
 def _generate_docx(questions, title, include_answers=False):
-    """Generate DOCX using pandoc for proper OMML math rendering."""
     hdr = _header_info(questions, title)
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
-    html_parts = [
-        '<html><head><meta charset="utf-8"></head><body>',
-        f'<p>Subject: {hdr["subject"]}</p>',
-        f'<p>Exam: {hdr["exam"]}</p>',
-        f'<p>Year: {hdr["year"]}</p>',
-        '<p>Paper Type: CBT</p>',
-        f'<p>{copy_line}</p>',
-        '<p>&nbsp;</p>',
-    ]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path  = os.path.join(tmpdir, 'input.html')
+        docx_path  = os.path.join(tmpdir, 'output.docx')
+        images_dir = os.path.join(tmpdir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
 
-    for i, q in enumerate(questions, 1):
-        # Question content — already HTML with \(...\) math
-        html_parts.append(f'<p><strong>{i}.</strong></p>')
-        html_parts.append(q.content)  # full HTML preserved
+        html_parts = [
+            '<html><head><meta charset="utf-8"></head><body>',
+            f'<p>Subject: {hdr["subject"]}</p>',
+            f'<p>Exam: {hdr["exam"]}</p>',
+            f'<p>Year: {hdr["year"]}</p>',
+            '<p>Paper Type: CBT</p>',
+            f'<p>{copy_line}</p>',
+            '<p>&nbsp;</p>',
+        ]
 
-        # Image
-        img_bytes, img_ext = _get_image_bytes(q)
-        if img_bytes:
-            import base64
-            b64 = base64.b64encode(img_bytes).decode()
-            mime = f'image/{img_ext or "png"}'
-            html_parts.append(
-                f'<p><img src="data:{mime};base64,{b64}" style="max-width:400px"/></p>'
-            )
+        for i, q in enumerate(questions, 1):
+            html_parts.append(f'<p><strong>{i}.</strong></p>')
+            html_parts.append(q.content)
 
-        # Choices — choice_text is also HTML with math
-        if q.question_type == 'OBJ':
-            choices = list(q.choices.all().order_by('label'))
-            if choices:
+            # Save image to file — avoids base64 memory issue
+            img_bytes, img_ext = _get_image_bytes(q)
+            if img_bytes:
+                img_filename = f'q{i}.{img_ext or "png"}'
+                img_path = os.path.join(images_dir, img_filename)
+                with open(img_path, 'wb') as f:
+                    f.write(img_bytes)
+                html_parts.append(
+                    f'<p><img src="images/{img_filename}" style="max-width:400px"/></p>'
+                )
+
+            if q.question_type == 'OBJ':
+                choices = list(q.choices.all().order_by('label'))
                 for c in choices:
                     html_parts.append(f'<p>{c.label}. {c.choice_text}</p>')
 
-        # Answer (teacher only)
-        if include_answers and q.question_type == 'OBJ':
-            correct = q.choices.filter(is_correct=True).first()
-            if correct:
-                html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
+            if include_answers and q.question_type == 'OBJ':
+                correct = q.choices.filter(is_correct=True).first()
+                if correct:
+                    html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
 
-        # Topic (teacher only)
-        if include_answers:
-            topics = list(q.topics.all())
-            if topics:
-                html_parts.append(
-                    f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
-                )
+            if include_answers:
+                topics = list(q.topics.all())
+                if topics:
+                    html_parts.append(
+                        f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
+                    )
 
-        html_parts.append('<p>&nbsp;</p>')
+            html_parts.append('<p>&nbsp;</p>')
 
-    html_parts.append('</body></html>')
-    html_content = '\n'.join(html_parts)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        html_path = os.path.join(tmpdir, 'input.html')
-        docx_path = os.path.join(tmpdir, 'output.docx')
+        html_parts.append('</body></html>')
 
         with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+            f.write('\n'.join(html_parts))
 
         result = subprocess.run(
             [
@@ -358,13 +354,14 @@ def _generate_docx(questions, title, include_answers=False):
                 '--from', 'html+tex_math_single_backslash',
                 '--to', 'docx',
                 '--metadata', f'title={title}',
+                '--resource-path', tmpdir,
             ],
-            capture_output=True, timeout=60
+            capture_output=True, timeout=60,
+            cwd=tmpdir
         )
 
-        # Don't raise on warnings — only fail if file wasn't created
         if not os.path.exists(docx_path):
-            raise ValueError(f'pandoc DOCX failed: {result.stderr.decode()}')
+            raise ValueError(f'pandoc DOCX failed: rc={result.returncode} {result.stderr.decode()[:300]}')
 
         with open(docx_path, 'rb') as f:
             return f.read()
@@ -423,75 +420,27 @@ def clean_for_pdf(text):
     return text.strip()
 
 def _generate_pdf(questions, title, include_answers=False):
-    hdr = _header_info(questions, title)
-    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
-
-    html_parts = [
-        '<html><head><meta charset="utf-8"></head><body>',
-        f'<p>Subject: {hdr["subject"]}</p>',
-        f'<p>Exam: {hdr["exam"]}</p>',
-        f'<p>Year: {hdr["year"]}</p>',
-        '<p>Paper Type: CBT</p>',
-        f'<p>{copy_line}</p>',
-        '<p>&nbsp;</p>',
-    ]
-
-    for i, q in enumerate(questions, 1):
-        html_parts.append(f'<p><strong>{i}.</strong></p>')
-        html_parts.append(q.content)
-
-        img_bytes, img_ext = _get_image_bytes(q)
-        if img_bytes:
-            import base64
-            b64 = base64.b64encode(img_bytes).decode()
-            mime = f'image/{img_ext or "png"}'
-            html_parts.append(
-                f'<p><img src="data:{mime};base64,{b64}" style="max-width:400px"/></p>'
-            )
-
-        if q.question_type == 'OBJ':
-            choices = list(q.choices.all().order_by('label'))
-            if choices:
-                for c in choices:
-                    html_parts.append(f'<p>{c.label}. {c.choice_text}</p>')
-
-        if include_answers and q.question_type == 'OBJ':
-            correct = q.choices.filter(is_correct=True).first()
-            if correct:
-                html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
-
-        if include_answers:
-            topics = list(q.topics.all())
-            if topics:
-                html_parts.append(
-                    f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
-                )
-
-        html_parts.append('<p>&nbsp;</p>')
-
-    html_parts.append('</body></html>')
-    html_content = '\n'.join(html_parts)
+    docx_bytes = _generate_docx(questions, title, include_answers=include_answers)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        html_path = os.path.join(tmpdir, 'input.html')
+        docx_path = os.path.join(tmpdir, 'input.docx')
         pdf_path  = os.path.join(tmpdir, 'output.pdf')
 
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        with open(docx_path, 'wb') as f:
+            f.write(docx_bytes)
 
         result = subprocess.run(
             [
-                'pandoc', html_path,
+                'pandoc', docx_path,
                 '-o', pdf_path,
-                '--from', 'html+tex_math_single_backslash',
                 '--pdf-engine', 'pdflatex',
-                '--metadata', f'title={title}',
+                '--variable', 'geometry:margin=1in',
             ],
             capture_output=True, timeout=120
         )
 
         if not os.path.exists(pdf_path):
-            raise ValueError(f'pandoc PDF failed: {result.stderr.decode()}')
+            raise ValueError(f'PDF failed: rc={result.returncode} {result.stderr.decode()[:300]}')
 
         with open(pdf_path, 'rb') as f:
             return f.read()
