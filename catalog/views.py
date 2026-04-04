@@ -433,7 +433,7 @@ def _generate_pdf(questions, title, include_answers=False):
             [
                 'pandoc', docx_path,
                 '-o', pdf_path,
-                '--pdf-engine', 'pdflatex',
+                '--pdf-engine', 'xelatex',
                 '--variable', 'geometry:margin=1in',
             ],
             capture_output=True, timeout=120
