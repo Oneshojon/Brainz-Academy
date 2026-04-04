@@ -357,6 +357,7 @@ def _generate_docx(questions, title, include_answers=False):
                 '-o', docx_path,
                 '--from', 'html+tex_math_single_backslash',
                 '--to', 'docx',
+                '--metadata', f'title={title}',
             ],
             capture_output=True, timeout=60
         )
@@ -483,10 +484,12 @@ def _generate_pdf(questions, title, include_answers=False):
                 '-o', pdf_path,
                 '--from', 'html+tex_math_single_backslash',
                 '--pdf-engine', 'weasyprint',
+                '--metadata', f'title={title}',  # fix empty title warning
             ],
             capture_output=True, timeout=120
         )
 
+        # Only raise on actual failure, not warnings
         if result.returncode != 0:
             raise ValueError(f'pandoc PDF failed: {result.stderr.decode()}')
 
