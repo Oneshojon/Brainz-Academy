@@ -723,7 +723,8 @@ def _parse_docx(file_bytes):
         number, content (HTML), image_bytes, image_ext,
         choices (list of {label, text, is_correct}), answer, topics
     """
-    q_num_re  = re.compile(r'^\s*(\d+)[.\)]\s*$')
+    q_num_re     = re.compile(r'^\s*(\d+)[.\)]\s*$') 
+    q_inline_re  = re.compile(r'^\s*(\d+)[.\)]\s+(.+)', re.DOTALL)
     answer_re = re.compile(r'^answer\s*:\s*([A-E])', re.IGNORECASE)
     topic_re  = re.compile(r'^topic\s*:\s*(.+)$',   re.IGNORECASE)
 
@@ -766,7 +767,7 @@ def _parse_docx(file_bytes):
 
     for i, elem in enumerate(all_elements):
         text = elem.get_text(strip=True)
-        if q_num_re.match(text):
+        if q_num_re.match(text) or q_inline_re.match(text):
             first_q_idx = i
             break
         tl = text.lower()
@@ -787,7 +788,7 @@ def _parse_docx(file_bytes):
 
     for elem in all_elements[first_q_idx:]:
         text = elem.get_text(strip=True)
-        if q_num_re.match(text):
+        if q_num_re.match(text) or q_inline_re.match(text):
             if current:
                 blocks.append(current)
             current = [elem]
@@ -817,10 +818,19 @@ def _parse_docx(file_bytes):
             tag  = elem.name
             text = elem.get_text(strip=True)
 
-            # ── Question number paragraph ──────────────────────────────────
-            if tag == 'p' and q_num_re.match(text):
-                q['number'] = int(q_num_re.match(text).group(1))
-                continue
+            # Question number — standalone or inline
+            if tag == 'p' and q['number'] is None:
+                standalone = q_num_re.match(text)
+                inline = q_inline_re.match(text)
+                if standalone:
+                    q['number'] = int(standalone.group(1))
+                    continue
+                if inline:
+                    q['number'] = int(inline.group(1))
+                    # Strip leading "N. " from HTML and keep the rest as content
+                    elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
+                    content_parts.append(elem_html)
+                    continue
 
             # ── Figure / image ─────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
