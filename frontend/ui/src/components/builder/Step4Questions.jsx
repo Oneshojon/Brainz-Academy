@@ -180,7 +180,7 @@ export default function Step4Questions({
     .finally(() => setLoading(false));
 }, [topic, board]);
 
-  useEffect(() => {
+useEffect(() => {
   if (window.MathJax && window.MathJax.typesetPromise) {
     window.MathJax.typesetPromise();
   }
@@ -193,16 +193,20 @@ const toggleYear = (year) => {
   );
 };
 
+const triggerMathJax = () => {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise();
+  } else {
+    // MathJax not ready yet, retry after delay
+    setTimeout(triggerMathJax, 200);
+  }
+};
+
 const handlePreview = (q) => {
   if (previewId === q.id) return;
   setPreviewId(q.id);
   setPreviewQ(q);
-  // Trigger MathJax to re-render after React updates DOM
-  setTimeout(() => {
-    if (window.MathJax) {
-      window.MathJax.typesetPromise && window.MathJax.typesetPromise();
-    }
-  }, 100);
+  setTimeout(triggerMathJax, 100);
 };
 
 const handleAdd = (q) => {
