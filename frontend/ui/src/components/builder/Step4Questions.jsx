@@ -164,6 +164,12 @@ export default function Step4Questions({
   setLoading(true);
   setSelectedYears([]);
 
+  useEffect(() => {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise();
+  }
+}, [previewQ]);
+
   const params = new URLSearchParams({ topic: topic.id });
   if (board && board.id !== 'mix') params.set('exam_board', board.id);
 
@@ -190,7 +196,13 @@ const toggleYear = (year) => {
 const handlePreview = (q) => {
   if (previewId === q.id) return;
   setPreviewId(q.id);
-  setPreviewQ(q); 
+  setPreviewQ(q);
+  // Trigger MathJax to re-render after React updates DOM
+  setTimeout(() => {
+    if (window.MathJax) {
+      window.MathJax.typesetPromise && window.MathJax.typesetPromise();
+    }
+  }, 100);
 };
 
 const handleAdd = (q) => {
@@ -405,7 +417,7 @@ const filtered = questions.filter(q => {
                           >
                             {c.label}
                           </span>
-                          <span>{c.choice_text}</span>
+                          <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
                         </li>
                       ))}
                     </ul>

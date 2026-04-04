@@ -434,12 +434,24 @@ class QuestionsByTopicView(APIView):
 # PDF GENERATOR  (mirrors docx structure exactly)
 # ════════════════════════════════════════════════════════════════════════════
 
+# Replace the esc function with one that preserves superscripts
+def clean_for_pdf(text):
+    if not text:
+        return ''
+    # Convert common HTML superscripts to ReportLab markup
+    text = re.sub(r'<sup>(.*?)</sup>', r'<super>\1</super>', text)
+    text = re.sub(r'<sub>(.*?)</sub>', r'<sub>\1</sub>', text)
+    # Strip remaining HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&nbsp;', ' ')
+    return text.strip()
+
 def _generate_pdf(questions, title, include_answers=False):
     buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        leftMargin=2.54*cm, rightMargin=2.54*cm,   # 1 inch = 2.54 cm
+        leftMargin=2.54*cm, rightMargin=2.54*cm,
         topMargin=2.54*cm,  bottomMargin=2.54*cm,
     )
 
@@ -474,7 +486,7 @@ def _generate_pdf(questions, title, include_answers=False):
     # ── Questions ────────────────────────────────────────────────────────────
     for i, q in enumerate(questions, 1):
         block = []
-        clean_content = esc(_strip_html(q.content))
+        clean_content = clean_for_pdf(q.content)
         block.append(Paragraph(f"{i}. {clean_content}", normal))
 
         # Image
@@ -499,7 +511,7 @@ def _generate_pdf(questions, title, include_answers=False):
         if q.question_type == 'OBJ':
             choices = list(q.choices.all().order_by('label'))
             if choices:
-                lines = '<br/>'.join(f"{c.label}. {esc(c.choice_text)}" for c in choices)
+                lines = '<br/>'.join(f"{c.label}. {clean_for_pdf(c.choice_text)}" for c in choices)
                 block.append(Paragraph(lines, normal))
 
         # Answer (teacher only)

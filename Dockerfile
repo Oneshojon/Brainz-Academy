@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     curl \
+    pandoc \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt ./
@@ -24,7 +25,7 @@ RUN addgroup --system django && adduser --system --ingroup django django
 RUN chown -R django:django /app
 USER django
 EXPOSE 8000
-CMD python manage.py migrate --noinput && python manage.py seed_all && gunicorn examproject.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile -
+CMD gunicorn examproject.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120 --access-logfile - --error-logfile -
 # cache bust
 # force rebuild Sat, Mar 28, 2026  1:49:17 AM
 # redeploy Sat, Mar 28, 2026 11:40:18 AM

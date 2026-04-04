@@ -251,140 +251,6 @@ def upload_questions(request):
 
 
 @admin_required
-@feature_required('docx_upload')
-def upload_docx(request):
-    if request.method != 'POST':
-        return render(request, 'teacher/upload_docx.html')
-
-    uploaded = request.FILES.get('docx_file')
-    if not uploaded or not uploaded.name.endswith('.docx'):
-        return render(request, 'teacher/upload_docx.html', {'error': 'Please upload a valid .docx file.'})
-
-    try:
-        header, questions = _parse_docx(uploaded.read())
-    except Exception as e:
-        return render(request, 'teacher/upload_docx.html', {'error': f'Could not read file: {e}'})
-
-    if not questions:
-        return render(request, 'teacher/upload_docx.html', {
-            'error': 'No questions found. Make sure the file follows the expected format.'
-        })
-
-    subject_name = header['subject']
-    board_name   = header['exam']
-    year_str     = header['year']
-    sitting      = header['sitting']
-
-    subject = Subject.objects.filter(name__iexact=subject_name).first()
-    if not subject:
-        all_subjects = ', '.join(Subject.objects.values_list('name', flat=True))
-        return render(request, 'teacher/upload_docx.html', {
-            'error': f'Subject "{subject_name}" not found. Available: {all_subjects}'
-        })
-
-    exam_board = (
-    ExamBoard.objects.filter(name__iexact=board_name).first() or
-    ExamBoard.objects.filter(abbreviation__iexact=board_name).first()
-    )
-    if not exam_board:
-        all_boards = ', '.join(ExamBoard.objects.values_list('abbreviation', flat=True))
-        return render(request, 'teacher/upload_docx.html', {
-            'error': f'Exam board "{board_name}" not found. Available: {all_boards}'
-        })
-
-    try:
-        year = int(year_str)
-    except (ValueError, TypeError):
-        return render(request, 'teacher/upload_docx.html', {'error': f'Could not parse year "{year_str}".'})
-
-    exam_series, _ = ExamSeries.objects.get_or_create(
-        exam_board=exam_board, subject=subject, year=year, sitting=sitting,
-    )
-
-    created_count = 0
-    skipped_count = 0
-    skipped_nums  = []
-    errors        = []
-
-    overwrite = request.POST.get('overwrite') == 'on'
-
-    for q_data in questions:
-        try:
-            existing = Question.objects.filter(
-                exam_series=exam_series, 
-                question_number=q_data['number']
-            ).first()
-
-            if existing and not overwrite:
-                skipped_count += 1
-                skipped_nums.append(q_data['number'])
-                continue
-
-            with transaction.atomic():
-                if existing and overwrite:
-                    # Update existing question
-                    existing.content = q_data['content']
-                    existing.question_type = 'OBJ' if q_data['choices'] else 'THEORY'
-                    existing.save()
-                    question = existing
-                    # Clear old choices and topics
-                    question.choices.all().delete()
-                    question.topics.clear()
-                else:
-                    # Create new question
-                    question = Question.objects.create(
-                        subject=subject, exam_series=exam_series,
-                        question_number=q_data['number'],
-                        question_type='OBJ' if q_data['choices'] else 'THEORY',
-                        content=q_data['content'], marks=1,
-                    )
-
-                if q_data['image_bytes']:
-                    ext = q_data['image_ext'] or 'png'
-                    filename = f"q_{subject.name.lower()}_{year}_{q_data['number']}.{ext}"
-                    question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
-
-                seen_labels = set()
-                for c in q_data['choices']:
-                    if c['label'] in seen_labels:
-                        continue
-                    seen_labels.add(c['label'])
-                    Choice.objects.create(
-                        question=question, label=c['label'],
-                        choice_text=c['text'], is_correct=c['is_correct'],
-                    )
-
-                for topic_name in q_data['topics']:
-                    topic_name = topic_name.strip()
-                    if topic_name:
-                        topic = Topic.objects.filter(
-                            name__iexact=topic_name,
-                            subject=subject
-                        ).first()
-                        if topic:
-                            question.topics.add(topic)
-                        else:
-                            errors.append(f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped")
-
-            created_count += 1
-            from catalog.cache_utils import invalidate_subject_caches
-            invalidate_subject_caches(subject.id)
-
-        except Exception as e:
-            errors.append(f"Q{q_data['number']}: {e}")
-    context = {
-        'success': True, 'subject': subject.name, 'exam_board': exam_board.name,
-        'year': year, 'sitting': sitting, 'total_parsed': len(questions),
-        'overwrite': overwrite,
-        'skipped_count': skipped_count, 
-        'created_count': created_count,
-        'skipped_nums': skipped_nums, 'errors': errors,
-    }
-    return render(request, 'teacher/upload_docx.html', context)
-
-# Add this to teacher/views.py
-
-@admin_required
 def upload_notes(request):
     """
     Upload revision notes and/or worksheets as PDFs.
@@ -741,294 +607,196 @@ def _handle_ai_accept(request, data):
 # ══════════════════════════════════════════════════════════════════════════════
 # DOCX PARSER HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
-
 """
-Drop-in replacement for _parse_docx and helpers in teacher/views.py
+Drop this into teacher/views.py to replace the existing _parse_docx function
+and all its helper functions.
 
-Handles:
-- Bold, italic, bold+italic runs
-- Superscript / subscript (vertAlign)
-- OMML math elements (Office Math Markup Language)
-- Empty lines preserved as <p class="empty-line">
-- Indented paragraphs (right-positioned answer blanks)
-- Center / right alignment
-- Tables (converted to HTML <table>)
-- Images (existing logic preserved)
-- Intentional blank space for student answers
+Requirements:
+- pandoc must be installed on the server (add to Dockerfile: apt-get install -y pandoc)
+- beautifulsoup4 must be in requirements.txt (pip install beautifulsoup4)
+
+The parser:
+1. Uses pandoc to convert DOCX → HTML with --mathjax flag
+2. Math equations become \(...\) inline and \[...\] display MathJax markup
+3. Images are extracted to a temp dir and loaded into memory
+4. Choices with math expressions are fully preserved as HTML
+5. Header (Subject/Exam/Year/Sitting) is parsed from the document top
 """
 
-from docx import Document as DocxDocument
-from docx.oxml.ns import qn
-from django.utils.html import escape
+import subprocess
+import tempfile
+import os
 import re
 import io
 
-# ── Namespace constants ───────────────────────────────────────────────────────
-MATH_NS  = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-W_NS     = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+from bs4 import BeautifulSoup, NavigableString
+
 
 _SITTING_MAP = {
     'may': 'MAY_JUNE', 'june': 'MAY_JUNE',
     'nov': 'NOV_DEC',  'dec':  'NOV_DEC',
     'mock': 'MOCK',    'cbt':  'MAY_JUNE',
-    '': 'MAY_JUNE',
 }
 
-def _resolve_sitting(paper_type_str):
-    s = paper_type_str.lower()
+
+def _resolve_sitting(s):
+    s = s.lower()
     for key, val in _SITTING_MAP.items():
         if key and key in s:
             return val
     return 'MAY_JUNE'
 
 
-def _clean(text):
-    return text.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
-
-
-def _extract_omml_text(element):
-    """Extract readable text from an OMML math element."""
-    texts = []
-    # math:t elements
-    for t in element.findall('.//{%s}t' % MATH_NS):
-        if t.text:
-            texts.append(t.text)
-    # also w:t inside math (rare but happens)
-    for t in element.findall('.//' + qn('w:t')):
-        if t.text:
-            texts.append(t.text)
-    return ''.join(texts).strip()
-
-
-def _run_to_html(run_elem):
+def _split_para_into_lines(elem):
     """
-    Convert a single <w:r> element to HTML.
-    Handles: bold, italic, superscript, subscript.
+    Split a <p> element into lines at <br/> boundaries.
+    Returns list of (plain_text, html_string) tuples.
     """
-    rpr = run_elem.find(qn('w:rPr'))
-    is_bold   = False
-    is_italic = False
-    is_super  = False
-    is_sub    = False
+    lines = []
+    current_html = ''
+    current_text = ''
 
-    if rpr is not None:
-        is_bold   = rpr.find(qn('w:b'))  is not None
-        is_italic = rpr.find(qn('w:i'))  is not None
-        vert = rpr.find(qn('w:vertAlign'))
-        if vert is not None:
-            val = vert.get(qn('w:val'))
-            is_super = val == 'superscript'
-            is_sub   = val == 'subscript'
+    for child in elem.children:
+        if child.name == 'br':
+            if current_text.strip():
+                lines.append((current_text.strip(), current_html.strip()))
+            current_html = ''
+            current_text = ''
+        elif isinstance(child, NavigableString):
+            current_html += str(child)
+            current_text += str(child)
+        else:
+            current_html += str(child)
+            current_text += child.get_text()
 
-    text = ''
-    for t in run_elem.findall(qn('w:t')):
-        text += (t.text or '')
+    if current_text.strip():
+        lines.append((current_text.strip(), current_html.strip()))
 
-    if not text:
-        return ''
-
-    text = escape(text)
-
-    # Apply formatting (inner to outer)
-    if is_super: text = f'<sup>{text}</sup>'
-    if is_sub:   text = f'<sub>{text}</sub>'
-    if is_bold and is_italic: text = f'<strong><em>{text}</em></strong>'
-    elif is_bold:   text = f'<strong>{text}</strong>'
-    elif is_italic: text = f'<em>{text}</em>'
-
-    return text
+    return lines
 
 
-def _para_to_html(para, block_type='content'):
+def _is_choice_block(elem):
+    """Check if a <p> element starts with A. or A) — i.e. is a choices block."""
+    _choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
+    lines = _split_para_into_lines(elem)
+    if not lines:
+        return False
+    return bool(_choice_label_re.match(lines[0][0]))
+
+
+def _parse_choices(elem):
     """
-    Convert a python-docx Paragraph to an HTML string.
-    Preserves: bold, italic, super/sub, math, alignment, indentation, empty lines.
-    block_type: 'content' | 'header'
+    Extract choices from a <p> element.
+    Returns list of dicts: {label, text (HTML), is_correct}.
+    Math in choices is preserved as MathJax HTML.
     """
-    p_elem = para._p
+    _choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
+    lines = _split_para_into_lines(elem)
+    choices = []
+    seen = set()
 
-    # ── Detect alignment ──────────────────────────────────────────────────────
-    jc = p_elem.find('.//' + qn('w:jc'))
-    align_val = jc.get(qn('w:val')) if jc is not None else None
-    align_css = ''
-    if align_val == 'center':
-        align_css = 'text-align:center;'
-    elif align_val == 'right':
-        align_css = 'text-align:right;'
+    for plain, html in lines:
+        m = _choice_label_re.match(plain)
+        if m and m.group(1).upper() not in seen:
+            label = m.group(1).upper()
+            seen.add(label)
+            # Strip leading "A. " from html
+            choice_html = re.sub(r'^[A-E][.\)]\s*', '', html.strip())
+            choices.append({
+                'label':      label,
+                'text':       choice_html,
+                'is_correct': False,
+            })
 
-    # ── Detect indentation ────────────────────────────────────────────────────
-    ind = p_elem.find('.//' + qn('w:ind'))
-    indent_css = ''
-    if ind is not None:
-        left = ind.get(qn('w:left'))
-        if left and int(left) > 500:  # twips — significant indent
-            px = int(int(left) / 1440 * 96)  # twips → px (96dpi)
-            indent_css = f'margin-left:{px}px;'
-
-    style = (align_css + indent_css).strip(';')
-    style_attr = f' style="{style}"' if style else ''
-
-    # ── Build content by iterating child elements ─────────────────────────────
-    content = ''
-    for child in p_elem:
-        local = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-
-        if local == 'r':
-            # Regular run
-            content += _run_to_html(child)
-
-        elif local == 'hyperlink':
-            # Hyperlink — extract runs inside
-            for r in child.findall(qn('w:r')):
-                content += _run_to_html(r)
-
-        elif local == 'oMath' or child.tag == f'{{{MATH_NS}}}oMath':
-            # OMML math
-            math_text = _extract_omml_text(child)
-            content += f'<span class="math-expr">{escape(math_text)}</span>'
-
-        elif local == 'oMathPara' or child.tag == f'{{{MATH_NS}}}oMathPara':
-            # Math paragraph (display math)
-            math_texts = []
-            for om in child.findall('{%s}oMath' % MATH_NS):
-                math_texts.append(_extract_omml_text(om))
-            if math_texts:
-                content += f'<span class="math-expr">{"  ".join(math_texts)}</span>'
-
-        elif local in ('bookmarkStart', 'bookmarkEnd', 'proofErr', 'del', 'rPrChange'):
-            pass  # skip metadata elements
-
-        elif local == 'ins':
-            # Track changes — show inserted content
-            for r in child.findall(qn('w:r')):
-                content += _run_to_html(r)
-
-    # ── Return ────────────────────────────────────────────────────────────────
-    if not content.strip():
-        return '<p class="empty-line">&nbsp;</p>'
-
-    return f'<p{style_attr}>{content}</p>'
-
-
-def _table_to_html(table):
-    """Convert a python-docx Table to an HTML string."""
-    rows_html = []
-    for row in table.rows:
-        cells_html = []
-        for cell in row.cells:
-            # Each cell can have multiple paragraphs
-            cell_content = ''
-            for para in cell.paragraphs:
-                html = _para_to_html(para)
-                # Strip wrapping <p> for single-line cells
-                inner = re.sub(r'^<p[^>]*>(.*)</p>$', r'\1', html, flags=re.DOTALL)
-                if inner.strip() and inner.strip() != '&nbsp;':
-                    cell_content += inner + '<br>'
-            cell_content = cell_content.rstrip('<br>')
-            cells_html.append(f'<td>{cell_content or "&nbsp;"}</td>')
-        rows_html.append(f'<tr>{"".join(cells_html)}</tr>')
-    return (
-        '<div class="q-table"><table border="1" cellpadding="4" cellspacing="0">'
-        + ''.join(rows_html)
-        + '</table></div>'
-    )
-
-
-def _para_image(para, img_map):
-    """Extract image bytes/ext from a paragraph if present."""
-    for blip in para._element.findall('.//' + qn('a:blip')):
-        rid = blip.get(qn('r:embed'))
-        if rid and rid in img_map:
-            return img_map[rid]
-    return None, None
+    return choices
 
 
 def _parse_docx(file_bytes):
     """
-    Robust DOCX parser.
-    Returns (header, questions) where each question has:
-        number, content (HTML string), image_bytes, image_ext, choices, answer, topics
+    Parse a DOCX file using pandoc for proper math/formatting support.
+
+    Returns:
+        (header, questions)
+
+    header: dict with keys: subject, exam, year, sitting
+    questions: list of dicts with keys:
+        number, content (HTML), image_bytes, image_ext,
+        choices (list of {label, text, is_correct}), answer, topics
     """
-    doc   = DocxDocument(io.BytesIO(file_bytes))
-    paras = doc.paragraphs
+    q_num_re  = re.compile(r'^\s*(\d+)[.\)]\s*$')
+    answer_re = re.compile(r'^answer\s*:\s*([A-E])', re.IGNORECASE)
+    topic_re  = re.compile(r'^topic\s*:\s*(.+)$',   re.IGNORECASE)
 
-    # ── Build image map ───────────────────────────────────────────────────────
-    img_map = {}
-    for rel in doc.part.rels.values():
-        if 'image' in rel.reltype:
-            try:
-                img_map[rel.rId] = (
-                    rel.target_part.blob,
-                    rel.target_ref.split('.')[-1].lower()
-                )
-            except Exception:
-                pass
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, 'input.docx')
+        with open(docx_path, 'wb') as f:
+            f.write(file_bytes)
 
-    # ── Build body element map (paragraphs AND tables in order) ──────────────
-    # We need to process tables in their correct position relative to paragraphs
-    body = doc.element.body
-    body_elements = []  # list of ('p', para_obj) or ('table', table_obj)
-    para_idx  = 0
-    table_idx = 0
+        # Convert DOCX → HTML with MathJax math and extract images
+        result = subprocess.run(
+            [
+                'pandoc', docx_path,
+                '-t', 'html',
+                '--mathjax',
+                f'--extract-media={tmpdir}',
+            ],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            raise ValueError(f'pandoc conversion failed: {result.stderr}')
 
-    for child in body:
-        local = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-        if local == 'p':
-            if para_idx < len(paras):
-                body_elements.append(('p', paras[para_idx]))
-                para_idx += 1
-        elif local == 'tbl':
-            if table_idx < len(doc.tables):
-                body_elements.append(('table', doc.tables[table_idx]))
-                table_idx += 1
+        html = result.stdout
 
-    # ── Header parsing ────────────────────────────────────────────────────────
+        # Load extracted images into memory before tmpdir is deleted
+        img_map = {}
+        media_path = os.path.join(tmpdir, 'media')
+        if os.path.exists(media_path):
+            for fname in os.listdir(media_path):
+                fpath = os.path.join(media_path, fname)
+                with open(fpath, 'rb') as f:
+                    img_map[fname] = f.read()
+
+    # Parse the HTML output
+    soup = BeautifulSoup(html, 'html.parser')
+    all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
+
+    # ── Header ────────────────────────────────────────────────────────────────
     header = {'subject': '', 'exam': '', 'year': '', 'sitting': 'MAY_JUNE'}
-    q_start_re = re.compile(r'^(\d+)[.\)]\s*')
-    first_q_elem_idx = 0
+    first_q_idx = 0
 
-    for i, (etype, elem) in enumerate(body_elements):
-        if etype == 'p':
-            text = _clean(elem.text)
-            if q_start_re.match(text):
-                first_q_elem_idx = i
-                break
-            tl = text.lower()
-            if tl.startswith('subject:'):
-                header['subject'] = text.split(':', 1)[1].strip()
-            elif tl.startswith('exam:'):
-                header['exam'] = text.split(':', 1)[1].strip()
-            elif tl.startswith('year:'):
-                parts = text.split('\n')
-                header['year'] = parts[0].split(':', 1)[1].strip()
-            elif tl.startswith('paper type:') or tl.startswith('sitting:'):
-                header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
+    for i, elem in enumerate(all_elements):
+        text = elem.get_text(strip=True)
+        if q_num_re.match(text):
+            first_q_idx = i
+            break
+        tl = text.lower()
+        if tl.startswith('subject:'):
+            header['subject'] = text.split(':', 1)[1].strip()
+        elif tl.startswith('exam:'):
+            header['exam'] = text.split(':', 1)[1].strip()
+        elif tl.startswith('year:'):
+            # Year may be followed by more text on same line
+            header['year'] = text.split(':', 1)[1].strip().split()[0]
+        elif tl.startswith('paper type:') or tl.startswith('sitting:'):
+            header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
 
     # ── Group elements into per-question blocks ───────────────────────────────
-    blocks  = []  # list of lists of (etype, elem)
+    blocks = []
     current = []
 
-    for i in range(first_q_elem_idx, len(body_elements)):
-        etype, elem = body_elements[i]
-        if etype == 'p':
-            text = _clean(elem.text)
-            if q_start_re.match(text):
-                if current:
-                    blocks.append(current)
-                current = [(etype, elem)]
-            elif current:
-                current.append((etype, elem))
-        elif etype == 'table':
+    for elem in all_elements[first_q_idx:]:
+        text = elem.get_text(strip=True)
+        if q_num_re.match(text):
             if current:
-                current.append((etype, elem))
+                blocks.append(current)
+            current = [elem]
+        elif current:
+            current.append(elem)
 
     if current:
         blocks.append(current)
 
-    # ── Per-question parsing ──────────────────────────────────────────────────
-    choice_re = re.compile(r'^([A-E])[.\)]\s+(.+)$', re.DOTALL)
-    answer_re = re.compile(r'^answer\s*:\s*([A-E])', re.IGNORECASE)
-    topic_re  = re.compile(r'^topic\s*:\s*(.+)$',   re.IGNORECASE)
+    # ── Parse each question block ─────────────────────────────────────────────
     questions = []
 
     for block in blocks:
@@ -1042,95 +810,196 @@ def _parse_docx(file_bytes):
             'topics':      [],
         }
         content_parts = []
-        in_choices    = False
+        in_choices = False
 
-        for etype, elem in block:
+        for elem in block:
+            tag  = elem.name
+            text = elem.get_text(strip=True)
 
-            # ── Table element ─────────────────────────────────────────────────
-            if etype == 'table':
-                content_parts.append(_table_to_html(elem))
+            # ── Question number paragraph ──────────────────────────────────
+            if tag == 'p' and q_num_re.match(text):
+                q['number'] = int(q_num_re.match(text).group(1))
                 continue
 
-            # ── Paragraph element ─────────────────────────────────────────────
-            para = elem
-            raw_text = para.text
-            text     = _clean(raw_text)
-
-            # ── Image ─────────────────────────────────────────────────────────
-            img_b, img_e = _para_image(para, img_map)
-            if img_b and not text:
-                q['image_bytes'] = img_b
-                q['image_ext']   = img_e
+            # ── Figure / image ─────────────────────────────────────────────
+            if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
+                img_tag = elem.find('img') if tag != 'img' else elem
+                if img_tag:
+                    src   = img_tag.get('src', '')
+                    fname = os.path.basename(src)
+                    if fname in img_map:
+                        q['image_bytes'] = img_map[fname]
+                        q['image_ext']   = fname.split('.')[-1].lower()
                 continue
 
-            # ── Question number line ──────────────────────────────────────────
-            m = q_start_re.match(text)
-            if m and q['number'] is None:
-                q['number']   = int(m.group(1))
-                remainder_txt = text[m.end():].strip()
-                remainder_html = _para_to_html(para)
-                # Replace the full para HTML with just the remainder
-                if remainder_txt:
-                    # Strip the leading number from the rendered HTML
-                    remainder_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', remainder_html)
-                    content_parts.append(remainder_html)
-                if img_b:
-                    q['image_bytes'] = img_b
-                    q['image_ext']   = img_e
-                continue
-
-            # ── Answer line ───────────────────────────────────────────────────
+            # ── Answer line ────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer'] = ma.group(1).upper()
                 in_choices  = False
                 continue
 
-            # ── Topic line ────────────────────────────────────────────────────
+            # ── Topic line ─────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(mt.group(1).strip())
                 continue
 
-            # ── Choices ───────────────────────────────────────────────────────
-            raw_lines  = [_clean(ln) for ln in raw_text.split('\n')]
-            first_line = raw_lines[0] if raw_lines else ''
-
-            if choice_re.match(first_line):
+            # ── Choices block ──────────────────────────────────────────────
+            if tag == 'p' and _is_choice_block(elem):
                 in_choices = True
-                seen = set()
-                for line in raw_lines:
-                    line = _clean(line)
-                    if not line:
-                        continue
-                    mc = choice_re.match(line)
-                    if mc and mc.group(1).upper() not in seen:
-                        seen.add(mc.group(1).upper())
-                        q['choices'].append({
-                            'label':      mc.group(1).upper(),
-                            'text':       _clean(mc.group(2)),
-                            'is_correct': False,
-                        })
+                q['choices'] = _parse_choices(elem)
                 continue
 
-            # ── Regular content (empty lines, indented blanks, math, etc.) ────
-            if not in_choices:
-                html = _para_to_html(para)
-                content_parts.append(html)
+            # ── Regular content (question text, display math, tables) ──────
+            if not in_choices and tag in ('p', 'table'):
+                content_parts.append(str(elem))
 
-        # ── Assemble content ──────────────────────────────────────────────────
+        # ── Assemble ───────────────────────────────────────────────────────
         q['content'] = '\n'.join(content_parts).strip()
 
-        # ── Mark correct answer ───────────────────────────────────────────────
+        # Mark correct answer
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct'] = True
 
-        if q['number'] and q['content']:
+        if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
 
     return header, questions
+
+@admin_required
+@feature_required('docx_upload')
+def upload_docx(request):
+    if request.method != 'POST':
+        return render(request, 'teacher/upload_docx.html')
+
+    uploaded = request.FILES.get('docx_file')
+    if not uploaded or not uploaded.name.endswith('.docx'):
+        return render(request, 'teacher/upload_docx.html', {'error': 'Please upload a valid .docx file.'})
+
+    try:
+        header, questions = _parse_docx(uploaded.read())
+    except Exception as e:
+        return render(request, 'teacher/upload_docx.html', {'error': f'Could not read file: {e}'})
+
+    if not questions:
+        return render(request, 'teacher/upload_docx.html', {
+            'error': 'No questions found. Make sure the file follows the expected format.'
+        })
+
+    subject_name = header['subject']
+    board_name   = header['exam']
+    year_str     = header['year']
+    sitting      = header['sitting']
+
+    subject = Subject.objects.filter(name__iexact=subject_name).first()
+    if not subject:
+        all_subjects = ', '.join(Subject.objects.values_list('name', flat=True))
+        return render(request, 'teacher/upload_docx.html', {
+            'error': f'Subject "{subject_name}" not found. Available: {all_subjects}'
+        })
+
+    exam_board = (
+    ExamBoard.objects.filter(name__iexact=board_name).first() or
+    ExamBoard.objects.filter(abbreviation__iexact=board_name).first()
+    )
+    if not exam_board:
+        all_boards = ', '.join(ExamBoard.objects.values_list('abbreviation', flat=True))
+        return render(request, 'teacher/upload_docx.html', {
+            'error': f'Exam board "{board_name}" not found. Available: {all_boards}'
+        })
+
+    try:
+        year = int(year_str)
+    except (ValueError, TypeError):
+        return render(request, 'teacher/upload_docx.html', {'error': f'Could not parse year "{year_str}".'})
+
+    exam_series, _ = ExamSeries.objects.get_or_create(
+        exam_board=exam_board, subject=subject, year=year, sitting=sitting,
+    )
+
+    created_count = 0
+    skipped_count = 0
+    skipped_nums  = []
+    errors        = []
+
+    overwrite = request.POST.get('overwrite') == 'on'
+
+    for q_data in questions:
+        try:
+            existing = Question.objects.filter(
+                exam_series=exam_series, 
+                question_number=q_data['number']
+            ).first()
+
+            if existing and not overwrite:
+                skipped_count += 1
+                skipped_nums.append(q_data['number'])
+                continue
+
+            with transaction.atomic():
+                if existing and overwrite:
+                    # Update existing question
+                    existing.content = q_data['content']
+                    existing.question_type = 'OBJ' if q_data['choices'] else 'THEORY'
+                    existing.save()
+                    question = existing
+                    # Clear old choices and topics
+                    question.choices.all().delete()
+                    question.topics.clear()
+                else:
+                    # Create new question
+                    question = Question.objects.create(
+                        subject=subject, exam_series=exam_series,
+                        question_number=q_data['number'],
+                        question_type='OBJ' if q_data['choices'] else 'THEORY',
+                        content=q_data['content'], marks=1,
+                    )
+
+                if q_data['image_bytes']:
+                    ext = q_data['image_ext'] or 'png'
+                    filename = f"q_{subject.name.lower()}_{year}_{q_data['number']}.{ext}"
+                    question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
+
+                seen_labels = set()
+                for c in q_data['choices']:
+                    if c['label'] in seen_labels:
+                        continue
+                    seen_labels.add(c['label'])
+                    Choice.objects.create(
+                        question=question, label=c['label'],
+                        choice_text=c['text'], is_correct=c['is_correct'],
+                    )
+
+                for topic_name in q_data['topics']:
+                    topic_name = topic_name.strip()
+                    if topic_name:
+                        topic = Topic.objects.filter(
+                            name__iexact=topic_name,
+                            subject=subject
+                        ).first()
+                        if topic:
+                            question.topics.add(topic)
+                        else:
+                            errors.append(f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped")
+
+            created_count += 1
+            from catalog.cache_utils import invalidate_subject_caches
+            invalidate_subject_caches(subject.id)
+
+        except Exception as e:
+            errors.append(f"Q{q_data['number']}: {e}")
+    context = {
+        'success': True, 'subject': subject.name, 'exam_board': exam_board.name,
+        'year': year, 'sitting': sitting, 'total_parsed': len(questions),
+        'overwrite': overwrite,
+        'skipped_count': skipped_count, 
+        'created_count': created_count,
+        'skipped_nums': skipped_nums, 'errors': errors,
+    }
+    return render(request, 'teacher/upload_docx.html', context)
 
 @admin_required
 def referral_analytics(request):

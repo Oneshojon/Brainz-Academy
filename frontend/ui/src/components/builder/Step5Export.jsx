@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../../api";
 
 const styles = `
@@ -151,6 +151,13 @@ export default function Step5Export({ savedQuestions, testTitle, access, onUpdat
   const [dragIdx, setDragIdx]           = useState(null);
   const [overIdx, setOverIdx]           = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null); // 'pdf' | 'docx'
+
+
+  useEffect(() => {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise();
+  }
+}, [savedQuestions]);
 
   const total      = savedQuestions.length;
   const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
@@ -331,9 +338,9 @@ export default function Step5Export({ savedQuestions, testTitle, access, onUpdat
                       <ul className="s5-paper-choices">
                         {q.choices.map(c => (
                           <li key={c.id} className="s5-paper-choice">
-                            <span className="s5-paper-choice-label">{c.label}.</span>
-                            <span>{c.choice_text}</span>
-                          </li>
+                          <span className="s5-paper-choice-label">{c.label}.</span>
+                          <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
+                        </li>
                         ))}
                       </ul>
                     )}
