@@ -206,6 +206,8 @@ const handlePreview = (q) => {
   if (previewId === q.id) return;
   setPreviewId(q.id);
   setPreviewQ(q);
+  console.log('MathJax available:', !!window.MathJax);
+  console.log('typesetPromise:', !!window.MathJax?.typesetPromise);
   setTimeout(triggerMathJax, 100);
 };
 
