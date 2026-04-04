@@ -484,15 +484,22 @@ def _generate_pdf(questions, title, include_answers=False):
                 'pandoc', html_path,
                 '-o', pdf_path,
                 '--from', 'html+tex_math_single_backslash',
-                '--pdf-engine', 'pdflatex',
+                '--pdf-engine', 'weasyprint',
                 '--metadata', f'title={title}',
             ],
             capture_output=True, timeout=120
         )
 
-        # Don't raise on warnings — only fail if file wasn't created
+        # Debug output
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'pandoc returncode: {result.returncode}')
+        logger.error(f'pandoc stdout: {result.stdout.decode()}')
+        logger.error(f'pandoc stderr: {result.stderr.decode()}')
+        logger.error(f'pdf exists: {os.path.exists(pdf_path)}')
+
         if not os.path.exists(pdf_path):
-            raise ValueError(f'pandoc PDF failed: {result.stderr.decode()}')
+            raise ValueError(f'pandoc PDF failed: rc={result.returncode} stderr={result.stderr.decode()} stdout={result.stdout.decode()}')
 
         with open(pdf_path, 'rb') as f:
             return f.read()
