@@ -362,7 +362,8 @@ def _generate_docx(questions, title, include_answers=False):
             capture_output=True, timeout=60
         )
 
-        if result.returncode != 0:
+        # Don't raise on warnings — only fail if file wasn't created
+        if not os.path.exists(docx_path):
             raise ValueError(f'pandoc DOCX failed: {result.stderr.decode()}')
 
         with open(docx_path, 'rb') as f:
@@ -489,8 +490,8 @@ def _generate_pdf(questions, title, include_answers=False):
         capture_output=True, timeout=120
         )
 
-        # Only raise on actual failure, not warnings
-        if result.returncode != 0:
+        # Don't raise on warnings — only fail if file wasn't created
+        if not os.path.exists(pdf_path):
             raise ValueError(f'pandoc PDF failed: {result.stderr.decode()}')
 
         with open(pdf_path, 'rb') as f:
