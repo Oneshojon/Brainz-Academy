@@ -164,16 +164,10 @@ export default function Step4Questions({
   setLoading(true);
   setSelectedYears([]);
 
-  useEffect(() => {
-  if (!topic) return;
-  console.log('board:', board);
-  console.log('topic:', topic);
-  setLoading(true);
-  setSelectedYears([]);
-
   const params = new URLSearchParams({ topic: topic.id });
   if (board && board.id !== 'mix') params.set('exam_board', board.id);
 
+  // Fetch questions and available years in parallel
   Promise.all([
     api.get(`questions-by-topic/?${params}`),
     api.get(`years/?subject=${topic.subject}${board?.id && board.id !== 'mix' ? `&exam_board=${board.id}` : ''}`),
@@ -186,8 +180,7 @@ export default function Step4Questions({
     .finally(() => setLoading(false));
 }, [topic, board]);
 
-// ← MathJax useEffect is SEPARATE, at the same level
-useEffect(() => {
+  useEffect(() => {
   if (window.MathJax && window.MathJax.typesetPromise) {
     window.MathJax.typesetPromise();
   }
