@@ -293,104 +293,90 @@ def _header_info(questions, title):
 #       empty line
 # ════════════════════════════════════════════════════════════════════════════
 
+import subprocess
+import tempfile
+
 def _generate_docx(questions, title, include_answers=False):
-    doc = DocxDocument()
-
-    # A4, 1-inch margins on all sides
-    for section in doc.sections:
-        section.page_width    = int(8.27  * 914400)
-        section.page_height   = int(11.69 * 914400)
-        section.top_margin    = Inches(1)
-        section.bottom_margin = Inches(1)
-        section.left_margin   = Inches(1)
-        section.right_margin  = Inches(1)
-
-    # ── small helpers ────────────────────────────────────────────────────────
-
-    def _para(text='', bold=False):
-        """Add a Normal 12pt paragraph with zero spacing."""
-        p = doc.add_paragraph()
-        p.style = doc.styles['Normal']
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after  = Pt(0)
-        if text:
-            r = p.add_run(text)
-            r.font.size = Pt(12)
-            r.bold = bold
-        return p
-
-    def _empty():
-        return _para('')
-
-    # ── Header ───────────────────────────────────────────────────────────────
+    """Generate DOCX using pandoc for proper OMML math rendering."""
+    
     hdr = _header_info(questions, title)
-    _para(f"Subject: {hdr['subject']}")
-    _para(f"Exam: {hdr['exam']}")
-
-    # "Year: …\nPaper Type: CBT" — same paragraph, line break between
-    p = doc.add_paragraph()
-    p.style = doc.styles['Normal']
-    p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after  = Pt(0)
-    r1 = p.add_run(f"Year: {hdr['year']}")
-    r1.font.size = Pt(12)
-    r1.add_break()
-    r2 = p.add_run("Paper Type: CBT")
-    r2.font.size = Pt(12)
-
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
-    _para(copy_line)
-    _empty()
-
-    # ── Questions ────────────────────────────────────────────────────────────
+    
+    # Build HTML content
+    html_parts = [
+        '<html><body>',
+        f'<p>Subject: {hdr["subject"]}</p>',
+        f'<p>Exam: {hdr["exam"]}</p>',
+        f'<p>Year: {hdr["year"]}</p>',
+        '<p>Paper Type: CBT</p>',
+        f'<p>{copy_line}</p>',
+        '<p>&nbsp;</p>',
+    ]
+    
     for i, q in enumerate(questions, 1):
-        clean_content = _strip_html(q.content)
-        _para(f"{i}. {clean_content}")
-
-        # Image (if the question has one stored in q.image)
+        # Question text
+        html_parts.append(f'<p><strong>{i}.</strong> {q.content}</p>')
+        
+        # Image
         img_bytes, img_ext = _get_image_bytes(q)
         if img_bytes:
-            img_para = doc.add_paragraph()
-            img_para.style = doc.styles['Normal']
-            img_para.paragraph_format.space_before = Pt(0)
-            img_para.paragraph_format.space_after  = Pt(0)
-            try:
-                img_para.add_run().add_picture(io.BytesIO(img_bytes), width=Inches(3.5))
-            except Exception:
-                pass  # skip broken images silently
-
-        # Choices — single paragraph, each choice on its own line via line-break
+            import base64
+            b64 = base64.b64encode(img_bytes).decode()
+            mime = f'image/{img_ext or "png"}'
+            html_parts.append(
+                f'<p><img src="data:{mime};base64,{b64}" style="max-width:400px"/></p>'
+            )
+        
+        # Choices
         if q.question_type == 'OBJ':
             choices = list(q.choices.all().order_by('label'))
             if choices:
-                cp = doc.add_paragraph()
-                cp.style = doc.styles['Normal']
-                cp.paragraph_format.space_before = Pt(0)
-                cp.paragraph_format.space_after  = Pt(0)
+                html_parts.append('<p>')
                 for j, c in enumerate(choices):
-                    run = cp.add_run(f"{c.label}. {c.choice_text}")
-                    run.font.size = Pt(12)
-                    if j < len(choices) - 1:
-                        run.add_break()
-
-        # Answer: X  ← teacher only
+                    sep = '<br/>' if j < len(choices) - 1 else ''
+                    html_parts.append(f'{c.label}. {c.choice_text}{sep}')
+                html_parts.append('</p>')
+        
+        # Answer (teacher only)
         if include_answers and q.question_type == 'OBJ':
             correct = q.choices.filter(is_correct=True).first()
             if correct:
-                _para(f"Answer: {correct.label}")
-
-        # Topic: …  ← teacher only, bold
+                html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
+        
+        # Topic (teacher only)
         if include_answers:
             topics = list(q.topics.all())
             if topics:
-                _para(f"Topic: {', '.join(t.name for t in topics)}", bold=True)
-
-        _empty()
-
-    buf = io.BytesIO()
-    doc.save(buf)
-    buf.seek(0)
-    return buf.read()
+                html_parts.append(
+                    f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
+                )
+        
+        html_parts.append('<p>&nbsp;</p>')
+    
+    html_parts.append('</body></html>')
+    html_content = '\n'.join(html_parts)
+    
+    # Convert HTML → DOCX via pandoc
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = os.path.join(tmpdir, 'input.html')
+        docx_path = os.path.join(tmpdir, 'output.docx')
+        
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        result = subprocess.run(
+            ['pandoc', html_path, '-o', docx_path,
+             '--from', 'html+tex_math_dollars',
+             '--to', 'docx',
+             '--mathml'],
+            capture_output=True, timeout=60
+        )
+        
+        if result.returncode != 0:
+            raise ValueError(f'pandoc DOCX conversion failed: {result.stderr.decode()}')
+        
+        with open(docx_path, 'rb') as f:
+            return f.read()
 
  
  

@@ -775,8 +775,9 @@ def _parse_docx(file_bytes):
         elif tl.startswith('exam:'):
             header['exam'] = text.split(':', 1)[1].strip()
         elif tl.startswith('year:'):
-            # Year may be followed by more text on same line
-            header['year'] = text.split(':', 1)[1].strip().split()[0]
+            year_raw = text.split(':', 1)[1].strip()
+            year_match = re.search(r'\d{4}', year_raw)
+            header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
         elif tl.startswith('paper type:') or tl.startswith('sitting:'):
             header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
 
