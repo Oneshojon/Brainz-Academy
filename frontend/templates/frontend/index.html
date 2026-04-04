@@ -4,10 +4,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ExamPrep</title>
+    <title>Brainz Academy</title>
     <script>
       window.USER_ROLE = "{{ request.user.role|default:'' }}";
+      window.MathJax = {
+        tex: {
+          inlineMath: [['\\(', '\\)']],
+          displayMath: [['\\[', '\\]']]
+        },
+        startup: {
+          ready() {
+            MathJax.startup.defaultReady();
+            window.MathJaxReady = true;
+          }
+        }
+      };
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
     <script
       type="module"
       crossorigin
