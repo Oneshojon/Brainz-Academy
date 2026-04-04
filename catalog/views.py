@@ -479,14 +479,14 @@ def _generate_pdf(questions, title, include_answers=False):
             f.write(html_content)
 
         result = subprocess.run(
-            [
-                'pandoc', html_path,
-                '-o', pdf_path,
-                '--from', 'html+tex_math_single_backslash',
-                '--pdf-engine', 'weasyprint',
-                '--metadata', f'title={title}',  # fix empty title warning
-            ],
-            capture_output=True, timeout=120
+        [
+            'pandoc', html_path,
+            '-o', pdf_path,
+            '--from', 'html+tex_math_single_backslash',
+            '--pdf-engine', 'weasyprint',
+            '--metadata', f'title={title}',  # fix empty title warning
+        ],
+        capture_output=True, timeout=120
         )
 
         # Only raise on actual failure, not warnings
