@@ -890,11 +890,11 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
             questions.append(q)
 
     return questions
-
 def _parse_docx(file_bytes):
     """
     Parse a DOCX file using pandoc.
-    Handles both paragraph-based (typed numbers) and list-based (Word numbering) formats.
+    Handles both paragraph-based (typed numbers), list-based (Word numbering),
+    and mixed format files in a single unified pass.
 
     Returns:
         (header, questions)
@@ -935,12 +935,11 @@ def _parse_docx(file_bytes):
                 with open(fpath, 'rb') as f:
                     img_map[fname] = f.read()
 
-    soup       = BeautifulSoup(html, 'html.parser')
-    list_items = soup.find_all('ol', type='1')
+    soup = BeautifulSoup(html, 'html.parser')
 
     # ── Shared header builder ─────────────────────────────────────────────────
     def _parse_header(header_elems):
-        """Parse header fields from a sequence of elements in document order."""
+        """Parse header fields from a list of elements in document order."""
         header = {
             'subject':    '',
             'exam':       '',
@@ -969,82 +968,96 @@ def _parse_docx(file_bytes):
                 )
         return header
 
-    if list_items:
-        # ── LIST-BASED FORMAT (Word numbered lists) ───────────────────────────
-        # Header sits in <p> tags before the first <ol> — collect in document order
-        first_ol      = soup.find('ol')
-        header_elems  = list(reversed(list(first_ol.find_all_previous('p')))) if first_ol else []
-        header        = _parse_header(header_elems)
+    # ── Header detection — works for both formats ─────────────────────────────
+    # Collect all <p> tags that appear before the first question element
+    # (either a <ol type="1"> or a paragraph with a typed number)
+    first_ol      = soup.find('ol', type='1')
+    first_p_match = None
+    for p in soup.find_all('p'):
+        t = p.get_text(separator='\n', strip=True)
+        if q_num_re.match(t) or q_inline_re.match(t):
+            first_p_match = p
+            break
 
-        # Build one block per <li>, topic from the <p> immediately after each <ol>
-        raw_blocks = []
-        for ol in soup.find_all('ol', type='1'):
-            lis = ol.find_all('li', recursive=False)
-            for li in lis:
-                elems = list(li.find_all(['p', 'img', 'figure', 'table']))
+    header_elems = []
+    for p in soup.find_all('p'):
+        if (first_ol and p == first_ol) or (first_p_match and p == first_p_match):
+            break
+        header_elems.append(p)
+    header = _parse_header(header_elems)
 
-                # Topic <p> sits after the <ol>, only attach to the last <li> in this <ol>
-                if li == lis[-1]:
-                    next_sib = ol.find_next_sibling()
-                    # Skip non-tag nodes (whitespace NavigableStrings)
-                    while next_sib and not hasattr(next_sib, 'name'):
+    # ── Unified two-pass block collection ─────────────────────────────────────
+    # Handles pure list-based, pure paragraph-based, and mixed files.
+    # raw_blocks keyed by question number — prevents duplicates automatically.
+    raw_blocks = {}  # {question_number: [elems]}
+
+    # Pass 1 — list-based questions from <ol type="1">
+    for ol in soup.find_all('ol', type='1'):
+        lis   = ol.find_all('li', recursive=False)
+        start = int(ol.get('start', 1))
+
+        for idx, li in enumerate(lis):
+            number = start + idx
+            elems  = list(li.find_all(['p', 'img', 'figure', 'table', 'ol']))
+
+            # For the last <li> in this <ol>, collect trailing siblings:
+            # <ol type="A"> (alpha choice lists), Answer:, Topic: lines
+            if li == lis[-1]:
+                next_sib = ol.find_next_sibling()
+                while next_sib and not hasattr(next_sib, 'name'):
+                    next_sib = next_sib.find_next_sibling()
+                while next_sib and next_sib.name in ('ol', 'p'):
+                    t = next_sib.get_text(strip=True)
+                    if next_sib.name == 'ol' and next_sib.get('type') == 'A':
+                        elems.append(next_sib)
                         next_sib = next_sib.find_next_sibling()
-                    if next_sib and next_sib.name == 'p':
-                        if topic_re.match(next_sib.get_text(strip=True)):
-                            elems.append(next_sib)
+                    elif next_sib.name == 'p' and (
+                        answer_re.match(t) or topic_re.match(t)
+                    ):
+                        elems.append(next_sib)
+                        next_sib = next_sib.find_next_sibling()
+                    else:
+                        break
 
-                raw_blocks.append(elems)
+            raw_blocks[number] = elems
 
-        # Branch to correct parser
-        if header['paper_type'] == 'THEORY':
-            questions = _parse_theory_blocks_numbered(
-                raw_blocks, img_map, topic_re,
-                theory_answer_start_re, marking_guide_re
-            )
-        else:
-            questions = _parse_obj_blocks_numbered(
-                raw_blocks, img_map, topic_re, answer_re
-            )
+    # Pass 2 — paragraph-based questions (typed numbers like "22.")
+    # Only adds questions not already found in Pass 1
+    all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
+    current_num  = None
+    current      = []
 
+    for elem in all_elements:
+        text       = elem.get_text(separator='\n', strip=True)
+        standalone = q_num_re.match(text)
+        inline     = q_inline_re.match(text)
+
+        if standalone or inline:
+            # Save previous block if not already captured by Pass 1
+            if current_num is not None and current_num not in raw_blocks:
+                raw_blocks[current_num] = current
+            current_num = int((standalone or inline).group(1))
+            current     = [elem]
+        elif current_num is not None:
+            current.append(elem)
+
+    # Save last block
+    if current_num is not None and current_num not in raw_blocks:
+        raw_blocks[current_num] = current
+
+    # Sort by question number for correct ordering
+    sorted_blocks = [raw_blocks[n] for n in sorted(raw_blocks)]
+
+    # ── Branch to correct parser ──────────────────────────────────────────────
+    if header['paper_type'] == 'THEORY':
+        questions = _parse_theory_blocks_numbered(
+            sorted_blocks, img_map, topic_re,
+            theory_answer_start_re, marking_guide_re
+        )
     else:
-        # ── PARAGRAPH-BASED FORMAT (manually typed numbers) ───────────────────
-        all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
-
-        # Header scan — stop at first question element
-        first_q_idx = 0
-        for i, elem in enumerate(all_elements):
-            text = elem.get_text(separator='\n', strip=True)
-            if q_num_re.match(text) or q_inline_re.match(text):
-                first_q_idx = i
-                break
-
-        header = _parse_header(all_elements[:first_q_idx])
-
-        # Group elements into per-question blocks
-        blocks  = []
-        current = []
-        for elem in all_elements[first_q_idx:]:
-            text = elem.get_text(separator='\n', strip=True)
-            if q_num_re.match(text) or q_inline_re.match(text):
-                if current:
-                    blocks.append(current)
-                current = [elem]
-            elif current:
-                current.append(elem)
-        if current:
-            blocks.append(current)
-
-        # Branch to correct parser
-        if header['paper_type'] == 'THEORY':
-            questions = _parse_theory_blocks(
-                blocks, img_map, q_num_re, q_inline_re,
-                topic_re, theory_answer_start_re, marking_guide_re
-            )
-        else:
-            questions = _parse_obj_blocks(
-                blocks, img_map, q_num_re, q_inline_re,
-                topic_re, answer_re
-            )
+        questions = _parse_obj_blocks_numbered(
+            sorted_blocks, img_map, topic_re, answer_re
+        )
 
     return header, questions
 
