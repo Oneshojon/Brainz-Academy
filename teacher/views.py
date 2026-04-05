@@ -812,7 +812,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         continue
                     mt = topic_re.match(plain)
                     if mt:
-                        q['topics'].append(mt.group(1).strip())
+                        q['topics'].append(' '.join(mt.group(1).split()))
                         in_choices = False
                         continue
                     mc = choice_label_re.match(plain)
@@ -843,9 +843,9 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 continue
 
             # ── Topic ─────────────────────────────────────────────────────
-            mt = topic_re.match(text)
             if mt:
-                q['topics'].append(mt.group(1).strip())
+                topic_name = ' '.join(mt.group(1).split())  # collapses \n and extra spaces
+                q['topics'].append(topic_name)
                 continue
 
             # ── Individual choice <p> (no <br/>) ─────────────────────────
@@ -938,7 +938,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
             # Topic
             mt = topic_re.match(text)
             if mt:
-                q['topics'].append(mt.group(1).strip())
+                q['topics'].append(' '.join(mt.group(1).split()))
                 continue
 
             # Choices
@@ -1192,7 +1192,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             if mt:
                 in_theory_answer = False
                 in_marking_guide = False
-                q['topics'].append(mt.group(1).strip())
+                q['topics'].append(' '.join(mt.group(1).split()))
                 continue
 
             # Marking guide start — must check before answer start
