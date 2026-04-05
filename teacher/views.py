@@ -846,6 +846,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
 
     return questions
 
+
 def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re):
     """Parse objective (MCQ) question blocks."""
     questions  = []
