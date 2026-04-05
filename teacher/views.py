@@ -745,13 +745,16 @@ def _parse_choices(elem):
     return choices
 
 def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re):
-    """For list-based or mixed DOCXs where question number = block position."""
-    questions  = []
+    """
+    Parse objective blocks from raw_blocks dict.
+    raw_blocks: {question_number: [elems]} — keys used directly as question numbers.
+    """
+    questions       = []
     choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
 
-    for number, block in enumerate(raw_blocks, 1):
+    for number, block in sorted(raw_blocks.items()):  # sorted by question number
         q = {
-            'number':      number,
+            'number':      number,   # actual question number, not enumerate index
             'content':     '',
             'image_bytes': None,
             'image_ext':   None,
@@ -767,12 +770,21 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
 
-            # ── First element: inline question text ───────────────────────
+            # ── First element ─────────────────────────────────────────────
             if elem is block[0]:
                 m = q_inline_re.match(text)
                 if m:
+                    # Typed number — strip it, keep content
                     elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
+                    continue
+                # No number — list-based format
+                if tag == 'p' and elem.find('br'):
+                    pass   # fall through to <br/> handler below
+                elif tag == 'p' and text:
+                    content_parts.append(str(elem))
+                    continue
+                else:
                     continue
 
             # ── Image ─────────────────────────────────────────────────────
@@ -800,7 +812,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         })
                 continue
 
-            # ── <p> with <br/> — split into lines and route each one ──────
+            # ── <p> with <br/> — split and route each line ────────────────
             if tag == 'p' and elem.find('br'):
                 lines = _split_para_into_lines(elem)
                 question_lines = []
@@ -828,7 +840,6 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             })
                         in_choices = True
                         continue
-                    # Not a choice/answer/topic — it's question content
                     if not in_choices:
                         question_lines.append(html_str)
                 if question_lines:
@@ -845,8 +856,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
             # ── Topic ─────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
-                topic_name = ' '.join(mt.group(1).split())  # collapses \n and extra spaces
-                q['topics'].append(topic_name)
+                q['topics'].append(' '.join(mt.group(1).split()))
                 continue
 
             # ── Individual choice <p> (no <br/>) ─────────────────────────
@@ -1122,9 +1132,6 @@ def _parse_docx(file_bytes):
     # Save last block
     if current_num is not None and current_num not in raw_blocks:
         raw_blocks[current_num] = current
-
-    # Sort by question number for correct ordering
-    sorted_blocks = [raw_blocks[n] for n in sorted(raw_blocks)]
 
     # ── Branch to correct parser ──────────────────────────────────────────────
     if header['paper_type'] == 'THEORY':
