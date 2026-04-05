@@ -1136,13 +1136,13 @@ def _parse_docx(file_bytes):
     # ── Branch to correct parser ──────────────────────────────────────────────
     if header['paper_type'] == 'THEORY':
         questions = _parse_theory_blocks_numbered(
-            sorted_blocks, img_map, topic_re,
+            raw_blocks, img_map, topic_re,
             theory_answer_start_re, marking_guide_re
         )
     else:
         questions = _parse_obj_blocks_numbered(
-    sorted_blocks, img_map, q_inline_re, topic_re, answer_re
-)
+            raw_blocks, img_map, q_inline_re, topic_re, answer_re
+        )
 
     return header, questions
 
