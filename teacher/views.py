@@ -936,7 +936,7 @@ def _parse_docx(file_bytes):
                     img_map[fname] = f.read()
 
     soup       = BeautifulSoup(html, 'html.parser')
-    list_items = soup.find_all('li')
+    list_items = soup.find_all('ol', type='1')
 
     # ── Shared header builder ─────────────────────────────────────────────────
     def _parse_header(header_elems):
@@ -978,7 +978,7 @@ def _parse_docx(file_bytes):
 
         # Build one block per <li>, topic from the <p> immediately after each <ol>
         raw_blocks = []
-        for ol in soup.find_all('ol'):
+        for ol in soup.find_all('ol', type='1'):
             lis = ol.find_all('li', recursive=False)
             for li in lis:
                 elems = list(li.find_all(['p', 'img', 'figure', 'table']))
