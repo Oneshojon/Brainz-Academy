@@ -744,7 +744,7 @@ def _parse_choices(elem):
 
     return choices
 
-def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
+def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re):
     """For list-based or mixed DOCXs where question number = block position."""
     questions  = []
 
@@ -768,15 +768,10 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
 
             # ── First element: may be inline question text ─────────────────
             if elem is block[0]:
-                inline = q_inline_re.match(text) if hasattr(q_inline_re, 'match') else None
-                # q_inline_re not in scope here — check via number pattern
-                num_inline_re = re.compile(r'^\s*\d+[.\)]\s*(.+)', re.DOTALL)
-                m = num_inline_re.match(text)
+                m = q_inline_re.match(text)
                 if m:
-                    # Strip number from HTML, keep rest as content
                     elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
-                # standalone number-only first elem adds nothing to content
                 continue
 
             # ── Image ──────────────────────────────────────────────────────
@@ -1096,8 +1091,8 @@ def _parse_docx(file_bytes):
         )
     else:
         questions = _parse_obj_blocks_numbered(
-            sorted_blocks, img_map, topic_re, answer_re
-        )
+    sorted_blocks, img_map, q_inline_re, topic_re, answer_re
+)
 
     return header, questions
 
