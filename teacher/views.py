@@ -747,6 +747,7 @@ def _parse_choices(elem):
 def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re):
     """For list-based or mixed DOCXs where question number = block position."""
     questions  = []
+    choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
 
     for number, block in enumerate(raw_blocks, 1):
         q = {
@@ -766,7 +767,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
 
-            # ── First element: may be inline question text ─────────────────
+            # ── First element: inline question text ───────────────────────
             if elem is block[0]:
                 m = q_inline_re.match(text)
                 if m:
@@ -774,7 +775,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     content_parts.append(elem_html)
                 continue
 
-            # ── Image ──────────────────────────────────────────────────────
+            # ── Image ─────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 img_tag = elem.find('img') if tag != 'img' else elem
                 if img_tag:
@@ -785,7 +786,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
 
-            # ── Alpha ol choices (<ol type="A"> from list-based format) ───
+            # ── Alpha ol choices (<ol type="A">) ──────────────────────────
             if tag == 'ol' and elem.get('type') == 'A':
                 in_choices = True
                 for label_idx, li in enumerate(elem.find_all('li', recursive=False)):
@@ -799,27 +800,62 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         })
                 continue
 
-            # ── Answer ─────────────────────────────────────────────────────
+            # ── <p> with <br/> — split into lines and route each one ──────
+            if tag == 'p' and elem.find('br'):
+                lines = _split_para_into_lines(elem)
+                question_lines = []
+                for plain, html_str in lines:
+                    ma = answer_re.match(plain)
+                    if ma:
+                        q['answer'] = ma.group(1).upper()
+                        in_choices  = False
+                        continue
+                    mt = topic_re.match(plain)
+                    if mt:
+                        q['topics'].append(mt.group(1).strip())
+                        in_choices = False
+                        continue
+                    mc = choice_label_re.match(plain)
+                    if mc:
+                        label = mc.group(1).upper()
+                        if label not in seen_labels:
+                            seen_labels.add(label)
+                            choice_html = re.sub(r'^[A-E][.\)]\s*', '', html_str.strip())
+                            q['choices'].append({
+                                'label':      label,
+                                'text':       choice_html,
+                                'is_correct': False,
+                            })
+                        in_choices = True
+                        continue
+                    # Not a choice/answer/topic — it's question content
+                    if not in_choices:
+                        question_lines.append(html_str)
+                if question_lines:
+                    content_parts.append('<p>' + '<br/>'.join(question_lines) + '</p>')
+                continue
+
+            # ── Answer ────────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer']    = ma.group(1).upper()
                 in_choices     = False
                 continue
 
-            # ── Topic ──────────────────────────────────────────────────────
+            # ── Topic ─────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(mt.group(1).strip())
                 continue
 
-            # ── Individual choice <p> (paragraph-format files) ────────────
+            # ── Individual choice <p> (no <br/>) ─────────────────────────
             if tag == 'p' and _is_choice_block(elem):
                 in_choices = True
                 lines = _split_para_into_lines(elem)
                 for plain, html_str in lines:
-                    m = re.match(r'^([A-E])[.\)]\s*', plain)
-                    if m:
-                        label = m.group(1).upper()
+                    mc = choice_label_re.match(plain)
+                    if mc:
+                        label = mc.group(1).upper()
                         if label not in seen_labels:
                             seen_labels.add(label)
                             choice_html = re.sub(r'^[A-E][.\)]\s*', '', html_str.strip())
@@ -830,7 +866,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             })
                 continue
 
-            # ── Regular content ────────────────────────────────────────────
+            # ── Regular content ───────────────────────────────────────────
             if not in_choices and tag in ('p', 'table'):
                 content_parts.append(str(elem))
 
