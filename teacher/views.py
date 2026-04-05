@@ -744,118 +744,71 @@ def _parse_choices(elem):
 
     return choices
 
+def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
+    """For list-based DOCXs where question number = list position."""
+    questions = []
+    for number, block in enumerate(raw_blocks, 1):
+        q = {
+            'number': number,   # implicit from list position
+            'content': '',
+            'image_bytes': None,
+            'image_ext': None,
+            'choices': [],
+            'answer': '',
+            'topics': [],
+        }
+        content_parts = []
+        in_choices    = False
 
-def _parse_docx(file_bytes):
-    """
-    Parse a DOCX file using pandoc.
+        for elem in block:
+            tag  = elem.name
+            text = elem.get_text(separator='\n', strip=True)
 
-    Returns:
-        (header, questions)
+            # Image
+            if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
+                img_tag = elem.find('img') if tag != 'img' else elem
+                if img_tag:
+                    src   = img_tag.get('src', '')
+                    fname = os.path.basename(src)
+                    if fname in img_map:
+                        q['image_bytes'] = img_map[fname]
+                        q['image_ext']   = fname.split('.')[-1].lower()
+                continue
 
-    header: dict with keys: subject, exam, year, sitting, paper_type
-    questions: list of dicts with keys:
-        number, content (HTML), image_bytes, image_ext, topics
-        — OBJ also has: choices, answer
-        — THEORY also has: theory_answer, marking_guide
-    """
+            # Answer
+            ma = answer_re.match(text)
+            if ma:
+                q['answer'] = ma.group(1).upper()
+                in_choices  = False
+                continue
 
-    q_num_re    = re.compile(r'^\s*(\d+)[.\)]\s*$')
-    q_inline_re = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
-    topic_re    = re.compile(r'^topic\s*:\s*(.+)$', re.IGNORECASE)
+            # Topic
+            mt = topic_re.match(text)
+            if mt:
+                q['topics'].append(mt.group(1).strip())
+                continue
 
-    # OBJ-specific
-    answer_re   = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
+            # Choices
+            if tag == 'p' and _is_choice_block(elem):
+                in_choices   = True
+                q['choices'] = _parse_choices(elem)
+                continue
 
-    # THEORY-specific
-    theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
-    marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
+            # Content
+            if not in_choices and tag in ('p', 'table'):
+                content_parts.append(str(elem))
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        docx_path = os.path.join(tmpdir, 'input.docx')
-        with open(docx_path, 'wb') as f:
-            f.write(file_bytes)
+        q['content'] = '\n'.join(content_parts).strip()
 
-        result = subprocess.run(
-            ['pandoc', docx_path, '-t', 'html', '--mathjax',
-             f'--extract-media={tmpdir}'],
-            capture_output=True, text=True, timeout=60
-        )
-        if result.returncode != 0:
-            raise ValueError(f'pandoc conversion failed: {result.stderr}')
+        if q['answer']:
+            for c in q['choices']:
+                if c['label'] == q['answer']:
+                    c['is_correct'] = True
 
-        html = result.stdout
+        if q['number'] and (q['content'] or q['choices']):
+            questions.append(q)
 
-        img_map = {}
-        media_path = os.path.join(tmpdir, 'media')
-        if os.path.exists(media_path):
-            for fname in os.listdir(media_path):
-                fpath = os.path.join(media_path, fname)
-                with open(fpath, 'rb') as f:
-                    img_map[fname] = f.read()
-
-    soup = BeautifulSoup(html, 'html.parser')
-    all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
-
-    # ── Header scan ───────────────────────────────────────────────────────────
-    header = {
-        'subject':    '',
-        'exam':       '',
-        'year':       '',
-        'sitting':    'MAY_JUNE',
-        'paper_type': 'OBJ',
-    }
-    first_q_idx = 0
-
-    for i, elem in enumerate(all_elements):
-        text = elem.get_text(separator='\n', strip=True)
-        tl   = text.lower()
-
-        if q_num_re.match(text) or q_inline_re.match(text):
-            first_q_idx = i
-            break
-
-        if tl.startswith('subject:'):
-            header['subject'] = text.split(':', 1)[1].strip()
-        elif tl.startswith('exam:'):
-            header['exam'] = text.split(':', 1)[1].strip()
-        elif tl.startswith('year:'):
-            year_raw    = text.split(':', 1)[1].strip()
-            year_match  = re.search(r'\d{4}', year_raw)
-            header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
-        elif tl.startswith('sitting:'):
-            header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
-        elif tl.startswith('paper type:'):
-            raw = text.split(':', 1)[1].strip().upper()
-            if 'THEORY' in raw or 'ESSAY' in raw or 'PAPER 2' in raw:
-                header['paper_type'] = 'THEORY'
-            else:
-                header['paper_type'] = 'OBJ'
-
-    # ── Group elements into per-question blocks ───────────────────────────────
-    blocks     = []
-    current    = []
-
-    for elem in all_elements[first_q_idx:]:
-        text = elem.get_text(separator='\n', strip=True)
-        if q_num_re.match(text) or q_inline_re.match(text):
-            if current:
-                blocks.append(current)
-            current = [elem]
-        elif current:
-            current.append(elem)
-
-    if current:
-        blocks.append(current)
-
-    # ── Branch to the correct parser ─────────────────────────────────────────
-    if header['paper_type'] == 'THEORY':
-        questions = _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re,
-                                         topic_re, theory_answer_start_re, marking_guide_re)
-    else:
-        questions = _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re,
-                                      topic_re, answer_re)
-
-    return header, questions
+    return questions
 
 
 def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re):
@@ -938,6 +891,162 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
 
     return questions
 
+def _parse_docx(file_bytes):
+    """
+    Parse a DOCX file using pandoc.
+    Handles both paragraph-based (typed numbers) and list-based (Word numbering) formats.
+
+    Returns:
+        (header, questions)
+
+    header: dict with keys: subject, exam, year, sitting, paper_type
+    questions: list of dicts with keys:
+        number, content (HTML), image_bytes, image_ext, topics
+        — OBJ also has: choices, answer
+        — THEORY also has: theory_answer, marking_guide
+    """
+    q_num_re               = re.compile(r'^\s*(\d+)[.\)]\s*$')
+    q_inline_re            = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
+    topic_re               = re.compile(r'^topic\s*:\s*(.+)$', re.IGNORECASE)
+    answer_re              = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
+    theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
+    marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, 'input.docx')
+        with open(docx_path, 'wb') as f:
+            f.write(file_bytes)
+
+        result = subprocess.run(
+            ['pandoc', docx_path, '-t', 'html', '--mathjax',
+             f'--extract-media={tmpdir}'],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            raise ValueError(f'pandoc conversion failed: {result.stderr}')
+
+        html = result.stdout
+
+        img_map = {}
+        media_path = os.path.join(tmpdir, 'media')
+        if os.path.exists(media_path):
+            for fname in os.listdir(media_path):
+                fpath = os.path.join(media_path, fname)
+                with open(fpath, 'rb') as f:
+                    img_map[fname] = f.read()
+
+    soup       = BeautifulSoup(html, 'html.parser')
+    list_items = soup.find_all('li')
+
+    # ── Shared header builder ─────────────────────────────────────────────────
+    def _parse_header(header_elems):
+        """Parse header fields from a sequence of elements in document order."""
+        header = {
+            'subject':    '',
+            'exam':       '',
+            'year':       '',
+            'sitting':    'MAY_JUNE',
+            'paper_type': 'OBJ',
+        }
+        for elem in header_elems:
+            text = elem.get_text(separator='\n', strip=True)
+            tl   = text.lower()
+            if tl.startswith('subject:'):
+                header['subject'] = text.split(':', 1)[1].strip()
+            elif tl.startswith('exam:'):
+                header['exam'] = text.split(':', 1)[1].strip()
+            elif tl.startswith('year:'):
+                year_raw   = text.split(':', 1)[1].strip()
+                year_match = re.search(r'\d{4}', year_raw)
+                header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
+            elif tl.startswith('sitting:'):
+                header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
+            elif tl.startswith('paper type:'):
+                raw = text.split(':', 1)[1].strip().upper()
+                header['paper_type'] = (
+                    'THEORY' if any(k in raw for k in ('THEORY', 'ESSAY', 'PAPER 2'))
+                    else 'OBJ'
+                )
+        return header
+
+    if list_items:
+        # ── LIST-BASED FORMAT (Word numbered lists) ───────────────────────────
+        # Header sits in <p> tags before the first <ol> — collect in document order
+        first_ol      = soup.find('ol')
+        header_elems  = list(reversed(list(first_ol.find_all_previous('p')))) if first_ol else []
+        header        = _parse_header(header_elems)
+
+        # Build one block per <li>, topic from the <p> immediately after each <ol>
+        raw_blocks = []
+        for ol in soup.find_all('ol'):
+            lis = ol.find_all('li', recursive=False)
+            for li in lis:
+                elems = list(li.find_all(['p', 'img', 'figure', 'table']))
+
+                # Topic <p> sits after the <ol>, only attach to the last <li> in this <ol>
+                if li == lis[-1]:
+                    next_sib = ol.find_next_sibling()
+                    # Skip non-tag nodes (whitespace NavigableStrings)
+                    while next_sib and not hasattr(next_sib, 'name'):
+                        next_sib = next_sib.find_next_sibling()
+                    if next_sib and next_sib.name == 'p':
+                        if topic_re.match(next_sib.get_text(strip=True)):
+                            elems.append(next_sib)
+
+                raw_blocks.append(elems)
+
+        # Branch to correct parser
+        if header['paper_type'] == 'THEORY':
+            questions = _parse_theory_blocks_numbered(
+                raw_blocks, img_map, topic_re,
+                theory_answer_start_re, marking_guide_re
+            )
+        else:
+            questions = _parse_obj_blocks_numbered(
+                raw_blocks, img_map, topic_re, answer_re
+            )
+
+    else:
+        # ── PARAGRAPH-BASED FORMAT (manually typed numbers) ───────────────────
+        all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
+
+        # Header scan — stop at first question element
+        first_q_idx = 0
+        for i, elem in enumerate(all_elements):
+            text = elem.get_text(separator='\n', strip=True)
+            if q_num_re.match(text) or q_inline_re.match(text):
+                first_q_idx = i
+                break
+
+        header = _parse_header(all_elements[:first_q_idx])
+
+        # Group elements into per-question blocks
+        blocks  = []
+        current = []
+        for elem in all_elements[first_q_idx:]:
+            text = elem.get_text(separator='\n', strip=True)
+            if q_num_re.match(text) or q_inline_re.match(text):
+                if current:
+                    blocks.append(current)
+                current = [elem]
+            elif current:
+                current.append(elem)
+        if current:
+            blocks.append(current)
+
+        # Branch to correct parser
+        if header['paper_type'] == 'THEORY':
+            questions = _parse_theory_blocks(
+                blocks, img_map, q_num_re, q_inline_re,
+                topic_re, theory_answer_start_re, marking_guide_re
+            )
+        else:
+            questions = _parse_obj_blocks(
+                blocks, img_map, q_num_re, q_inline_re,
+                topic_re, answer_re
+            )
+
+    return header, questions
 
 def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                           theory_answer_start_re, marking_guide_re):
