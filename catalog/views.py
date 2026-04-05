@@ -511,35 +511,56 @@ class QuestionDownloadView(APIView):
         fmt          = request.data.get('format', 'pdf').lower()
         copy_type    = request.data.get('copy_type', 'student')
 
-        questions = (
+        # ── Validate inputs ───────────────────────────────────────────────────
+        if fmt not in ('docx', 'pdf'):
+            return Response(
+                {'error': f'Invalid format "{fmt}". Must be "docx" or "pdf".'},
+                status=400
+            )
+
+        if (
+            not isinstance(question_ids, list)
+            or not question_ids
+            or not all(isinstance(i, int) for i in question_ids)
+        ):
+            return Response(
+                {'error': 'question_ids must be a non-empty list of integers.'},
+                status=400
+            )
+
+        # ── Query — one trip, no exists() ────────────────────────────────────
+        qs_list = list(
             Question.objects
             .filter(id__in=question_ids)
-            .prefetch_related('choices', 'topics', 'theory_answer',)
-            .select_related(
-                'subject',
-                'exam_series',
-                'exam_series__exam_board',
-            )
+            .select_related('subject', 'exam_series', 'exam_series__exam_board')
+            .prefetch_related('choices', 'topics')   # theory_answer removed — not rendered
             .order_by('question_number')
         )
 
-        if not questions.exists():
-            return Response({'error': 'No questions found'}, status=400)
+        if not qs_list:
+            return Response({'error': 'No questions found.'}, status=400)
 
+        # ── Generate file ─────────────────────────────────────────────────────
         include_answers = (copy_type == 'teacher')
         safe_title      = title.replace(' ', '_').replace('/', '-')
         copy_label      = 'teacher' if include_answers else 'student'
         filename        = f"{safe_title}_{copy_label}"
-        qs_list         = list(questions)
 
-        if fmt == 'docx':
-            content = _generate_docx(qs_list, title, include_answers=include_answers)
-            ct = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            response = HttpResponse(content, content_type=ct)
-            response['Content-Disposition'] = f'attachment; filename="{filename}.docx"'
-        else:
-            content = _generate_pdf(qs_list, title, include_answers=include_answers)
-            response = HttpResponse(content, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="{filename}.pdf"'
+        try:
+            if fmt == 'docx':
+                content  = _generate_docx(qs_list, title, include_answers=include_answers)
+                ct       = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                response = HttpResponse(content, content_type=ct)
+            else:
+                content  = _generate_pdf(qs_list, title, include_answers=include_answers)
+                response = HttpResponse(content, content_type='application/pdf')
 
-        return response
+            response['Content-Disposition'] = f'attachment; filename="{filename}.{fmt}"'
+            return response
+
+        except Exception as e:
+            logger.exception(f'File generation failed for title="{title}" fmt={fmt}')
+            return Response(
+                {'error': f'File generation failed: {e}'},
+                status=500
+            )
