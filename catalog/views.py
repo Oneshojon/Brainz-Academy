@@ -21,6 +21,16 @@ import io
 import os
 from datetime import date
 
+# Existing ones you already have
+_BR_RE       = re.compile(r'<br\s*/?>', re.IGNORECASE)
+_TAG_RE      = re.compile(r'<[^>]+>')
+_ENTITY_MAP  = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' '}
+_ENTITY_RE   = re.compile(r'&(?:amp|lt|gt|nbsp);')
+
+# Add these two — missing from your file
+_FIRST_P_RE   = re.compile(r'^(<p[^>]*>)', re.IGNORECASE)
+_BLOCK_TAG_RE = re.compile(r'^<(table|figure|img|div|ul|ol)', re.IGNORECASE)
+
 from catalog.cache_utils import (
     get_all_subjects, get_all_boards, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
