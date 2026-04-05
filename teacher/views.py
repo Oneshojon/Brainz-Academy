@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from functools import wraps
 from django.utils.html import escape
 
-from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, Topic, LessonNote, Worksheet,Theme 
+from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, TheoryAnswer, Topic, LessonNote, Worksheet,Theme 
 from practice.models import PracticeSession, UserAnswer
 from catalog.cache_utils import invalidate_feature_flags
 
@@ -250,22 +250,135 @@ def upload_questions(request):
     })
 
 
+import logging
+import difflib
+from django.db import transaction
+from catalog.models import LessonNote, Worksheet, Subject, Topic, Theme
+
+logger = logging.getLogger(__name__)
+
+
+def _build_topic_map(subject):
+    """
+    Fetch all topics for a subject into a dict keyed by lowercase name.
+    Also prefetches lesson_note and worksheet to avoid reverse OneToOne queries later.
+    Returns: {lowercase_name: topic_instance}
+    """
+    qs = Topic.objects.filter(subject=subject).select_related('lesson_note', 'worksheet')
+    return {t.name.lower(): t for t in qs}
+
+
+def _resolve_topic(item, subject, topic_map):
+    """
+    Resolve a topic from the prefetched topic_map.
+    Falls back to fuzzy match in memory.
+    Never creates topics or themes — raises ValueError if not found.
+    """
+    name_raw   = item['topic'].strip()
+    name_lower = name_raw.lower()
+
+    # 1. Exact match — O(1) dict lookup, case-insensitive
+    topic = topic_map.get(name_lower)
+    if topic:
+        return topic
+
+    # 2. Fuzzy match — original casing against original topic names,
+    #    preserving exact behaviour from the original resolve_topic
+    original_names = list(topic_map.keys())  # already lowercased in map
+    matches = difflib.get_close_matches(name_lower, original_names, n=1, cutoff=0.7)
+    if matches:
+        return topic_map[matches[0]]
+
+    # 3. Not found — never create
+    raise ValueError(
+        f'Topic "{name_raw}" not found for subject "{subject.name}". '
+        f'Check spelling or add it to the curriculum first.'
+    )
+
+
+def _process_pdf_items(parsed, file_type, model_cls, subject_map,
+                        topic_map_cache, video_url, overwrite, user):
+    """
+    Process parsed PDF items for either LessonNote or Worksheet.
+    Eliminates the duplicate notes/worksheet loop blocks.
+
+    file_type     : 'Notes' or 'Worksheet' — used in error prefixes
+    model_cls     : LessonNote or Worksheet
+    subject_map   : {lowercase_name: subject} — prefetched before calling
+    topic_map_cache: {subject_id: topic_map} — shared cache across both PDF types
+    """
+    results    = []
+    errors     = []
+    is_note    = model_cls is LessonNote
+    prefix     = 'note' if is_note else 'ws'
+    title_suffix = 'Revision Notes' if is_note else 'Worksheet'
+    related_name = 'lesson_note' if is_note else 'worksheet'
+
+    for item in parsed:
+        try:
+            subject_key = item['subject'].strip().lower()
+            subject = subject_map.get(subject_key)
+            if not subject:
+                errors.append(f'[{file_type}] Subject "{item["subject"]}" not found — skipped.')
+                continue
+
+            # Build topic map for this subject once, reuse across all items
+            if subject.id not in topic_map_cache:
+                topic_map_cache[subject.id] = _build_topic_map(subject)
+            topic_map = topic_map_cache[subject.id]
+
+            topic = _resolve_topic(item, subject, topic_map)
+
+            # Check existence via prefetched select_related — no extra query
+            existing = getattr(topic, related_name, None)
+            if existing and not overwrite:
+                results.append({
+                    'topic': topic.name, 'subject': subject.name,
+                    'status': 'skipped', 'reason': 'already exists',
+                })
+                continue
+
+            safe_subject = subject.name.lower().replace(' ', '_')
+            safe_topic   = topic.name.lower().replace(' ', '_')
+            filename     = f"{prefix}_{safe_subject}_{safe_topic}.pdf"
+
+            obj, created = model_cls.objects.update_or_create(
+                topic=topic,
+                defaults={
+                    'title':           f"{topic.name} — {title_suffix}",
+                    'video_url':       video_url,
+                    'is_ai_generated': False,
+                    'uploaded_by':     user,
+                }
+            )
+            obj.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
+
+            results.append({
+                'topic':   topic.name,
+                'subject': subject.name,
+                'status':  'created' if created else 'updated',
+                'video':   video_url or '—',
+            })
+
+        except Exception as e:
+            # Log full traceback server-side only — never expose to browser
+            logger.exception(f'[{file_type}] Failed "{item.get("topic", "?")}"')
+            errors.append(f'[{file_type}] Failed "{item.get("topic", "?")}": {e}')
+
+    return results, errors
+
+
 @admin_required
 def upload_notes(request):
-    """
-    Upload revision notes and/or worksheets as PDFs.
-    """
     from catalog.note_pdf_parser import parse_note_pdf
-    from catalog.models import LessonNote, Worksheet, Subject, Topic
-    from django.core.files.base import ContentFile
-    import difflib
-    import traceback
 
+    # ── GET ───────────────────────────────────────────────────────────────────
     if request.method != 'POST':
         return render(request, 'teacher/upload_notes.html', {
-            'subjects': Subject.objects.all().order_by('name'),
+            'subjects': Subject.objects.only('id', 'name').order_by('name'),
         })
 
+    # ── POST — form fields ────────────────────────────────────────────────────
     note_file           = request.FILES.get('note_pdf')
     worksheet_file      = request.FILES.get('worksheet_pdf')
     overwrite           = request.POST.get('overwrite') == 'on'
@@ -274,131 +387,52 @@ def upload_notes(request):
 
     if not note_file and not worksheet_file:
         return render(request, 'teacher/upload_notes.html', {
-            'error': 'Please upload at least one PDF file.',
-            'subjects': Subject.objects.all().order_by('name'),
+            'error':    'Please upload at least one PDF file.',
+            'subjects': Subject.objects.only('id', 'name').order_by('name'),
         })
+
+    # ── Prefetch all subjects once — shared across both PDF processing loops ──
+    subject_map = {
+        s.name.lower(): s
+        for s in Subject.objects.only('id', 'name')
+    }
+
+    # Shared topic map cache: {subject_id: {topic_name_lower: topic}}
+    # Avoids rebuilding per subject when both note and worksheet PDFs share subjects
+    topic_map_cache = {}
 
     note_results      = []
     worksheet_results = []
     all_errors        = []
 
-    def resolve_topic(item, subject):
-        """Find or create the topic for a parsed item."""
-        # 1. Exact match
-        topic = Topic.objects.filter(name__iexact=item['topic'], subject=subject).first()
-
-        # 2. Fuzzy match
-        if not topic:
-            all_names = list(Topic.objects.filter(subject=subject).values_list('name', flat=True))
-            matches = difflib.get_close_matches(item['topic'], all_names, n=1, cutoff=0.7)
-            if matches:
-                topic = Topic.objects.filter(name=matches[0], subject=subject).first()
-
-        # 3. Create with theme
-        if not topic:
-            theme_obj = None
-            if item.get('theme'):
-                theme_obj, _ = Theme.objects.get_or_create(subject=subject, name=item['theme'])
-            topic = Topic.objects.create(name=item['topic'], subject=subject, theme=theme_obj)
-
-        return topic
-
-    # ── Process revision notes ────────────────────────────────────────────────
+    # ── Process notes ─────────────────────────────────────────────────────────
     if note_file:
         parsed, errors = parse_note_pdf(note_file.read())
-        all_errors.extend([f'[Notes] {e}' for e in errors])
-
-        for item in parsed:
-            try:
-                subject = Subject.objects.filter(name__iexact=item['subject']).first()
-                if not subject:
-                    all_errors.append(f'[Notes] Subject "{item["subject"]}" not found — skipped.')
-                    continue
-
-                topic = resolve_topic(item, subject)
-
-                existing = getattr(topic, 'lesson_note', None)
-                if existing and not overwrite:
-                    note_results.append({
-                        'topic': topic.name, 'subject': subject.name,
-                        'status': 'skipped', 'reason': 'already exists',
-                    })
-                    continue
-
-                filename = f"note_{subject.name.lower().replace(' ', '_')}_{topic.name.lower().replace(' ', '_')}.pdf"
-
-                note, created = LessonNote.objects.update_or_create(
-                    topic=topic,
-                    defaults={
-                        'title':           f"{topic.name} — Revision Notes",
-                        'video_url':       note_video_url,
-                        'is_ai_generated': False,
-                        'uploaded_by':     request.user,
-                    }
-                )
-                note.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
-
-                note_results.append({
-                    'topic':   topic.name,
-                    'subject': subject.name,
-                    'status':  'created' if created else 'updated',
-                    'video':   note_video_url or '—',
-                })
-
-            except Exception as e:
-                all_errors.append(f'[Notes] Failed "{item.get("topic", "?")}": {e} | {traceback.format_exc()}')
+        all_errors.extend(errors)
+        results, errors = _process_pdf_items(
+            parsed, 'Notes', LessonNote, subject_map,
+            topic_map_cache, note_video_url, overwrite, request.user
+        )
+        note_results  = results
+        all_errors.extend(errors)
 
     # ── Process worksheets ────────────────────────────────────────────────────
     if worksheet_file:
         parsed, errors = parse_note_pdf(worksheet_file.read())
-        all_errors.extend([f'[Worksheet] {e}' for e in errors])
+        all_errors.extend(errors)
+        results, errors = _process_pdf_items(
+            parsed, 'Worksheet', Worksheet, subject_map,
+            topic_map_cache, worksheet_video_url, overwrite, request.user
+        )
+        worksheet_results = results
+        all_errors.extend(errors)
 
-        for item in parsed:
-            try:
-                subject = Subject.objects.filter(name__iexact=item['subject']).first()
-                if not subject:
-                    all_errors.append(f'[Worksheet] Subject "{item["subject"]}" not found — skipped.')
-                    continue
-
-                topic = resolve_topic(item, subject)
-
-                existing = getattr(topic, 'worksheet', None)
-                if existing and not overwrite:
-                    worksheet_results.append({
-                        'topic': topic.name, 'subject': subject.name,
-                        'status': 'skipped', 'reason': 'already exists',
-                    })
-                    continue
-
-                filename = f"ws_{subject.name.lower().replace(' ', '_')}_{topic.name.lower().replace(' ', '_')}.pdf"
-
-                ws, created = Worksheet.objects.update_or_create(
-                    topic=topic,
-                    defaults={
-                        'title':           f"{topic.name} — Worksheet",
-                        'video_url':       worksheet_video_url,
-                        'is_ai_generated': False,
-                        'uploaded_by':     request.user,
-                    }
-                )
-                ws.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
-
-                worksheet_results.append({
-                    'topic':   topic.name,
-                    'subject': subject.name,
-                    'status':  'created' if created else 'updated',
-                    'video':   worksheet_video_url or '—',
-                })
-
-            except Exception as e:
-                all_errors.append(f'[Worksheet] Failed "{item.get("topic", "?")}": {e} | {traceback.format_exc()}')
-
+    # Success — no subject dropdown needed on the result page
     return render(request, 'teacher/upload_notes.html', {
         'success':           True,
         'note_results':      note_results,
         'worksheet_results': worksheet_results,
         'errors':            all_errors,
-        'subjects':          Subject.objects.all().order_by('name'),
     })
 
 @admin_required
@@ -635,7 +669,7 @@ from bs4 import BeautifulSoup, NavigableString
 _SITTING_MAP = {
     'may': 'MAY_JUNE', 'june': 'MAY_JUNE',
     'nov': 'NOV_DEC',  'dec':  'NOV_DEC',
-    'mock': 'MOCK',    'cbt':  'MAY_JUNE',
+    'mock': 'MOCK', 
 }
 
 
@@ -713,34 +747,37 @@ def _parse_choices(elem):
 
 def _parse_docx(file_bytes):
     """
-    Parse a DOCX file using pandoc for proper math/formatting support.
+    Parse a DOCX file using pandoc.
 
     Returns:
         (header, questions)
 
-    header: dict with keys: subject, exam, year, sitting
+    header: dict with keys: subject, exam, year, sitting, paper_type
     questions: list of dicts with keys:
-        number, content (HTML), image_bytes, image_ext,
-        choices (list of {label, text, is_correct}), answer, topics
+        number, content (HTML), image_bytes, image_ext, topics
+        — OBJ also has: choices, answer
+        — THEORY also has: theory_answer, marking_guide
     """
-    q_num_re     = re.compile(r'^\s*(\d+)[.\)]\s*$') 
-    q_inline_re  = re.compile(r'^\s*(\d+)[.\)]\s+(.+)', re.DOTALL)
-    answer_re = re.compile(r'^answer\s*:\s*([A-E])', re.IGNORECASE)
-    topic_re  = re.compile(r'^topic\s*:\s*(.+)$',   re.IGNORECASE)
+
+    q_num_re    = re.compile(r'^\s*(\d+)[.\)]\s*$')
+    q_inline_re = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
+    topic_re    = re.compile(r'^topic\s*:\s*(.+)$', re.IGNORECASE)
+
+    # OBJ-specific
+    answer_re   = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
+
+    # THEORY-specific
+    theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
+    marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, 'input.docx')
         with open(docx_path, 'wb') as f:
             f.write(file_bytes)
 
-        # Convert DOCX → HTML with MathJax math and extract images
         result = subprocess.run(
-            [
-                'pandoc', docx_path,
-                '-t', 'html',
-                '--mathjax',
-                f'--extract-media={tmpdir}',
-            ],
+            ['pandoc', docx_path, '-t', 'html', '--mathjax',
+             f'--extract-media={tmpdir}'],
             capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
@@ -748,7 +785,6 @@ def _parse_docx(file_bytes):
 
         html = result.stdout
 
-        # Load extracted images into memory before tmpdir is deleted
         img_map = {}
         media_path = os.path.join(tmpdir, 'media')
         if os.path.exists(media_path):
@@ -757,37 +793,50 @@ def _parse_docx(file_bytes):
                 with open(fpath, 'rb') as f:
                     img_map[fname] = f.read()
 
-    # Parse the HTML output
     soup = BeautifulSoup(html, 'html.parser')
     all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    header = {'subject': '', 'exam': '', 'year': '', 'sitting': 'MAY_JUNE'}
+    # ── Header scan ───────────────────────────────────────────────────────────
+    header = {
+        'subject':    '',
+        'exam':       '',
+        'year':       '',
+        'sitting':    'MAY_JUNE',
+        'paper_type': 'OBJ',
+    }
     first_q_idx = 0
 
     for i, elem in enumerate(all_elements):
-        text = elem.get_text(strip=True)
+        text = elem.get_text(separator='\n', strip=True)
+        tl   = text.lower()
+
         if q_num_re.match(text) or q_inline_re.match(text):
             first_q_idx = i
             break
-        tl = text.lower()
+
         if tl.startswith('subject:'):
             header['subject'] = text.split(':', 1)[1].strip()
         elif tl.startswith('exam:'):
             header['exam'] = text.split(':', 1)[1].strip()
         elif tl.startswith('year:'):
-            year_raw = text.split(':', 1)[1].strip()
-            year_match = re.search(r'\d{4}', year_raw)
+            year_raw    = text.split(':', 1)[1].strip()
+            year_match  = re.search(r'\d{4}', year_raw)
             header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
-        elif tl.startswith('paper type:') or tl.startswith('sitting:'):
+        elif tl.startswith('sitting:'):
             header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
+        elif tl.startswith('paper type:'):
+            raw = text.split(':', 1)[1].strip().upper()
+            if 'THEORY' in raw or 'ESSAY' in raw or 'PAPER 2' in raw:
+                header['paper_type'] = 'THEORY'
+            else:
+                header['paper_type'] = 'OBJ'
 
     # ── Group elements into per-question blocks ───────────────────────────────
-    blocks = []
-    current = []
+    blocks     = []
+    current    = []
 
     for elem in all_elements[first_q_idx:]:
-        text = elem.get_text(strip=True)
+        text = elem.get_text(separator='\n', strip=True)
         if q_num_re.match(text) or q_inline_re.match(text):
             if current:
                 blocks.append(current)
@@ -798,8 +847,20 @@ def _parse_docx(file_bytes):
     if current:
         blocks.append(current)
 
-    # ── Parse each question block ─────────────────────────────────────────────
-    questions = []
+    # ── Branch to the correct parser ─────────────────────────────────────────
+    if header['paper_type'] == 'THEORY':
+        questions = _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re,
+                                         topic_re, theory_answer_start_re, marking_guide_re)
+    else:
+        questions = _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re,
+                                      topic_re, answer_re)
+
+    return header, questions
+
+
+def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re):
+    """Parse objective (MCQ) question blocks."""
+    questions  = []
 
     for block in blocks:
         q = {
@@ -812,27 +873,26 @@ def _parse_docx(file_bytes):
             'topics':      [],
         }
         content_parts = []
-        in_choices = False
+        in_choices    = False
 
         for elem in block:
             tag  = elem.name
-            text = elem.get_text(strip=True)
+            text = elem.get_text(separator='\n', strip=True)
 
-            # Question number — standalone or inline
+            # Question number
             if tag == 'p' and q['number'] is None:
                 standalone = q_num_re.match(text)
-                inline = q_inline_re.match(text)
+                inline     = q_inline_re.match(text)
                 if standalone:
                     q['number'] = int(standalone.group(1))
                     continue
                 if inline:
                     q['number'] = int(inline.group(1))
-                    # Strip leading "N. " from HTML and keep the rest as content
-                    elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
+                    elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
 
-            # ── Figure / image ─────────────────────────────────────────────
+            # Image
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 img_tag = elem.find('img') if tag != 'img' else elem
                 if img_tag:
@@ -843,33 +903,31 @@ def _parse_docx(file_bytes):
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
 
-            # ── Answer line ────────────────────────────────────────────────
+            # Answer key
             ma = answer_re.match(text)
             if ma:
                 q['answer'] = ma.group(1).upper()
                 in_choices  = False
                 continue
 
-            # ── Topic line ─────────────────────────────────────────────────
+            # Topic
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(mt.group(1).strip())
                 continue
 
-            # ── Choices block ──────────────────────────────────────────────
+            # Choices
             if tag == 'p' and _is_choice_block(elem):
                 in_choices = True
                 q['choices'] = _parse_choices(elem)
                 continue
 
-            # ── Regular content (question text, display math, tables) ──────
+            # Regular content
             if not in_choices and tag in ('p', 'table'):
                 content_parts.append(str(elem))
 
-        # ── Assemble ───────────────────────────────────────────────────────
         q['content'] = '\n'.join(content_parts).strip()
 
-        # Mark correct answer
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
@@ -878,7 +936,109 @@ def _parse_docx(file_bytes):
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
 
-    return header, questions
+    return questions
+
+
+def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
+                          theory_answer_start_re, marking_guide_re):
+    """Parse theory (essay) question blocks."""
+    questions = []
+
+    for block in blocks:
+        q = {
+            'number':         None,
+            'content':        '',
+            'image_bytes':    None,
+            'image_ext':      None,
+            'topics':         [],
+            'theory_answer':  '',
+            'marking_guide':  '',
+        }
+        content_parts       = []
+        theory_answer_parts = []
+        marking_guide_parts = []
+        in_theory_answer    = False
+        in_marking_guide    = False
+
+        for elem in block:
+            tag  = elem.name
+            text = elem.get_text(separator='\n', strip=True)
+
+            # Question number
+            if tag == 'p' and q['number'] is None:
+                standalone = q_num_re.match(text)
+                inline     = q_inline_re.match(text)
+                if standalone:
+                    q['number'] = int(standalone.group(1))
+                    continue
+                if inline:
+                    q['number'] = int(inline.group(1))
+                    elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
+                    content_parts.append(elem_html)
+                    continue
+
+            # Image
+            if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
+                img_tag = elem.find('img') if tag != 'img' else elem
+                if img_tag:
+                    src   = img_tag.get('src', '')
+                    fname = os.path.basename(src)
+                    if fname in img_map:
+                        q['image_bytes'] = img_map[fname]
+                        q['image_ext']   = fname.split('.')[-1].lower()
+                continue
+
+            # Topic — ends any active collection
+            mt = topic_re.match(text)
+            if mt:
+                in_theory_answer = False
+                in_marking_guide = False
+                q['topics'].append(mt.group(1).strip())
+                continue
+
+            # Marking guide start — must check before answer start
+            mmg = marking_guide_re.match(text)
+            if mmg:
+                in_theory_answer = False
+                in_marking_guide = True
+                inline_text = mmg.group(1).strip()
+                if inline_text:
+                    marking_guide_parts.append(inline_text)
+                continue
+
+            # Theory answer start
+            mta = theory_answer_start_re.match(text)
+            if mta:
+                in_theory_answer = True
+                in_marking_guide = False
+                inline_text = mta.group(1).strip()
+                if inline_text:
+                    theory_answer_parts.append(inline_text)
+                continue
+
+            # Accumulate into active collection
+            if in_marking_guide:
+                if tag in ('p', 'table'):
+                    marking_guide_parts.append(str(elem))
+                continue
+
+            if in_theory_answer:
+                if tag in ('p', 'table'):
+                    theory_answer_parts.append(str(elem))
+                continue
+
+            # Regular question content
+            if tag in ('p', 'table'):
+                content_parts.append(str(elem))
+
+        q['content']       = '\n'.join(content_parts).strip()
+        q['theory_answer'] = '\n'.join(theory_answer_parts).strip()
+        q['marking_guide'] = '\n'.join(marking_guide_parts).strip()
+
+        if q['number'] and q['content']:
+            questions.append(q)
+
+    return questions
 
 @admin_required
 @feature_required('docx_upload')
@@ -888,12 +1048,14 @@ def upload_docx(request):
 
     uploaded = request.FILES.get('docx_file')
     if not uploaded or not uploaded.name.endswith('.docx'):
-        return render(request, 'teacher/upload_docx.html', {'error': 'Please upload a valid .docx file.'})
+        return render(request, 'teacher/upload_docx.html',
+                      {'error': 'Please upload a valid .docx file.'})
 
     try:
         header, questions = _parse_docx(uploaded.read())
     except Exception as e:
-        return render(request, 'teacher/upload_docx.html', {'error': f'Could not read file: {e}'})
+        return render(request, 'teacher/upload_docx.html',
+                      {'error': f'Could not read file: {e}'})
 
     if not questions:
         return render(request, 'teacher/upload_docx.html', {
@@ -904,6 +1066,7 @@ def upload_docx(request):
     board_name   = header['exam']
     year_str     = header['year']
     sitting      = header['sitting']
+    paper_type   = header['paper_type']
 
     subject = Subject.objects.filter(name__iexact=subject_name).first()
     if not subject:
@@ -913,8 +1076,8 @@ def upload_docx(request):
         })
 
     exam_board = (
-    ExamBoard.objects.filter(name__iexact=board_name).first() or
-    ExamBoard.objects.filter(abbreviation__iexact=board_name).first()
+        ExamBoard.objects.filter(name__iexact=board_name).first() or
+        ExamBoard.objects.filter(abbreviation__iexact=board_name).first()
     )
     if not exam_board:
         all_boards = ', '.join(ExamBoard.objects.values_list('abbreviation', flat=True))
@@ -925,90 +1088,135 @@ def upload_docx(request):
     try:
         year = int(year_str)
     except (ValueError, TypeError):
-        return render(request, 'teacher/upload_docx.html', {'error': f'Could not parse year "{year_str}".'})
+        return render(request, 'teacher/upload_docx.html',
+                      {'error': f'Could not parse year "{year_str}".'})
 
     exam_series, _ = ExamSeries.objects.get_or_create(
         exam_board=exam_board, subject=subject, year=year, sitting=sitting,
     )
 
+    # ── Pre-fetch everything needed for the loop — eliminates all N+1s ───────
+
+    # Fix N+1 #1: all existing question numbers for this series in one query
+    existing_questions = {
+        q.question_number: q
+        for q in Question.objects.filter(exam_series=exam_series)
+                                  .only('id', 'question_number', 'content', 'question_type')
+    }
+
+    # Fix N+1 #2: all topics for this subject in one query, keyed by lowercase name
+    topic_map = {
+        t.name.lower(): t
+        for t in Topic.objects.filter(subject=subject).only('id', 'name')
+    }
+
+    # ── Process questions ─────────────────────────────────────────────────────
     created_count = 0
     skipped_count = 0
     skipped_nums  = []
     errors        = []
-
-    overwrite = request.POST.get('overwrite') == 'on'
+    overwrite     = request.POST.get('overwrite') == 'on'
 
     for q_data in questions:
+        existing = existing_questions.get(q_data['number'])
+
+        if existing and not overwrite:
+            skipped_count += 1
+            skipped_nums.append(q_data['number'])
+            continue
+
         try:
-            existing = Question.objects.filter(
-                exam_series=exam_series, 
-                question_number=q_data['number']
-            ).first()
-
-            if existing and not overwrite:
-                skipped_count += 1
-                skipped_nums.append(q_data['number'])
-                continue
-
             with transaction.atomic():
                 if existing and overwrite:
-                    # Update existing question
-                    existing.content = q_data['content']
-                    existing.question_type = 'OBJ' if q_data['choices'] else 'THEORY'
-                    existing.save()
+                    existing.content       = q_data['content']
+                    existing.question_type = paper_type
+                    existing.save(update_fields=['content', 'question_type'])
                     question = existing
-                    # Clear old choices and topics
                     question.choices.all().delete()
                     question.topics.clear()
                 else:
-                    # Create new question
                     question = Question.objects.create(
-                        subject=subject, exam_series=exam_series,
+                        subject=subject,
+                        exam_series=exam_series,
                         question_number=q_data['number'],
-                        question_type='OBJ' if q_data['choices'] else 'THEORY',
-                        content=q_data['content'], marks=1,
+                        question_type=paper_type,
+                        content=q_data['content'],
+                        marks=1,
                     )
 
-                if q_data['image_bytes']:
-                    ext = q_data['image_ext'] or 'png'
+                # Image — both types
+                if q_data.get('image_bytes'):
+                    ext      = q_data['image_ext'] or 'png'
                     filename = f"q_{subject.name.lower()}_{year}_{q_data['number']}.{ext}"
                     question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
 
-                seen_labels = set()
-                for c in q_data['choices']:
-                    if c['label'] in seen_labels:
-                        continue
-                    seen_labels.add(c['label'])
-                    Choice.objects.create(
-                        question=question, label=c['label'],
-                        choice_text=c['text'], is_correct=c['is_correct'],
+                # Fix batching #1: bulk_create choices instead of one INSERT per choice
+                if paper_type == 'OBJ' and q_data['choices']:
+                    seen_labels = set()
+                    choices_to_create = []
+                    for c in q_data['choices']:
+                        if c['label'] not in seen_labels:
+                            seen_labels.add(c['label'])
+                            choices_to_create.append(Choice(
+                                question=question,
+                                label=c['label'],
+                                choice_text=c['text'],
+                                is_correct=c['is_correct'],
+                            ))
+                    Choice.objects.bulk_create(choices_to_create)
+
+                elif paper_type == 'THEORY' and q_data.get('theory_answer'):
+                    TheoryAnswer.objects.update_or_create(
+                        question=question,
+                        defaults={
+                            'content':       q_data['theory_answer'],
+                            'marking_guide': q_data.get('marking_guide') or '',
+                        }
                     )
 
+                # Fix N+1 #3 + batching #2: resolve topics from dict, add in one call
+                topics_to_add = []
                 for topic_name in q_data['topics']:
-                    topic_name = topic_name.strip()
-                    if topic_name:
-                        topic = Topic.objects.filter(
-                            name__iexact=topic_name,
-                            subject=subject
-                        ).first()
-                        if topic:
-                            question.topics.add(topic)
-                        else:
-                            errors.append(f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped")
+                    topic_name = topic_name.strip().lower()
+                    if not topic_name:
+                        continue
+                    topic = topic_map.get(topic_name)
+                    if topic:
+                        topics_to_add.append(topic)
+                    else:
+                        errors.append(
+                            f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped"
+                        )
+                if topics_to_add:
+                    question.topics.add(*topics_to_add)  # single INSERT regardless of count
 
             created_count += 1
-            from catalog.cache_utils import invalidate_subject_caches
-            invalidate_subject_caches(subject.id)
 
         except Exception as e:
             errors.append(f"Q{q_data['number']}: {e}")
+
+    if created_count > 0:
+        from catalog.cache_utils import invalidate_subject_caches
+        invalidate_subject_caches(subject.id)
+
+    SITTING_DISPLAY = {
+        'MAY_JUNE': 'May/June', 'NOV_DEC': 'Nov/Dec',
+        'MOCK': 'Mock',         'OTHER':   'Other',
+    }
+
     context = {
-        'success': True, 'subject': subject.name, 'exam_board': exam_board.name,
-        'year': year, 'sitting': sitting, 'total_parsed': len(questions),
-        'overwrite': overwrite,
-        'skipped_count': skipped_count, 
+        'success':       True,
+        'subject':       subject.name,
+        'exam_board':    exam_board.name,
+        'year':          year,
+        'sitting':       SITTING_DISPLAY.get(sitting, sitting),
+        'paper_type':    paper_type,
+        'total_parsed':  len(questions),
+        'overwrite':     overwrite,
         'created_count': created_count,
-        'skipped_nums': skipped_nums, 'errors': errors,
+        'skipped_count': skipped_count,
+        'skipped_nums':  skipped_nums,
+        'errors':        errors,
     }
     return render(request, 'teacher/upload_docx.html', context)
 
@@ -1050,19 +1258,17 @@ def referral_analytics(request):
 
 @admin_required
 def upload_past_paper(request):
-    """Upload a past paper PDF (questions and/or answers) for a specific exam series."""
     from catalog.models import Subject, ExamBoard, ExamSeries, PastPaper
     from django.core.files.base import ContentFile
 
-    subjects    = Subject.objects.all().order_by('name')
-    exam_boards = ExamBoard.objects.all().order_by('name')
-
+    # ── GET — only load dropdowns when rendering the empty form ──────────────
     if request.method != 'POST':
         return render(request, 'teacher/upload_past_paper.html', {
-            'subjects': subjects, 'exam_boards': exam_boards,
+            'subjects':    Subject.objects.only('id', 'name').order_by('name'),
+            'exam_boards': ExamBoard.objects.only('id', 'name', 'abbreviation').order_by('name'),
         })
 
-    # ── Get form fields ───────────────────────────────────────────────────────
+    # ── POST — parse form fields ──────────────────────────────────────────────
     subject_id    = request.POST.get('subject')
     board_id      = request.POST.get('exam_board')
     year_str      = request.POST.get('year', '').strip()
@@ -1074,72 +1280,86 @@ def upload_past_paper(request):
 
     # ── Validation ────────────────────────────────────────────────────────────
     errors = []
-    if not subject_id:    errors.append('Please select a subject.')
-    if not board_id:      errors.append('Please select an exam board.')
-    if not year_str:      errors.append('Please enter a year.')
-    if not paper_type:    errors.append('Please select a paper type.')
+    if not subject_id:  errors.append('Please select a subject.')
+    if not board_id:    errors.append('Please select an exam board.')
+    if not year_str:    errors.append('Please enter a year.')
+    if not paper_type:  errors.append('Please select a paper type.')
     if paper_type not in ('OBJ', 'THEORY', 'PRACTICAL'):
         errors.append('Invalid paper type.')
     if not question_file and not answer_file and not video_url:
         errors.append('Please provide at least one file or a video URL.')
 
+    year = None
     try:
         year = int(year_str)
     except (ValueError, TypeError):
         errors.append(f'Invalid year: "{year_str}".')
-        year = None
 
     if errors:
+        # Only load dropdowns here if validation failed and we must re-render
         return render(request, 'teacher/upload_past_paper.html', {
-            'subjects': subjects, 'exam_boards': exam_boards, 'errors': errors,
-            'post': request.POST,
+            'subjects':    Subject.objects.only('id', 'name').order_by('name'),
+            'exam_boards': ExamBoard.objects.only('id', 'name', 'abbreviation').order_by('name'),
+            'errors':      errors,
+            'post':        request.POST,
         })
 
-    # ── Get or create ExamSeries ──────────────────────────────────────────────
+    # ── Resolve subject and board — no extra queries ──────────────────────────
+    # Fetch only what we need, directly by PK — single targeted query each
     try:
-        subject    = Subject.objects.get(id=subject_id)
-        exam_board = ExamBoard.objects.get(id=board_id)
+        subject    = Subject.objects.only('id', 'name').get(id=subject_id)
+        exam_board = ExamBoard.objects.only('id', 'name', 'abbreviation').get(id=board_id)
     except (Subject.DoesNotExist, ExamBoard.DoesNotExist):
         return render(request, 'teacher/upload_past_paper.html', {
-            'subjects': subjects, 'exam_boards': exam_boards,
-            'errors': ['Invalid subject or exam board.'], 'post': request.POST,
+            'subjects':    Subject.objects.only('id', 'name').order_by('name'),
+            'exam_boards': ExamBoard.objects.only('id', 'name', 'abbreviation').order_by('name'),
+            'errors':      ['Invalid subject or exam board.'],
+            'post':        request.POST,
         })
 
+    # ── Get or create ExamSeries and PastPaper ────────────────────────────────
     exam_series, _ = ExamSeries.objects.get_or_create(
         exam_board=exam_board, subject=subject,
         year=year, sitting=sitting,
     )
 
-    # ── Get or create PastPaper — partial update ──────────────────────────────
     paper, created = PastPaper.objects.get_or_create(
         exam_series=exam_series,
         paper_type=paper_type,
     )
 
-    updated_fields = []
+    # ── Apply only changed fields — targeted UPDATE ───────────────────────────
+    updated_fields  = []
+    save_fields     = ['uploaded_by']  # always update this
+    paper.uploaded_by = request.user
 
     if question_file:
         paper.question_pdf = question_file
+        save_fields.append('question_pdf')
         updated_fields.append('question PDF')
 
     if answer_file:
         paper.answer_pdf = answer_file
+        save_fields.append('answer_pdf')
         updated_fields.append('answer PDF')
 
     if video_url:
         paper.video_url = video_url
+        save_fields.append('video_url')
         updated_fields.append('video URL')
 
-    paper.uploaded_by = request.user
-    paper.save()
+    paper.save(update_fields=save_fields)
 
+    # ── PRG pattern — redirect on success to prevent duplicate POSTs ──────────
     action  = 'Created' if created else 'Updated'
     summary = f"{action}: {exam_board.abbreviation} {subject.name} {sitting} {year} — {paper_type}"
     if updated_fields:
         summary += f" ({', '.join(updated_fields)} added)"
 
+    # Success — no dropdown queries needed, just confirm what happened
     return render(request, 'teacher/upload_past_paper.html', {
-        'subjects': subjects, 'exam_boards': exam_boards,
-        'success': True, 'summary': summary,
-        'paper': paper, 'created': created,
+        'success': True,
+        'summary': summary,
+        'paper':   paper,
+        'created': created,
     })

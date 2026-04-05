@@ -226,8 +226,35 @@ class QuestionDetailView(APIView):
         serializer = QuestionSerializer(question)
         return Response(serializer.data)
     
-    
-# ── INTERNAL HELPER: get raw image bytes from a question ─────────────────────
+
+import re
+import os
+import subprocess
+import tempfile
+import logging
+from datetime import date
+from django.db.models import Prefetch
+from catalog.models import Choice, Topic
+
+logger = logging.getLogger(__name__)
+
+# ── Compiled patterns at module level — not recompiled on every call ──────────
+_BR_RE          = re.compile(r'<br\s*/?>', re.IGNORECASE)
+_TAG_RE         = re.compile(r'<[^>]+>')
+_ENTITY_MAP     = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' '}
+_ENTITY_RE      = re.compile(r'&(?:amp|lt|gt|nbsp);')
+
+
+def _strip_html(text):
+    """Strip HTML tags and decode basic entities."""
+    if not text:
+        return ''
+    text = _BR_RE.sub('\n', text)
+    text = _TAG_RE.sub('', text)
+    text = _ENTITY_RE.sub(lambda m: _ENTITY_MAP[m.group()], text)
+    return text.strip()
+
+
 def _get_image_bytes(question):
     """Returns (bytes, ext) or (None, None)."""
     try:
@@ -238,27 +265,38 @@ def _get_image_bytes(question):
             ext = os.path.splitext(question.image.name)[1].lower().lstrip('.') or 'png'
             return data, ext
     except Exception:
-        pass
+        logger.exception(f'Failed to read image for question {question.pk}')
     return None, None
 
-def _strip_html(text):
-    """Strip HTML tags and decode basic entities."""
-    if not text:
-        return ''
-    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', '', text)
-    text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&nbsp;', ' ')
-    return text.strip()
 
-# ── INTERNAL HELPER: build header metadata from questions ────────────────────
+def _prefetch_questions(questions):
+    """
+    Apply select_related and prefetch_related to a questions queryset.
+    Call this in the view before passing questions to any generator.
+    Eliminates all N+1s for subject, exam_series, exam_board, choices, topics.
+    """
+    return (
+        questions
+        .select_related('subject', 'exam_series__exam_board')
+        .prefetch_related(
+            Prefetch('choices', queryset=Choice.objects.order_by('label')),
+            'topics',
+        )
+    )
+
 
 def _header_info(questions, title):
+    """
+    Build header metadata from questions.
+    Requires questions to have select_related('subject', 'exam_series__exam_board') applied.
+    All FK traversals hit the prefetch cache — zero extra queries.
+    """
     subjects, boards, years = set(), set(), set()
     for q in questions:
-        if q.subject:
+        if q.subject_id:                        # use _id to avoid any FK hit
             subjects.add(q.subject.name)
-        if q.exam_series:
-            if q.exam_series.exam_board:
+        if q.exam_series_id:
+            if q.exam_series.exam_board_id:
                 boards.add(q.exam_series.exam_board.name)
             if q.exam_series.year:
                 years.add(str(q.exam_series.year))
@@ -268,103 +306,6 @@ def _header_info(questions, title):
         'year':    ', '.join(sorted(years))    or str(date.today().year),
     }
 
-
-# ════════════════════════════════════════════════════════════════════════════
-# DOCX GENERATOR
-# Format (from sample BIOLOGY_CBT_2024_WITH_TOPICS.docx):
-#   - A4, all margins 1 inch
-#   - 12pt Normal throughout, no extra spacing between paragraphs
-#   - Header block: Subject / Exam / Year\nPaper Type / Copy label
-#   - Empty line
-#   - Per question:
-#       "1. Question text"          ← Normal 12pt
-#       [image if present]          ← inline, max 3.5 inches wide
-#       "A. choice\nB.\nC.\nD."     ← single para, line breaks
-#       "Answer: C"                 ← teacher only
-#       "Topic: ..."  (bold)        ← teacher only
-#       empty line
-# ════════════════════════════════════════════════════════════════════════════
-
-import subprocess
-import tempfile
-
-def _generate_docx(questions, title, include_answers=False):
-    hdr = _header_info(questions, title)
-    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        html_path  = os.path.join(tmpdir, 'input.html')
-        docx_path  = os.path.join(tmpdir, 'output.docx')
-        images_dir = os.path.join(tmpdir, 'images')
-        os.makedirs(images_dir, exist_ok=True)
-
-        html_parts = [
-            '<html><head><meta charset="utf-8"></head><body>',
-            f'<p>Subject: {hdr["subject"]}</p>',
-            f'<p>Exam: {hdr["exam"]}</p>',
-            f'<p>Year: {hdr["year"]}</p>',
-            '<p>Paper Type: CBT</p>',
-            f'<p>{copy_line}</p>',
-            '<p>&nbsp;</p>',
-        ]
-
-        for i, q in enumerate(questions, 1):
-            html_parts.append(f'<p><strong>{i}.</strong></p>')
-            html_parts.append(q.content)
-
-            # Save image to file — avoids base64 memory issue
-            img_bytes, img_ext = _get_image_bytes(q)
-            if img_bytes:
-                img_filename = f'q{i}.{img_ext or "png"}'
-                img_path = os.path.join(images_dir, img_filename)
-                with open(img_path, 'wb') as f:
-                    f.write(img_bytes)
-                html_parts.append(
-                    f'<p><img src="images/{img_filename}" style="max-width:400px"/></p>'
-                )
-
-            if q.question_type == 'OBJ':
-                choices = list(q.choices.all().order_by('label'))
-                for c in choices:
-                    html_parts.append(f'<p>{c.label}. {c.choice_text}</p>')
-
-            if include_answers and q.question_type == 'OBJ':
-                correct = q.choices.filter(is_correct=True).first()
-                if correct:
-                    html_parts.append(f'<p><strong>Answer: {correct.label}</strong></p>')
-
-            if include_answers:
-                topics = list(q.topics.all())
-                if topics:
-                    html_parts.append(
-                        f'<p><strong>Topic: {", ".join(t.name for t in topics)}</strong></p>'
-                    )
-
-            html_parts.append('<p>&nbsp;</p>')
-
-        html_parts.append('</body></html>')
-
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(html_parts))
-
-        result = subprocess.run(
-            [
-                'pandoc', html_path,
-                '-o', docx_path,
-                '--from', 'html+tex_math_single_backslash',
-                '--to', 'docx',
-                '--metadata', f'title={title}',
-                '--resource-path', tmpdir,
-            ],
-            capture_output=True, timeout=60,
-            cwd=tmpdir
-        )
-
-        if not os.path.exists(docx_path):
-            raise ValueError(f'pandoc DOCX failed: rc={result.returncode} {result.stderr.decode()[:300]}')
-
-        with open(docx_path, 'rb') as f:
-            return f.read()
  
  
 class QuestionsByTopicView(APIView):
@@ -407,45 +348,144 @@ class QuestionsByTopicView(APIView):
 # PDF GENERATOR  (mirrors docx structure exactly)
 # ════════════════════════════════════════════════════════════════════════════
 
-# Replace the esc function with one that preserves superscripts
-def clean_for_pdf(text):
-    if not text:
-        return ''
-    # Convert common HTML superscripts to ReportLab markup
-    text = re.sub(r'<sup>(.*?)</sup>', r'<super>\1</super>', text)
-    text = re.sub(r'<sub>(.*?)</sub>', r'<sub>\1</sub>', text)
-    # Strip remaining HTML tags
-    text = re.sub(r'<[^>]+>', '', text)
-    text = text.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&nbsp;', ' ')
-    return text.strip()
+# ── Shared HTML builder — used by both DOCX and PDF generators ───────────────
 
-def _generate_pdf(questions, title, include_answers=False):
-    docx_bytes = _generate_docx(questions, title, include_answers=include_answers)
+def _build_question_html(questions, title, include_answers=False):
+    """
+    Builds the HTML string and writes images to images_dir.
+    Returns (html_generator, images_dir) — caller manages the tmpdir.
+    Called internally by _generate_docx and _generate_pdf.
+    Expects questions to have _prefetch_questions() already applied.
+    """
+    hdr       = _header_info(questions, title)
+    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
+    def _lines(images_dir):
+        yield '<html><head><meta charset="utf-8"></head><body>\n'
+        yield f'<p>Subject: {hdr["subject"]}</p>\n'
+        yield f'<p>Exam: {hdr["exam"]}</p>\n'
+        yield f'<p>Year: {hdr["year"]}</p>\n'
+        yield '<p>Paper Type: CBT</p>\n'
+        yield f'<p>{copy_line}</p>\n'
+        yield '<p>&nbsp;</p>\n'
+
+        for i, q in enumerate(questions, 1):
+            content = q.content.strip()
+            if _FIRST_P_RE.match(content):
+                content = _FIRST_P_RE.sub(
+                    rf'\1<strong>{i}.</strong>&nbsp;', content, count=1
+                )
+            elif _BLOCK_TAG_RE.match(content):
+                content = f'<p><strong>{i}.</strong></p>\n{content}'
+            else:
+                content = f'<p><strong>{i}.</strong>&nbsp;{content}</p>'
+            yield content + '\n'
+
+            img_bytes, img_ext = _get_image_bytes(q)
+            if img_bytes:
+                img_filename = f'q{i}.{img_ext or "png"}'
+                with open(os.path.join(images_dir, img_filename), 'wb') as f:
+                    f.write(img_bytes)
+                yield f'<p><img src="images/{img_filename}" style="max-width:400px"/></p>\n'
+
+            if q.question_type == 'OBJ':
+                choices = list(q.choices.all())
+                for c in choices:
+                    yield f'<p>{c.label}. {c.choice_text}</p>\n'
+
+                if include_answers:
+                    correct = next((c for c in choices if c.is_correct), None)
+                    if correct:
+                        yield f'<p><strong>Answer: {correct.label}</strong></p>\n'
+
+            if include_answers:
+                topic_names = [t.name for t in q.topics.all()]
+                if topic_names:
+                    yield f'<p><strong>Topic: {", ".join(topic_names)}</strong></p>\n'
+
+            yield '<p>&nbsp;</p>\n'
+
+        yield '</body></html>\n'
+
+    return _lines
+
+
+def _generate_docx(questions, title, include_answers=False):
+    """
+    Generate DOCX. Expects _prefetch_questions() applied by caller.
+    Returns bytes.
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
-        docx_path = os.path.join(tmpdir, 'input.docx')
-        pdf_path  = os.path.join(tmpdir, 'output.pdf')
+        html_path  = os.path.join(tmpdir, 'input.html')
+        docx_path  = os.path.join(tmpdir, 'output.docx')
+        images_dir = os.path.join(tmpdir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
 
-        with open(docx_path, 'wb') as f:
-            f.write(docx_bytes)
+        html_lines = _build_question_html(questions, title, include_answers)
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.writelines(html_lines(images_dir))
 
         result = subprocess.run(
             [
-                'pandoc', docx_path,
-                '-o', pdf_path,
-                '--pdf-engine', 'xelatex',
-                '--variable', 'geometry:margin=1in',
+                'pandoc', html_path,
+                '-o', docx_path,
+                '--from', 'html+tex_math_single_backslash',
+                '--to', 'docx',
+                '--metadata', f'title={title}',
+                '--resource-path', tmpdir,
             ],
-            capture_output=True, timeout=120
+            capture_output=True, timeout=60,
+            cwd=tmpdir,
         )
 
-        if not os.path.exists(pdf_path):
-            raise ValueError(f'PDF failed: rc={result.returncode} {result.stderr.decode()[:300]}')
+        if not os.path.exists(docx_path):
+            raise ValueError(
+                f'pandoc DOCX failed: rc={result.returncode} '
+                f'{result.stderr.decode()[:300]}'
+            )
 
-        with open(pdf_path, 'rb') as f:
+        with open(docx_path, 'rb') as f:
             return f.read()
 
 
+def _generate_pdf(questions, title, include_answers=False):
+    """
+    Generate PDF directly from HTML via xelatex — single pandoc call.
+    No DOCX intermediate. Expects _prefetch_questions() applied by caller.
+    Returns bytes.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path  = os.path.join(tmpdir, 'input.html')
+        pdf_path   = os.path.join(tmpdir, 'output.pdf')
+        images_dir = os.path.join(tmpdir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
+
+        # Same HTML builder — no second pandoc run for DOCX
+        html_lines = _build_question_html(questions, title, include_answers)
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.writelines(html_lines(images_dir))
+
+        result = subprocess.run(
+            [
+                'pandoc', html_path,
+                '-o', pdf_path,
+                '--from', 'html+tex_math_single_backslash',
+                '--pdf-engine', 'xelatex',
+                '--variable', 'geometry:margin=1in',
+                '--resource-path', tmpdir,
+            ],
+            capture_output=True, timeout=120,
+            cwd=tmpdir,
+        )
+
+        if not os.path.exists(pdf_path):
+            raise ValueError(
+                f'PDF failed: rc={result.returncode} '
+                f'{result.stderr.decode()[:300]}'
+            )
+
+        with open(pdf_path, 'rb') as f:
+            return f.read()
 # ════════════════════════════════════════════════════════════════════════════
 # VIEW
 # ════════════════════════════════════════════════════════════════════════════
