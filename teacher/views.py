@@ -843,6 +843,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 continue
 
             # ── Topic ─────────────────────────────────────────────────────
+            mt = topic_re.match(text)
             if mt:
                 topic_name = ' '.join(mt.group(1).split())  # collapses \n and extra spaces
                 q['topics'].append(topic_name)
