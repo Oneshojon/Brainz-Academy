@@ -54,7 +54,7 @@ class ExamSeriesAdmin(admin.ModelAdmin):
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
     list_display  = ['question_number', 'subject', 'question_type', 'difficulty', 'exam_series']
-    list_filter   = ['subject', 'question_type', 'difficulty', 'exam_series__exam_board']
+    list_filter   = ['subject', 'question_type', 'exam_series__exam_board', 'difficulty', 'exam_series__exam_board']
     search_fields = ['content']
 
 
