@@ -745,26 +745,41 @@ def _parse_choices(elem):
     return choices
 
 def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
-    """For list-based DOCXs where question number = list position."""
-    questions = []
+    """For list-based or mixed DOCXs where question number = block position."""
+    questions  = []
+
     for number, block in enumerate(raw_blocks, 1):
         q = {
-            'number': number,   # implicit from list position
-            'content': '',
+            'number':      number,
+            'content':     '',
             'image_bytes': None,
-            'image_ext': None,
-            'choices': [],
-            'answer': '',
-            'topics': [],
+            'image_ext':   None,
+            'choices':     [],
+            'answer':      '',
+            'topics':      [],
         }
         content_parts = []
         in_choices    = False
+        seen_labels   = set()
 
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
 
-            # Image
+            # ── First element: may be inline question text ─────────────────
+            if elem is block[0]:
+                inline = q_inline_re.match(text) if hasattr(q_inline_re, 'match') else None
+                # q_inline_re not in scope here — check via number pattern
+                num_inline_re = re.compile(r'^\s*\d+[.\)]\s*(.+)', re.DOTALL)
+                m = num_inline_re.match(text)
+                if m:
+                    # Strip number from HTML, keep rest as content
+                    elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
+                    content_parts.append(elem_html)
+                # standalone number-only first elem adds nothing to content
+                continue
+
+            # ── Image ──────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 img_tag = elem.find('img') if tag != 'img' else elem
                 if img_tag:
@@ -775,26 +790,52 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
 
-            # Answer
-            ma = answer_re.match(text)
-            if ma:
-                q['answer'] = ma.group(1).upper()
-                in_choices  = False
+            # ── Alpha ol choices (<ol type="A"> from list-based format) ───
+            if tag == 'ol' and elem.get('type') == 'A':
+                in_choices = True
+                for label_idx, li in enumerate(elem.find_all('li', recursive=False)):
+                    label = chr(65 + label_idx)
+                    if label not in seen_labels:
+                        seen_labels.add(label)
+                        q['choices'].append({
+                            'label':      label,
+                            'text':       li.get_text(separator='\n', strip=True),
+                            'is_correct': False,
+                        })
                 continue
 
-            # Topic
+            # ── Answer ─────────────────────────────────────────────────────
+            ma = answer_re.match(text)
+            if ma:
+                q['answer']    = ma.group(1).upper()
+                in_choices     = False
+                continue
+
+            # ── Topic ──────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(mt.group(1).strip())
                 continue
 
-            # Choices
+            # ── Individual choice <p> (paragraph-format files) ────────────
             if tag == 'p' and _is_choice_block(elem):
-                in_choices   = True
-                q['choices'] = _parse_choices(elem)
+                in_choices = True
+                lines = _split_para_into_lines(elem)
+                for plain, html_str in lines:
+                    m = re.match(r'^([A-E])[.\)]\s*', plain)
+                    if m:
+                        label = m.group(1).upper()
+                        if label not in seen_labels:
+                            seen_labels.add(label)
+                            choice_html = re.sub(r'^[A-E][.\)]\s*', '', html_str.strip())
+                            q['choices'].append({
+                                'label':      label,
+                                'text':       choice_html,
+                                'is_correct': False,
+                            })
                 continue
 
-            # Content
+            # ── Regular content ────────────────────────────────────────────
             if not in_choices and tag in ('p', 'table'):
                 content_parts.append(str(elem))
 
@@ -809,7 +850,6 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, topic_re, answer_re):
             questions.append(q)
 
     return questions
-
 
 def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re):
     """Parse objective (MCQ) question blocks."""
