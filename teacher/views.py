@@ -1084,7 +1084,11 @@ def _parse_docx(file_bytes):
                         elems.append(next_sib)
                         next_sib = next_sib.find_next_sibling()
                     elif next_sib.name == 'p' and (
-                        answer_re.match(t) or topic_re.match(t)
+                        answer_re.match(t)
+                        or topic_re.match(t)
+                        or next_sib.find('img')
+                        or next_sib.find('br')
+                        or choice_label_re.match(t)
                     ):
                         elems.append(next_sib)
                         next_sib = next_sib.find_next_sibling()
