@@ -21,11 +21,7 @@ import io
 import os
 from datetime import date
 
-# Existing ones you already have
-_BR_RE       = re.compile(r'<br\s*/?>', re.IGNORECASE)
-_TAG_RE      = re.compile(r'<[^>]+>')
-_ENTITY_MAP  = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' '}
-_ENTITY_RE   = re.compile(r'&(?:amp|lt|gt|nbsp);')
+
 
 # Add these two — missing from your file
 _FIRST_P_RE   = re.compile(r'^(<p[^>]*>)', re.IGNORECASE)
