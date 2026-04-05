@@ -983,6 +983,7 @@ def _parse_docx(file_bytes):
     answer_re              = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
     theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
     marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
+    choice_label_re        = re.compile(r'^([A-E])[.\)]\s*') 
 
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, 'input.docx')
