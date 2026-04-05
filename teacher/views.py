@@ -979,7 +979,7 @@ def _parse_docx(file_bytes):
     """
     q_num_re               = re.compile(r'^\s*(\d+)[.\)]\s*$')
     q_inline_re            = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
-    topic_re               = re.compile(r'^topic\s*:\s*(.+)$', re.IGNORECASE)
+    topic_re               = re.compile(r'^topic\s*:\s*(.+)', re.IGNORECASE | re.DOTALL)
     answer_re              = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
     theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
     marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
