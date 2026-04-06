@@ -71,22 +71,21 @@
 .see-all:hover { text-decoration: underline; }
 
 /* ══ SESSIONS TABLE ══ */
-.sessions-table { width: 100%; border-collapse: separate; border-spacing: 0 0.4rem; }
+.table-wrap { overflow-x: auto; }
+.sessions-table { width: 100%; border-collapse: collapse; }
 .sessions-table th {
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.09em; color: var(--muted, #6B7FA3);
-  padding: 0 0.85rem 0.4rem; text-align: left;
+  padding: 0 0.85rem 0.6rem; text-align: left;
+  border-bottom: 1.5px solid var(--border);
 }
-.session-row td {
-  background: var(--offwhite, #F3F6FA); border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+.sessions-table td {
   padding: 0.75rem 0.85rem; font-size: 0.875rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
-.session-row td:first-child { border-left: 1px solid var(--border); border-radius: 8px 0 0 8px; }
-.session-row td:last-child  { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
-.score-high { color: var(--green, #15803D); font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
-.score-mid  { color: var(--gold, #B8860B);  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
-.score-low  { color: var(--red, #DC2626);   font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
+.sessions-table tbody tr:last-child td { border-bottom: none; }
+.sessions-table tbody tr:hover td { background: var(--offwhite, #F3F6FA); }
 
 /* ══ SUBJECT PILLS ══ */
 .subject-pills { display: flex; flex-direction: column; gap: 0.5rem; }
