@@ -11,7 +11,7 @@ const styles = `
   @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
 
 .builder-wrap {
-    max-width: 960px; margin: 0 auto;   
+    max-width: 1200px; margin: 0 auto;   
     font-family: 'Inter', sans-serif;
   }
 
