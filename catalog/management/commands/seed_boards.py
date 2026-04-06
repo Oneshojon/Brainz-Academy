@@ -10,6 +10,7 @@ class Command(BaseCommand):
             {'name': 'WAEC', 'abbreviation': 'WAEC'},
             {'name': 'NECO', 'abbreviation': 'NECO'},
             {'name': 'JAMB', 'abbreviation': 'JAMB'},
+            {'name': 'OTHER', 'abbreviation': 'OTHER'},
         ]
 
         ct = 0
