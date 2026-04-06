@@ -76,7 +76,7 @@ body {
 
 /* ══ SIDEBAR ══ */
 .exam-sidebar {
-  width: 228px; flex-shrink: 0;
+  width: 260px; flex-shrink: 0; padding-left: 5%;
   background: var(--sidebar-bg); border-right: 2px solid var(--border);
   display: flex; flex-direction: column; overflow: hidden;
 }
