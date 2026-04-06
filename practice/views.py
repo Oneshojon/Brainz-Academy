@@ -49,7 +49,9 @@ def practice_home(request):
     """Exam/session selection page."""
     from catalog.subscription_access import check_practice_access
  
-    subjects    = Subject.objects.all().order_by('name')
+    subjects = Subject.objects.filter(
+            questions__isnull=False
+        ).distinct().order_by('name')
     exam_boards = ExamBoard.objects.all().order_by('name')
  
     # Recent completed sessions for the "continue" shortcut (last 3)

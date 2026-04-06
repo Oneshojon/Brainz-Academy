@@ -126,7 +126,7 @@
       <div class="form-group full">
         <label class="form-label">Question Type</label>
         <div class="qtype-toggle">
-          <button type="button" class="qtype-btn" data-val="OBJ" onclick="setQType('OBJ')">Objective (OBJ)</button>
+          <button type="button" class="qtype-btn" data-val="OBJ" onclick="setQType('OBJ')">Objective (MCQ)</button>
           <button type="button" class="qtype-btn" data-val="THEORY" onclick="setQType('THEORY')">Theory</button>
           <button type="button" class="qtype-btn" data-val="" onclick="setQType('')">Both</button>
         </div>
@@ -158,11 +158,11 @@
           <button type="button" class="quick-num" data-val="10" onclick="setNum(10)">10</button>
           <button type="button" class="quick-num" data-val="20" onclick="setNum(20)">20</button>
           <button type="button" class="quick-num" data-val="40" onclick="setNum(40)">40</button>
-          <button type="button" class="quick-num" data-val="60" onclick="setNum(60)">60</button>
+          <button type="button" class="quick-num" data-val="60" onclick="setNum(50)">50</button>
           <button type="button" class="quick-num" data-val="100" onclick="setNum(100)">100</button>
         </div>
         <input type="number" class="form-input" name="num_questions" id="num_questions"
-               value="40" min="1" max="200" style="width:120px">
+               value="50" min="1" max="200" style="width:120px">
         {% endif %}
       </div>
     </div>
