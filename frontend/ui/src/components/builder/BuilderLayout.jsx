@@ -10,8 +10,8 @@ import { useState, useEffect, useRef } from "react";
 const styles = `
   @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
 
-  .builder-wrap {
-    max-width: 1200px; margin: 0 auto;
+.builder-wrap {
+    max-width: 960px; margin: 0 auto;   
     font-family: 'Inter', sans-serif;
   }
 
@@ -19,7 +19,8 @@ const styles = `
   .builder-title-bar {
     display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
     background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 14px;
-    padding: 1rem 1.25rem; box-shadow: 0 2px 10px rgba(11,45,114,0.07);
+    padding: 0.75rem 1.25rem;            /* ← slightly less padding to reduce height/bulk */
+    box-shadow: 0 2px 10px rgba(11,45,114,0.07);
   }
   .builder-title-input {
     background: transparent; border: none; border-bottom: 1.5px solid #C2D4EC;

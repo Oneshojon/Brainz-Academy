@@ -2,10 +2,15 @@ import { useState, useEffect } from "react";
 import api from "../../api";
 
 const styles = `
-  .board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+  .board-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* ← wider min from 180px */
+    gap: 1rem;
+  }
   .board-card {
     background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 16px;
-    padding: 1.75rem 1.25rem; cursor: pointer; transition: all 0.2s; text-align: center;
+    padding: 2rem 1.5rem;               /* ← more padding for bigger feel */
+    cursor: pointer; transition: all 0.2s; text-align: center;
     box-shadow: 0 1px 4px rgba(11,45,114,0.06);
   }
   .board-card:hover { border-color: #0B2D72; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(11,45,114,0.12); }
