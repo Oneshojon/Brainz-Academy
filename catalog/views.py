@@ -107,6 +107,12 @@ class AvailableYearsView(APIView):
         years = get_available_years(subject_id, exam_board_id)
         return Response({'years': years})
 
+class ExamBoardListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class   = ExamBoardSerializer
+
+    def get_queryset(self):
+        return get_all_boards()
 
 class TestBuilderAccessView(APIView):
     """
