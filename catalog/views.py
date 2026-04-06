@@ -28,7 +28,7 @@ _FIRST_P_RE   = re.compile(r'^(<p[^>]*>)', re.IGNORECASE)
 _BLOCK_TAG_RE = re.compile(r'^<(table|figure|img|div|ul|ol)', re.IGNORECASE)
 
 from catalog.cache_utils import (
-    get_all_subjects, get_all_boards, get_themes_for_subject,
+    get_all_subjects, get_all_boards, get_subjects_with_question_counts, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
     get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
     get_leaderboard,
@@ -54,13 +54,13 @@ class SubjectListView(generics.ListAPIView):
         return get_all_subjects()
  
  
-class ExamBoardListView(generics.ListAPIView):
+class SubjectListView(generics.ListAPIView):
     permission_classes = [AllowAny]
-    serializer_class   = ExamBoardSerializer
- 
-    def get_queryset(self):
-        return get_all_boards()
+    serializer_class   = SubjectSerializer
 
+    def get_queryset(self):
+        return get_subjects_with_question_counts()   
+    
 class TopicListView(generics.ListAPIView):
     """Returns topics filtered by subject."""
     permission_classes = [AllowAny]

@@ -12,8 +12,18 @@ const styles = `
   .subject-card:hover { border-color: #0B2D72; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(11,45,114,0.1); }
   .subject-card:active { transform: scale(0.97); }
   .subject-card.selected { border-color: #0B2D72; background: rgba(11,45,114,0.05); border-left: 4px solid #0B2D72; }
+
+  /* Muted — no questions */
+  .subject-card.muted {
+    opacity: 0.45; cursor: not-allowed;
+    background: #F3F6FA; border-color: #E2EAF4;
+    box-shadow: none;
+  }
+  .subject-card.muted:hover { border-color: #E2EAF4; transform: none; box-shadow: none; }
+
   .subject-icon { font-size: 1.4rem; flex-shrink: 0; }
   .subject-name { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.9rem; color: #0B2D72; }
+  .subject-no-q { font-size: 0.68rem; color: #6B7FA3; margin-top: 0.15rem; font-style: italic; }
 `;
 
 const SUBJECT_ICONS = {
@@ -43,14 +53,20 @@ export default function Step2Subject({ board, onSelect, selected, onBack }) {
         Choose the subject for this test.
       </div>
       <div className="subject-grid">
-        {subjects.map(s => (
-          <div key={s.id}
-            className={`subject-card ${selected?.id === s.id ? 'selected' : ''}`}
-            onClick={() => onSelect(s)}>
-            <span className="subject-icon">{SUBJECT_ICONS[s.name] || '📖'}</span>
-            <span className="subject-name">{s.name}</span>
-          </div>
-        ))}
+        {subjects.map(s => {
+          const hasQuestions = (s.question_count ?? 1) > 0;
+          return (
+            <div key={s.id}
+              className={`subject-card ${selected?.id === s.id ? 'selected' : ''} ${!hasQuestions ? 'muted' : ''}`}
+              onClick={() => hasQuestions && onSelect(s)}>
+              <span className="subject-icon">{SUBJECT_ICONS[s.name] || '📖'}</span>
+              <div>
+                <div className="subject-name">{s.name}</div>
+                {!hasQuestions && <div className="subject-no-q">No questions yet</div>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );

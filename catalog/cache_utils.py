@@ -22,6 +22,7 @@ KEY_TOPICS_THEME_BOARD = 'catalog:topics:theme:{theme_id}:board:{board_id}'
 KEY_FEATURE_FLAGS  = 'catalog:feature_flags:all'
 KEY_LEADERBOARD    = 'practice:leaderboard:top50'
 KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
+KEY_SUBJECTS_WITH_COUNTS = 'catalog:subjects:with_counts'
 
 
 # ── Generic helpers ───────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ def get_or_set(key, queryset_fn, timeout):
     return result
 
 
+
 def invalidate(*keys):
     """Delete one or more cache keys."""
     cache.delete_many(keys)
@@ -59,6 +61,18 @@ def get_all_subjects():
         CACHE_24_HOUR
     )
 
+def get_subjects_with_question_counts():
+    from catalog.models import Subject
+    from django.db.models import Count
+    return get_or_set(
+        KEY_SUBJECTS_WITH_COUNTS,
+        lambda: list(
+            Subject.objects
+            .annotate(question_count=Count('questions', distinct=True))
+            .order_by('name')
+        ),
+        CACHE_1_HOUR    # ← 1 hour, not 24, since counts change on upload
+    )
 
 def get_all_boards():
     from catalog.models import ExamBoard
@@ -176,7 +190,7 @@ def invalidate_subject_caches(subject_id=None):
     If subject_id provided, only invalidates that subject's caches.
     Otherwise invalidates all subject-related caches.
     """
-    keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS]
+    keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS, KEY_SUBJECTS_WITH_COUNTS]
     if subject_id:
         keys += [
             KEY_THEMES.format(subject_id=subject_id),

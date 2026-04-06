@@ -6,9 +6,11 @@ from .models import Subject, Topic, Theme, ExamBoard, ExamSeries, Question, Choi
 
 
 class SubjectSerializer(serializers.ModelSerializer):
+    question_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model  = Subject
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'question_count']
 
 
 class ThemeSerializer(serializers.ModelSerializer):
