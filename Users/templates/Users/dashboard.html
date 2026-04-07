@@ -10,14 +10,14 @@
   <div class="dash-container">
     <div class="greeting-block" style="margin-bottom:1.25rem;">
       <div class="greeting-eyebrow">{% now "N j, Y" %} · Welcome back</div>
-      <h1 class="greeting-title">Hello, <span class="name">{{ user.first_name|default:"there" }}</span> 👋</h1>
+      <h1 class="greeting-title">Hello, <span class="name">{{ user.first_name|default:"there" }}</span> </h1>
       <p class="greeting-sub">
         {% if user.role == 'TEACHER' %}Ready to build a test or review question sets for your class?
         {% else %}What would you like to practice today?{% endif %}
       </p>
     </div>
 
-    {% if not user.is_admin %}
+    {% if not user.is_admin %} 
       {% with sub=user.active_subscription %}
         {% if not sub %}
         <div class="upgrade-banner">
