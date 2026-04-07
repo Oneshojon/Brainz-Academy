@@ -315,7 +315,7 @@ useEffect(() => {
           <Step4Questions board={board} subject={subject} theme={theme}
             savedQuestions={savedQuestions} onAdd={handleAddQuestion} onRemove={handleRemoveQuestion}
             onBack={goBack} onDone={() => setStep(5)} questionType={qTypeFilter}
-            onChangeTheme={() => setStep(3)} />
+            onChangeTheme={() => setStep(3)} access={access} />
         )}
         {step === 5 && (
           <Step5Export savedQuestions={savedQuestions} testTitle={testTitle || 'My Test'}

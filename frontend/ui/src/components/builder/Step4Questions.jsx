@@ -2,14 +2,46 @@ import { useState, useEffect, useRef } from "react";
 import api from "../../api";
 
 const styles = `
-.q4-year-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+/* Year bar — single row, horizontal scroll, no wrap */
+.q4-year-bar {
+  display: flex; gap: 0.4rem; flex-wrap: nowrap;
+  overflow-x: auto; margin-bottom: 0.65rem;
+  padding-bottom: 0.2rem; /* room for scrollbar on some OS */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+.q4-year-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
 .q4-year-pill {
   padding: 0.25rem 0.65rem; border-radius: 100px; font-size: 0.72rem; font-weight: 700;
   border: 1.5px solid #C2D4EC; background: #ffffff; color: #6B7FA3;
   cursor: pointer; transition: all 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
+  flex-shrink: 0; /* prevent pills from squishing */
 }
 .q4-year-pill.active { background: #0B2D72; color: #ffffff; border-color: #0B2D72; }
 .q4-year-pill:hover:not(.active) { border-color: #0B2D72; color: #0B2D72; }
+
+/* Question limit counter + cap banner */
+.q4-limit-counter {
+  font-size: 0.72rem; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 0.18rem 0.55rem; border-radius: 100px;
+  border: 1.5px solid #C2D4EC; background: #EDF1F8; color: #6B7FA3;
+  transition: all 0.2s;
+}
+.q4-limit-counter.near  { background: #FEF3C7; border-color: rgba(184,134,11,0.35); color: #B8860B; }
+.q4-limit-counter.full  { background: #FEE2E2; border-color: rgba(220,38,38,0.3);   color: #DC2626; }
+
+.q4-cap-banner {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: #FEF3C7; border: 1px solid rgba(184,134,11,0.3);
+  border-radius: 8px; padding: 0.55rem 0.8rem;
+  font-size: 0.78rem; color: #B8860B; margin-bottom: 0.65rem; line-height: 1.4;
+}
+.q4-cap-banner a { color: #0992C2; font-weight: 700; text-decoration: none; }
+.q4-cap-banner a:hover { text-decoration: underline; }
+
+/* Disabled add button */
+.q4-add-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
 
   .q4-layout { display: grid; grid-template-columns: 400px 1fr; gap: 1.25rem; align-items: start; }
   @media (max-width: 900px) { .q4-layout { grid-template-columns: 1fr; } }
@@ -173,8 +205,9 @@ const styles = `
 `;
 
 /* ── Shared preview content (used in both desktop panel and mobile accordion) ── */
-function PreviewBody({ q, isAdded, onAdd, onRemove }) {
+function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
   if (!q) return null;
+  const canAdd = isAdded || !atLimit;
   return (
     <>
       <div className="q4-row-tags" style={{ marginBottom: '1rem', flexWrap: 'wrap', display: 'flex', gap: '0.35rem' }}>
@@ -218,9 +251,15 @@ function PreviewBody({ q, isAdded, onAdd, onRemove }) {
       )}
       <button
         className={`q4-preview-add-btn ${isAdded ? 'added' : ''}`}
+        disabled={!isAdded && atLimit}
+        title={!isAdded && atLimit ? `Limit of ${maxQ} reached — upgrade to add more` : ''}
         onClick={() => isAdded ? onRemove(q.id) : onAdd(q)}
       >
-        {isAdded ? '✓ Added — Click to Remove' : '+ Add to Test'}
+        {isAdded
+          ? '✓ Added — Click to Remove'
+          : atLimit
+            ? `Limit reached (${maxQ})`
+            : '+ Add to Test'}
       </button>
     </>
   );
@@ -229,8 +268,13 @@ function PreviewBody({ q, isAdded, onAdd, onRemove }) {
 export default function Step4Questions({
   board, subject, theme, savedQuestions,
   onAdd, onRemove, onBack, onDone, onChangeTheme,
+  access,
 }) {
-  const topic = theme?.selectedTopic;
+  const topic   = theme?.selectedTopic;
+  const maxQ    = access?.max_questions ?? Infinity;
+  const atLimit = savedQuestions.length >= maxQ;
+  const nearLimit = !atLimit && savedQuestions.length >= maxQ - 2;
+
   const [questions, setQuestions]       = useState([]);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState('');
@@ -286,6 +330,7 @@ export default function Step4Questions({
   };
 
   const handleAdd = (q) => {
+    if (atLimit) return; // hard cap
     const enrich = (fullQ) => ({
       ...fullQ,
       topic_names: fullQ.topic_names?.length > 0 ? fullQ.topic_names : [topic?.name].filter(Boolean),
@@ -324,7 +369,23 @@ export default function Step4Questions({
             <span className="q4-list-title">
               {loading ? 'Loading…' : `${filtered.length} question${filtered.length !== 1 ? 's' : ''}`}
             </span>
+            {access && maxQ !== Infinity && (
+              <span className={`q4-limit-counter ${atLimit ? 'full' : nearLimit ? 'near' : ''}`}>
+                {savedQuestions.length} / {maxQ} added
+              </span>
+            )}
           </div>
+
+          {/* Cap reached banner */}
+          {atLimit && access && (
+            <div className="q4-cap-banner">
+              <span>⚠️</span>
+              <span>
+                <strong>Question limit reached ({maxQ}).</strong>{' '}
+                <a href="/pricing/?tab=teacher">Upgrade</a> to add more.
+              </span>
+            </div>
+          )}
 
           {availableYears.length > 1 && (
             <div className="q4-year-bar">
@@ -369,8 +430,9 @@ export default function Step4Questions({
                     </div>
                     <button
                       className={`q4-add-btn ${added ? 'remove' : ''}`}
+                      disabled={!added && atLimit}
+                      title={!added && atLimit ? `Limit of ${maxQ} reached` : added ? 'Remove' : 'Add to test'}
                       onClick={e => { e.stopPropagation(); added ? onRemove(q.id) : handleAdd(q); }}
-                      title={added ? 'Remove' : 'Add to test'}
                     >
                       {added ? '✓' : '+'}
                     </button>
@@ -385,6 +447,8 @@ export default function Step4Questions({
                           isAdded={previewQ ? isAdded(previewQ.id) : false}
                           onAdd={handleAdd}
                           onRemove={onRemove}
+                          atLimit={atLimit}
+                          maxQ={maxQ}
                         />
                       </div>
                     </div>
@@ -423,6 +487,8 @@ export default function Step4Questions({
                 isAdded={previewQ ? isAdded(previewQ.id) : false}
                 onAdd={handleAdd}
                 onRemove={onRemove}
+                atLimit={atLimit}
+                maxQ={maxQ}
               />
             )}
           </div>
