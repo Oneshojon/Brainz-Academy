@@ -244,13 +244,13 @@ class PastPaper(models.Model):
 
     @property
     def video_embed_url(self):
-        """Convert YouTube watch URL to embed URL."""
         import re
         url = self.video_url
         if not url:
             return None
+        # Already an embed URL — strip any ?si= or other junk params
         if 'youtube.com/embed/' in url:
-            return url
+            return url.split('?')[0]
         m = re.match(r'https?://youtu\.be/([^?&]+)', url)
         if m:
             return f'https://www.youtube.com/embed/{m.group(1)}'
