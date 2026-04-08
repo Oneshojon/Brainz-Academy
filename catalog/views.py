@@ -13,6 +13,8 @@ from .permissions import IsTeacher
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from catalog.subscription_access import check_test_builder_access
 from catalog.models import FreeUsageTracker
+from django.db import transaction
+from catalog.models import SavedTest, SavedTestQuestion, FreeUsageTracker, UserSubscription
 
 # File
 from django.http import HttpResponse
@@ -498,7 +500,7 @@ def _generate_pdf(questions, title, include_answers=False):
 
         with open(pdf_path, 'rb') as f:
             return f.read()
-# ════════════════════════════════════════════════════════════════════════════
+
 # VIEW
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -507,21 +509,26 @@ class QuestionDownloadView(APIView):
     POST /api/catalog/questions/download/
 
     Body JSON:
-        question_ids : [1, 2, 3, ...]
-        title        : "Physics WAEC 2020"
-        format       : "pdf" | "docx"
-        copy_type    : "student" | "teacher"
-
-    Returns a single file. React calls this endpoint twice per button —
-    first for the student copy, then for the teacher copy.
+        question_ids   : [1, 2, 3, ...]
+        title          : "Physics WAEC 2020"
+        format         : "pdf" | "docx"
+        copy_type      : "student" | "teacher"
+        builder_mode   : "manual" | "random"          (default: "manual")
+        custom_marks   : {"<id>": marks, ...}          (optional, from Step 5)
+        saved_test_id  : int | null                    (null = new test, int = update existing)
+        total_marks    : int                           (snapshot for SavedTest record)
     """
     permission_classes = [IsTeacher]
 
     def post(self, request):
-        question_ids = request.data.get('question_ids', [])
-        title        = request.data.get('title', 'Question Set')
-        fmt          = request.data.get('format', 'pdf').lower()
-        copy_type    = request.data.get('copy_type', 'student')
+        question_ids  = request.data.get('question_ids', [])
+        title         = request.data.get('title', 'Question Set')
+        fmt           = request.data.get('format', 'pdf').lower()
+        copy_type     = request.data.get('copy_type', 'student')
+        builder_mode  = request.data.get('builder_mode', 'manual')
+        custom_marks  = request.data.get('custom_marks', {})   # {"<id>": int}
+        saved_test_id = request.data.get('saved_test_id')      # None = new test
+        total_marks   = request.data.get('total_marks', 0)
 
         # ── Validate inputs ───────────────────────────────────────────────────
         if fmt not in ('docx', 'pdf'):
@@ -540,14 +547,69 @@ class QuestionDownloadView(APIView):
                 status=400
             )
 
-        # ── Query — one trip, no exists() ────────────────────────────────────
+        # ── Access / trial check ──────────────────────────────────────────────
+        is_pro = UserSubscription.objects.filter(
+            user=request.user,
+            plan__plan_type='TEACHER_PRO',
+            status='ACTIVE',
+        ).exists()
+
+        tracker = None  # only fetched for free-tier teachers
+
+        # Determine whether this download requires a new trial:
+        #   - No saved_test_id → brand new test → always costs a trial
+        #   - saved_test_id exists → compare stored question set vs incoming
+        #     (as sets, ignoring order) → changed = costs a trial
+        existing_test  = None
+        questions_changed = True  # default: assume new
+
+        if saved_test_id:
+            existing_test = (
+                SavedTest.objects
+                .filter(pk=saved_test_id, teacher=request.user)
+                .first()
+            )
+            if existing_test:
+                stored_ids = set(
+                    existing_test.test_questions
+                    .values_list('question_id', flat=True)
+                )
+                incoming_ids = set(question_ids)
+                questions_changed = stored_ids != incoming_ids
+
+        needs_trial = not existing_test or questions_changed
+
+        if needs_trial and not is_pro:
+            tracker, _ = FreeUsageTracker.objects.get_or_create(user=request.user)
+            if not tracker.can_use_test_builder():
+                return Response(
+                    {
+                        'error': (
+                            f"You've used all {FreeUsageTracker.FREE_TEST_BUILDER_TRIALS} "
+                            f"free trials. Upgrade to Teacher Pro to continue."
+                        ),
+                        'allowed': False,
+                    },
+                    status=403
+                )
+
+        # ── Free tier: enforce pdf_only ───────────────────────────────────────
+        if not is_pro and fmt == 'docx':
+            return Response(
+                {'error': 'Word (.docx) download requires Teacher Pro. PDF is available on free tier.'},
+                status=403
+            )
+
+        # ── Query — one trip, no N+1 ──────────────────────────────────────────
+        # Preserve the user's chosen order (question_ids order from frontend)
+        id_to_pos = {qid: idx for idx, qid in enumerate(question_ids)}
         qs_list = list(
             Question.objects
             .filter(id__in=question_ids)
             .select_related('subject', 'exam_series', 'exam_series__exam_board')
-            .prefetch_related('choices', 'topics')   # theory_answer removed — not rendered
-            .order_by('question_number')
+            .prefetch_related('choices', 'topics', 'theory_answer')
         )
+        qs_list.sort(key=lambda q: id_to_pos.get(q.id, 9999))
 
         if not qs_list:
             return Response({'error': 'No questions found.'}, status=400)
@@ -568,7 +630,6 @@ class QuestionDownloadView(APIView):
                 response = HttpResponse(content, content_type='application/pdf')
 
             response['Content-Disposition'] = f'attachment; filename="{filename}.{fmt}"'
-            return response
 
         except Exception as e:
             logger.exception(f'File generation failed for title="{title}" fmt={fmt}')
@@ -576,3 +637,63 @@ class QuestionDownloadView(APIView):
                 {'error': f'File generation failed: {e}'},
                 status=500
             )
+
+        # ── Persist SavedTest record (after successful file generation) ────────
+        try:
+            with transaction.atomic():
+                if existing_test and not questions_changed:
+                    # ── Questions unchanged: update metadata only, no trial ────
+                    existing_test.title      = title[:255]
+                    existing_test.format     = fmt
+                    existing_test.copy_type  = copy_type
+                    existing_test.total_marks = total_marks
+                    existing_test.save(update_fields=[
+                        'title', 'format', 'copy_type', 'total_marks', 'updated_at',
+                    ])
+                    # Update custom_marks in through records (marks may have changed)
+                    for stq in existing_test.test_questions.all():
+                        new_marks = int(custom_marks.get(str(stq.question_id), stq.custom_marks))
+                        if stq.custom_marks != new_marks:
+                            stq.custom_marks = new_marks
+                            stq.save(update_fields=['custom_marks'])
+                    test = existing_test
+
+                else:
+                    # ── Questions changed or brand new: create fresh record ────
+                    test = SavedTest.objects.create(
+                        teacher        = request.user,
+                        title          = title[:255],
+                        format         = fmt,
+                        copy_type      = copy_type,
+                        builder_mode   = builder_mode,
+                        question_count = len(question_ids),
+                        total_marks    = total_marks,
+                        # Link to previous version for lineage tracking
+                        cloned_from    = existing_test if existing_test else None,
+                    )
+                    SavedTestQuestion.objects.bulk_create([
+                        SavedTestQuestion(
+                            saved_test   = test,
+                            question_id  = qid,
+                            custom_marks = int(custom_marks.get(str(qid), 1)),
+                            order        = idx,
+                        )
+                        for idx, qid in enumerate(question_ids)
+                    ])
+
+                    # Consume trial for free-tier teachers
+                    if needs_trial and not is_pro:
+                        if tracker is None:
+                            tracker, _ = FreeUsageTracker.objects.get_or_create(user=request.user)
+                        tracker.increment_test_builder_trial()
+
+                # Always return the current test PK so frontend stays in sync
+                response['X-Saved-Test-Id'] = str(test.pk)
+
+        except Exception:
+            logger.exception(
+                f'SavedTest persistence failed for user={request.user.id} '
+                f'title="{title}" saved_test_id={saved_test_id}'
+            )
+
+        return response

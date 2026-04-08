@@ -19,7 +19,7 @@ const styles = `
   .builder-title-bar {
     display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
     background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 14px;
-    padding: 0.75rem 1.25rem;            /* ← slightly less padding to reduce height/bulk */
+    padding: 0.75rem 1.25rem;
     box-shadow: 0 2px 10px rgba(11,45,114,0.07);
   }
   .builder-title-input {
@@ -102,14 +102,17 @@ const styles = `
     cursor: pointer; text-align: left; transition: background 0.12s;
     display: flex; align-items: center; gap: 0.5rem;
   }
-  .builder-copy-btn:hover { background: #EDF1F8; }
+  .builder-copy-btn:hover:not(:disabled) { background: #EDF1F8; }
+  .builder-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .builder-copy-btn + .builder-copy-btn { border-top: 1px solid #C2D4EC; }
-  .s5-copy-badge {
-    font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.4rem;
-    border-radius: 4px; text-transform: uppercase; flex-shrink: 0;
+
+  /* ── Download spinner ── */
+  .bl-spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 2px solid rgba(11,45,114,0.2); border-top-color: #0B2D72;
+    border-radius: 50%; animation: bl-spin 0.6s linear infinite; flex-shrink: 0;
   }
-  .s5-copy-badge.student { background: rgba(9,146,194,0.1); color: #0992C2; }
-  .s5-copy-badge.teacher { background: #FEF3C7; color: #B8860B; }
+  @keyframes bl-spin { to { transform: rotate(360deg); } }
 
   /* ── Shared step styles ── */
   .step-section-title {
@@ -130,83 +133,139 @@ const styles = `
   .btn-back-sm:active { transform: scale(0.97); }
 `;
 
-
-
-export default function BuilderLayout({ access, onChangeMode }) {
-  const [step, setStep]                     = useState(1);
+export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, resumeTest }) {
+  // If resumeTest is provided (teacher opened a test from My Tests),
+  // pre-populate state and jump straight to Step 5.
+  const [step, setStep]                     = useState(resumeTest ? 5 : 1);
   const [board, setBoard]                   = useState(null);
   const [subject, setSubject]               = useState(null);
   const [theme, setTheme]                   = useState(null);
-  const [savedQuestions, setSavedQuestions] = useState([]);
-  const [testTitle, setTestTitle]           = useState('');
+  const [savedQuestions, setSavedQuestions] = useState(
+    resumeTest ? resumeTest.questions : []
+  );
+  const [testTitle, setTestTitle]           = useState(resumeTest?.title ?? '');
   const [qTypeFilter, setQTypeFilter]       = useState('');
   const [exportDropdown, setExportDropdown] = useState(null);
+  const [downloading, setDownloading]       = useState(null);
 
+  // Initialise with the resumed test's ID so re-downloads update in place
+  const [savedTestId, setSavedTestId]       = useState(resumeTest?.savedTestId ?? null);
 
-const isPopState = useRef(false);
+  const isPopState = useRef(false);
 
-// On mount
-useEffect(() => {
-  window.history.replaceState({ step: 1 }, '', window.location.pathname);
-}, []);
+  // ── Browser history ────────────────────────────────────────────────────────
+  useEffect(() => {
+    window.history.replaceState({ step: 1 }, '', window.location.pathname);
+  }, []);
 
-// Push only on forward navigation
-useEffect(() => {
-  if (step > 1) {
-    if (isPopState.current) {
-      isPopState.current = false; // reset flag, don't push
-    } else {
-      window.history.pushState({ step }, '', window.location.pathname);
+  useEffect(() => {
+    if (step > 1) {
+      if (isPopState.current) {
+        isPopState.current = false;
+      } else {
+        window.history.pushState({ step }, '', window.location.pathname);
+      }
     }
-  }
-}, [step]);
+  }, [step]);
 
-// Handle browser back
-useEffect(() => {
-  const handlePop = (e) => {
-    const prevStep = e.state?.step;
-    if (prevStep && prevStep >= 1) {
-      isPopState.current = true;
-      setStep(prevStep);
-    } else {
-      onChangeMode?.();
-    }
-  };
-  window.addEventListener('popstate', handlePop);
-  return () => window.removeEventListener('popstate', handlePop);
-}, [onChangeMode]);
+  useEffect(() => {
+    const handlePop = (e) => {
+      const prevStep = e.state?.step;
+      if (prevStep && prevStep >= 1) {
+        isPopState.current = true;
+        setStep(prevStep);
+      } else {
+        onChangeMode?.();
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [onChangeMode]);
 
+  // ── Derived values ─────────────────────────────────────────────────────────
   const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
 
-  const handleBoardSelect   = (b) => { setBoard(b);   setStep(2); };
-  const handleSubjectSelect = (s) => { setSubject(s); setStep(3); };
-  const handleThemeSelect   = (t) => { setTheme(t);   setStep(4); };
-
+  // ── Question management ────────────────────────────────────────────────────
+  const handleBoardSelect    = (b) => { setBoard(b);   setStep(2); };
+  const handleSubjectSelect  = (s) => { setSubject(s); setStep(3); };
+  const handleThemeSelect    = (t) => { setTheme(t);   setStep(4); };
   const handleAddQuestion    = (q) => {
     if (savedQuestions.find(s => s.id === q.id)) return;
     setSavedQuestions(p => [...p, { ...q, customMarks: q.marks ?? 1 }]);
   };
-  const handleRemoveQuestion = (id)      => setSavedQuestions(p => p.filter(q => q.id !== id));
-  const handleUpdateMarks    = (id, m)   => setSavedQuestions(p => p.map(q => q.id === id ? { ...q, customMarks: m } : q));
-  const handleReorder        = (order)   => setSavedQuestions(order);
-  const goBack               = ()        => setStep(s => Math.max(1, s - 1));
+  const handleRemoveQuestion = (id)    => setSavedQuestions(p => p.filter(q => q.id !== id));
+  const handleUpdateMarks    = (id, m) => setSavedQuestions(p => p.map(q => q.id === id ? { ...q, customMarks: m } : q));
+  const handleReorder        = (order) => setSavedQuestions(order);
+  const goBack               = ()      => setStep(s => Math.max(1, s - 1));
 
   const stepLabels = ['Exam Board', 'Subject', 'Theme & Topic', 'Select Questions', 'Review & Export'];
 
+  // ── Download ───────────────────────────────────────────────────────────────
   const downloadFile = async (fmt, copyType) => {
+    const key = `${fmt}-${copyType}`;
+    setDownloading(key);
+    setExportDropdown(null);
+
+    // Build custom_marks map: { "<question_id>": marks }
+    const customMarksMap = {};
+    savedQuestions.forEach(q => {
+      customMarksMap[String(q.id)] = q.customMarks ?? q.marks ?? 1;
+    });
+
     try {
-      const res = await api.post('questions/download/', {
-        question_ids: savedQuestions.map(q => q.id),
-        title: testTitle || 'My Test', format: fmt, copy_type: copyType,
-      }, { responseType: 'blob' });
+      const res = await api.post(
+        'questions/download/',
+        {
+          question_ids:  savedQuestions.map(q => q.id),
+          title:         testTitle || 'My Test',
+          format:        fmt,
+          copy_type:     copyType,
+          builder_mode:  'manual',
+          custom_marks:  customMarksMap,
+          total_marks:   totalMarks,
+          saved_test_id: savedTestId ?? null,  // null = create new, int = update existing
+        },
+        { responseType: 'blob' }
+      );
+
+      // Capture the SavedTest PK from response header for future downloads
+      const returnedId = res.headers?.['x-saved-test-id'];
+      if (returnedId) setSavedTestId(Number(returnedId));
+
+      // Trigger file download in browser
       const url  = URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href  = url;
-      link.download = `${(testTitle || 'My_Test').replace(/\s+/g,'_')}_${copyType}.${fmt}`;
+      link.download = `${(testTitle || 'My_Test').replace(/\s+/g, '_')}_${copyType}.${fmt}`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch { alert('Download failed. Please try again.'); }
+
+    } catch (err) {
+      // Try to parse error message from blob response
+      try {
+        const text = await err.response?.data?.text?.();
+        const parsed = JSON.parse(text || '{}');
+        alert(parsed.error || 'Download failed. Please try again.');
+      } catch {
+        alert('Download failed. Please try again.');
+      }
+    } finally {
+      setDownloading(null);
+    }
   };
+
+  // Reset savedTestId when starting a completely new test
+  const handleNewTest = () => {
+    setStep(1);
+    setBoard(null);
+    setSubject(null);
+    setTheme(null);
+    setSavedQuestions([]);
+    setTestTitle('');
+    setSavedTestId(null);  // ← next download will create a fresh record
+  };
+
+  const anyDownloading = !!downloading;
 
   return (
     <>
@@ -215,15 +274,17 @@ useEffect(() => {
 
         {/* Title bar */}
         <div className="builder-title-bar">
-
           {onChangeMode && (
-              <button onClick={onChangeMode}
-                style={{background:'#ffffff', border:'1.5px solid #C2D4EC', color:'#0B2D72',
-                  borderRadius:'100px', padding:'0.4rem 1rem', fontFamily:'Plus Jakarta Sans, sans-serif',
-                  fontWeight:700, fontSize:'0.8rem', cursor:'pointer', marginLeft:'auto'}}>
-                ← Change Mode
-              </button>
-            )}
+            <button onClick={onChangeMode}
+              style={{
+                background: '#ffffff', border: '1.5px solid #C2D4EC', color: '#0B2D72',
+                borderRadius: '100px', padding: '0.4rem 1rem',
+                fontFamily: 'Plus Jakarta Sans, sans-serif',
+                fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', marginLeft: 'auto',
+              }}>
+              ← Change Mode
+            </button>
+          )}
           <input className="builder-title-input" value={testTitle}
             onChange={e => setTestTitle(e.target.value)}
             placeholder="Name your test..." />
@@ -240,7 +301,7 @@ useEffect(() => {
             </div>
           )}
 
-          <div className="builder-meta" style={{marginLeft:'auto'}}>
+          <div className="builder-meta" style={{ marginLeft: 'auto' }}>
             {board   && <span className="builder-meta-pill">📋 {board.abbreviation}</span>}
             {subject && <span className="builder-meta-pill">📚 {subject.name}</span>}
             {theme   && <span className="builder-meta-pill">🗂️ {theme.name}</span>}
@@ -248,44 +309,68 @@ useEffect(() => {
         </div>
 
         {/* Step nav + export */}
-        {exportDropdown && <div style={{position:'fixed',inset:0,zIndex:99}} onClick={() => setExportDropdown(null)} />}
+        {exportDropdown && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+            onClick={() => setExportDropdown(null)} />
+        )}
         <div className="builder-nav-row">
-          <StepNav current={step} labels={stepLabels} onStepClick={setStep}
-            maxReached={step} />
+          <StepNav current={step} labels={stepLabels} onStepClick={setStep} maxReached={step} />
 
           {step === 5 && (
             <div className="builder-export-btns">
               <span className="builder-export-label">Export</span>
-              <div style={{position:'relative',display:'inline-block'}}>
-                <button className={`builder-fmt-btn ${exportDropdown === 'pdf' ? 'active-pdf' : ''}`}
-                  disabled={savedQuestions.length === 0}
+
+              {/* PDF dropdown */}
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <button
+                  className={`builder-fmt-btn ${exportDropdown === 'pdf' ? 'active-pdf' : ''}`}
+                  disabled={savedQuestions.length === 0 || anyDownloading}
                   onClick={() => setExportDropdown(exportDropdown === 'pdf' ? null : 'pdf')}>
-                  📄 PDF ▾
+                  {(downloading === 'pdf-student' || downloading === 'pdf-teacher')
+                    ? <span className="bl-spinner" />
+                    : '📄'} PDF ▾
                 </button>
                 {exportDropdown === 'pdf' && (
                   <div className="builder-copy-dropdown">
-                    <button className="builder-copy-btn" onClick={() => { downloadFile('pdf','student'); setExportDropdown(null); }}>
-                    Questions only
-                  </button>
-                  <button className="builder-copy-btn" onClick={() => { downloadFile('pdf','teacher'); setExportDropdown(null); }}>
-                    Mark scheme
-                  </button>
+                    <button className="builder-copy-btn"
+                      disabled={anyDownloading}
+                      onClick={() => downloadFile('pdf', 'student')}>
+                      {downloading === 'pdf-student' ? <span className="bl-spinner" /> : '📄'}
+                      Questions only
+                    </button>
+                    <button className="builder-copy-btn"
+                      disabled={anyDownloading}
+                      onClick={() => downloadFile('pdf', 'teacher')}>
+                      {downloading === 'pdf-teacher' ? <span className="bl-spinner" /> : '📄'}
+                      Mark scheme
+                    </button>
                   </div>
                 )}
               </div>
-              <div style={{position:'relative',display:'inline-block'}}>
-                <button className={`builder-fmt-btn ${exportDropdown === 'docx' ? 'active-docx' : ''}`}
-                  disabled={savedQuestions.length === 0}
+
+              {/* Word dropdown */}
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <button
+                  className={`builder-fmt-btn ${exportDropdown === 'docx' ? 'active-docx' : ''}`}
+                  disabled={savedQuestions.length === 0 || anyDownloading}
                   onClick={() => setExportDropdown(exportDropdown === 'docx' ? null : 'docx')}>
-                  📝 Word ▾
+                  {(downloading === 'docx-student' || downloading === 'docx-teacher')
+                    ? <span className="bl-spinner" />
+                    : '📝'} Word ▾
                 </button>
                 {exportDropdown === 'docx' && (
                   <div className="builder-copy-dropdown">
-                    <button className="builder-copy-btn" onClick={() => { downloadFile('docx','student'); setExportDropdown(null); }}>
+                    <button className="builder-copy-btn"
+                      disabled={anyDownloading}
+                      onClick={() => downloadFile('docx', 'student')}>
+                      {downloading === 'docx-student' ? <span className="bl-spinner" /> : '📝'}
                       Questions only
                     </button>
-                    <button className="builder-copy-btn" onClick={() => { downloadFile('docx','teacher'); setExportDropdown(null); }}>
-                       Mark scheme
+                    <button className="builder-copy-btn"
+                      disabled={anyDownloading}
+                      onClick={() => downloadFile('docx', 'teacher')}>
+                      {downloading === 'docx-teacher' ? <span className="bl-spinner" /> : '📝'}
+                      Mark scheme
                     </button>
                   </div>
                 )}
@@ -299,7 +384,7 @@ useEffect(() => {
           <div className="saved-count-bar">
             <div className="saved-count-bar-left">
               ✅ <strong>{savedQuestions.length}</strong> question{savedQuestions.length !== 1 ? 's' : ''}
-              &nbsp;·&nbsp; <strong style={{color:'#B8860B'}}>{totalMarks}</strong> total marks
+              &nbsp;·&nbsp; <strong style={{ color: '#B8860B' }}>{totalMarks}</strong> total marks
             </div>
             <button className="btn-continue" onClick={() => setStep(5)}>
               Review & Export →
@@ -308,7 +393,7 @@ useEffect(() => {
         )}
 
         {/* Steps */}
-        {step === 1 && <Step1Board onSelect={handleBoardSelect} selected={board} />}
+        {step === 1 && <Step1Board onSelect={handleBoardSelect} selected={board} access={access} />}
         {step === 2 && <Step2Subject board={board} onSelect={handleSubjectSelect} selected={subject} onBack={goBack} />}
         {step === 3 && <Step3Theme board={board} subject={subject} onSelect={handleThemeSelect} selected={theme} onBack={goBack} onNext={() => setStep(4)} />}
         {step === 4 && (
@@ -318,11 +403,15 @@ useEffect(() => {
             onChangeTheme={() => setStep(3)} access={access} />
         )}
         {step === 5 && (
-          <Step5Export savedQuestions={savedQuestions} testTitle={testTitle || 'My Test'}
+          <Step5Export
+            savedQuestions={savedQuestions} testTitle={testTitle || 'My Test'}
             access={access} onUpdateMarks={handleUpdateMarks} onRemove={handleRemoveQuestion}
             onReorder={handleReorder} onBack={goBack} qTypeFilter={qTypeFilter}
             onQTypeFilter={setQTypeFilter}
-            onNewTest={() => { setStep(1); setBoard(null); setSubject(null); setTheme(null); setSavedQuestions([]); setTestTitle(''); }} />
+            downloading={downloading}
+            onDownload={downloadFile}
+            onOpenMyTests={onOpenMyTests}
+            onNewTest={handleNewTest} />
         )}
       </div>
     </>

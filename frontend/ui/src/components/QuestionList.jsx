@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 function getCookie(name) {
   const value = `; ${document.cookie}`;
@@ -146,11 +146,22 @@ const styles = `
 `;
 
 export default function QuestionList({ questions, filterMeta, access }) {
-  const [pdfLoading,  setPdfLoading]  = useState(false);
-  const [wordLoading, setWordLoading] = useState(false);
+  // downloading: null | 'pdf-student' | 'pdf-teacher' | 'docx-student' | 'docx-teacher'
+  const [downloading, setDownloading] = useState(null);
   const [error,       setError]       = useState(null);
 
+  // Tracks SavedTest PK so re-downloads update existing record, not create new
+  const savedTestIdRef = useRef(null);
+
   if (!questions.length) return null;
+
+  // Reset savedTestId whenever the question set changes (new generation)
+  const prevQuestionsRef = useRef(null);
+  const questionIds = questions.map(q => q.id).join(',');
+  if (prevQuestionsRef.current !== questionIds) {
+    prevQuestionsRef.current = questionIds;
+    savedTestIdRef.current = null;
+  }
 
   const buildTitle = () => {
     if (filterMeta) {
@@ -163,20 +174,42 @@ export default function QuestionList({ questions, filterMeta, access }) {
     return 'Question Set';
   };
 
+  const totalMarks = questions.reduce((s, q) => s + (q.marks ?? 1), 0);
+
+  const buildCustomMarks = () => {
+    const map = {};
+    questions.forEach(q => { map[String(q.id)] = q.marks ?? 1; });
+    return map;
+  };
+
   const downloadOne = async (fmt, copyType, title) => {
     const res = await fetch('/api/catalog/questions/download/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken'),
+      },
       credentials: 'include',
       body: JSON.stringify({
-        question_ids: questions.map(q => q.id),
-        title, format: fmt, copy_type: copyType,
+        question_ids:  questions.map(q => q.id),
+        title,
+        format:        fmt,
+        copy_type:     copyType,
+        builder_mode:  'random',
+        custom_marks:  buildCustomMarks(),
+        total_marks:   totalMarks,
+        saved_test_id: savedTestIdRef.current,
       }),
     });
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to generate ${copyType} ${fmt.toUpperCase()}`);
     }
+
+    const returnedId = res.headers.get('X-Saved-Test-Id');
+    if (returnedId) savedTestIdRef.current = Number(returnedId);
+
     const blob = await res.blob();
     const url  = window.URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -188,27 +221,32 @@ export default function QuestionList({ questions, filterMeta, access }) {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleDownload = async (fmt) => {
-    const setLoading = fmt === 'pdf' ? setPdfLoading : setWordLoading;
-    setLoading(true);
+  const handleDownload = async (fmt, copyType) => {
+    const key = `${fmt}-${copyType}`;
+    setDownloading(key);
     setError(null);
     try {
-      const title = buildTitle();
-      await downloadOne(fmt, 'student', title);
-      await new Promise(r => setTimeout(r, 600));
-      await downloadOne(fmt, 'teacher', title);
+      await downloadOne(fmt, copyType, buildTitle());
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setDownloading(null);
     }
   };
 
-  const busy     = pdfLoading || wordLoading;
-  // PDF is always available if access is allowed; Word only for subscribed teachers
+  const busy        = !!downloading;
   const canDownload = access?.allowed ?? false;
   const showWord    = access ? !access.pdf_only : false;
   const trialsLeft  = access?.trials_remaining ?? 0;
+
+  // Helper: spinner or icon for a specific button
+  const BtnContent = ({ fmt, copyType, pdfIcon, wordIcon, label }) => {
+    const key     = `${fmt}-${copyType}`;
+    const loading = downloading === key;
+    return loading
+      ? <><div className="dl-spinner" />{`Generating…`}</>
+      : <>{fmt === 'pdf' ? pdfIcon : wordIcon}{label}</>;
+  };
 
   return (
     <>
@@ -219,11 +257,9 @@ export default function QuestionList({ questions, filterMeta, access }) {
         <div className="dl-info">
           <strong>{questions.length} question{questions.length !== 1 ? 's' : ''} ready</strong>
           <small>
-            {showWord
-              ? "Each download saves two files — student copy (no answers) and teacher copy (with answers & topics)."
-              : "Downloads as PDF. Upgrade to Teacher Pro to also get Word format."}
+            Download <em>Questions only</em> for students, or <em>Mark scheme</em> for the teacher copy with answers.
+            {!showWord && ' Upgrade to Teacher Pro to also get Word format.'}
           </small>
-          {/* Trials counter shown only for free teachers */}
           {access?.is_free && (
             <div className="dl-trials">
               🏷️ <strong>{trialsLeft} free trial{trialsLeft !== 1 ? 's' : ''} remaining</strong>
@@ -233,24 +269,32 @@ export default function QuestionList({ questions, filterMeta, access }) {
         </div>
 
         <div className="dl-btns">
-          {/* PDF — always shown, disabled if no access or busy */}
+          {/* ── PDF buttons ── */}
           <button className="dl-btn pdf"
-            onClick={() => handleDownload('pdf')}
+            onClick={() => handleDownload('pdf', 'student')}
             disabled={!canDownload || busy}>
-            {pdfLoading
-              ? <><div className="dl-spinner" />Generating PDF…</>
-              : <>📄 Download PDF</>}
+            <BtnContent fmt="pdf" copyType="student" pdfIcon="📄" label=" PDF — Questions" />
+          </button>
+          <button className="dl-btn pdf"
+            onClick={() => handleDownload('pdf', 'teacher')}
+            disabled={!canDownload || busy}>
+            <BtnContent fmt="pdf" copyType="teacher" pdfIcon="📄" label=" PDF — Mark scheme" />
           </button>
 
-          {/* Word — only shown for subscribed teachers */}
+          {/* ── Word buttons (pro only) ── */}
           {showWord && (
-            <button className="dl-btn word"
-              onClick={() => handleDownload('docx')}
-              disabled={busy}>
-              {wordLoading
-                ? <><div className="dl-spinner" />Generating Word…</>
-                : <>📝 Download Word</>}
-            </button>
+            <>
+              <button className="dl-btn word"
+                onClick={() => handleDownload('docx', 'student')}
+                disabled={busy}>
+                <BtnContent fmt="docx" copyType="student" wordIcon="📝" label=" Word — Questions" />
+              </button>
+              <button className="dl-btn word"
+                onClick={() => handleDownload('docx', 'teacher')}
+                disabled={busy}>
+                <BtnContent fmt="docx" copyType="teacher" wordIcon="📝" label=" Word — Mark scheme" />
+              </button>
+            </>
           )}
         </div>
       </div>

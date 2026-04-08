@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import api from "../../api";
 
 const styles = `
   /* ══ Row 1: stats + actions ══ */
@@ -24,7 +23,8 @@ const styles = `
     font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.78rem;
     cursor: pointer; transition: all 0.15s; white-space: nowrap;
   }
-  .s5-test-btn.my  { background: #F3F6FA; color: #6B7FA3; border: 1.5px solid #C2D4EC; cursor: not-allowed; opacity: 0.55; }
+  .s5-test-btn.my  { background: #F3F6FA; color: #6B7FA3; border: 1.5px solid #C2D4EC; }
+  .s5-test-btn.my:hover { border-color: #0B2D72; color: #0B2D72; background: #EDF1F8; }
   .s5-test-btn.new { background: #0B2D72; color: #ffffff; border: none; box-shadow: 0 4px 12px rgba(11,45,114,0.2); }
   .s5-test-btn.new:hover { background: #0a2360; }
   .s5-test-btn.new:active { transform: scale(0.97); }
@@ -213,11 +213,10 @@ export default function Step5Export({
   savedQuestions, testTitle, access,
   onUpdateMarks, onRemove, onReorder,
   onBack, onNewTest, qTypeFilter, onQTypeFilter,
+  downloading, onDownload, onOpenMyTests,
 }) {
-  const [downloading, setDownloading]   = useState(null);
   const [dragIdx, setDragIdx]           = useState(null);
   const [overIdx, setOverIdx]           = useState(null);
-  const [openDropdown, setOpenDropdown] = useState(null);
 
   useEffect(() => {
     if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise();
@@ -249,31 +248,9 @@ export default function Step5Export({
     setDragIdx(null); setOverIdx(null);
   };
 
-  // ── Download ──────────────────────────────────────────────────────────────
-  const download = async (fmt, copyType) => {
-    setDownloading(`${fmt}-${copyType}`);
-    setOpenDropdown(null);
-    try {
-      const res = await api.post('questions/download/', {
-        question_ids: savedQuestions.map(q => q.id),
-        title: testTitle, format: fmt, copy_type: copyType,
-      }, { responseType: 'blob' });
-      const url  = URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href  = url;
-      link.download = `${testTitle.replace(/\s+/g, '_')}_${copyType}.${fmt}`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch { alert('Download failed. Please try again.'); }
-    finally { setDownloading(null); }
-  };
-
   return (
     <>
       <style>{styles}</style>
-      {openDropdown && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpenDropdown(null)} />
-      )}
 
       {/* ══ Row 1: stats + actions ══ */}
       <div className="s5-row1">
@@ -284,7 +261,11 @@ export default function Step5Export({
           <div className="s5-stat"><div className="s5-stat-val green">{theoryCount}</div><div className="s5-stat-label">Theory</div></div>
         </div>
         <div className="s5-actions-row">
-          <button className="s5-test-btn my" disabled>My Tests</button>
+          <button className="s5-test-btn my"
+            onClick={onOpenMyTests}
+            style={onOpenMyTests ? { cursor: 'pointer', opacity: 1 } : {}}>
+            📂 My Tests
+          </button>
           <button className="s5-test-btn new" onClick={onNewTest}>+ New Test</button>
           <button className="s5-back-btn" onClick={onBack}>← Back to Questions</button>
         </div>
@@ -411,20 +392,20 @@ export default function Step5Export({
           <div className="s5-mobile-dl-divider">📄 PDF</div>
           <DlBtn fmt="pdf" copyType="student" label="Questions only" icon="📄"
             className="s5-mobile-dl-btn pdf" downloading={downloading}
-            disabled={total === 0} onClick={download} />
+            disabled={total === 0} onClick={onDownload} />
           <DlBtn fmt="pdf" copyType="teacher" label="Mark scheme" icon="📄"
             className="s5-mobile-dl-btn pdf" downloading={downloading}
-            disabled={total === 0} onClick={download} />
+            disabled={total === 0} onClick={onDownload} />
 
           {!isPdfOnly && (
             <>
               <div className="s5-mobile-dl-divider">📝 Word</div>
               <DlBtn fmt="docx" copyType="student" label="Questions only" icon="📝"
                 className="s5-mobile-dl-btn docx" downloading={downloading}
-                disabled={total === 0} onClick={download} />
+                disabled={total === 0} onClick={onDownload} />
               <DlBtn fmt="docx" copyType="teacher" label="Mark scheme" icon="📝"
                 className="s5-mobile-dl-btn docx" downloading={downloading}
-                disabled={total === 0} onClick={download} />
+                disabled={total === 0} onClick={onDownload} />
             </>
           )}
 

@@ -1,11 +1,12 @@
 from django.urls import path
 from .views import (
-    SubjectListView, ExamBoardListView, TestBuilderAccessView,
+    SubjectListView, ExamBoardListView,
     TopicListView, AvailableYearsView, GenerateQuestionsView, QuestionDownloadView,
     ThemeListView, TopicsByThemeView, QuestionsByTopicView, QuestionDetailView, FeatureFlagsView
 )
+
 from .views_savedtest import (
-    SavedTestListView, SavedTestDetailView, SavedTestCloneView,
+    SavedTestListView, SavedTestDetailView, SavedTestCloneView, TestBuilderAccessView,
 )
 
 app_name = 'catalog'

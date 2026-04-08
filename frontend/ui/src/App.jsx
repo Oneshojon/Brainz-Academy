@@ -5,6 +5,7 @@ import QuestionGeneratorForm, {
 } from "./components/QuestionGeneratorForm";
 import QuestionList from "./components/QuestionList";
 import BuilderLayout from "./components/builder/BuilderLayout";
+import MyTestsModal from "./components/builder/MyTestsModal";
 
 const appStyles = `
   @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
@@ -44,10 +45,10 @@ const appStyles = `
 
   .app-main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
 
-  .mode-selector { max-width: 680px; margin: 3rem auto; text-align: center; }
+  .mode-selector { max-width: 900px; margin: 3rem auto; text-align: center; }
   .mode-selector h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1.6rem; margin-bottom: 0.5rem; letter-spacing: -0.5px; color: #0B2D72; }
   .mode-selector p { font-size: 0.9rem; color: #6B7FA3; margin-bottom: 2rem; line-height: 1.6; }
-  .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .mode-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
   .mode-card {
     background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 16px;
     padding: 1.75rem 1.5rem; cursor: pointer; transition: all 0.2s; text-align: left;
@@ -55,6 +56,8 @@ const appStyles = `
   }
   .mode-card:hover { border-color: #0B2D72; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(11,45,114,0.12); }
   .mode-card.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+  .mode-card.my-tests { border-color: rgba(9,146,194,0.3); background: rgba(9,146,194,0.03); }
+  .mode-card.my-tests:hover { border-color: #0992C2; }
   .mode-card-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
   .mode-card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; color: #0B2D72; }
   .mode-card-desc { font-size: 0.8rem; color: #6B7FA3; line-height: 1.6; }
@@ -64,6 +67,7 @@ const appStyles = `
     border-radius: 100px; background: rgba(9,146,194,0.1); color: #0992C2;
     border: 1px solid rgba(9,146,194,0.2);
   }
+  .mode-card-badge.saved { background: rgba(21,128,61,0.1); color: #15803D; border-color: rgba(21,128,61,0.2); }
 
   .teacher-layout { display: grid; grid-template-columns: 380px 1fr; gap: 1.5rem; align-items: start; }
   .form-sidebar { position: sticky; top: 80px; }
@@ -93,15 +97,18 @@ const appStyles = `
 `;
 
 export default function App() {
-  const [access, setAccess] = useState(null);
-  const [userRole, setUserRole] = useState(window.USER_ROLE || "STUDENT");
-  const [mode, setMode] = useState(null); // null | 'random' | 'manual'
+  const [access, setAccess]       = useState(null);
+  const [userRole, setUserRole]   = useState(window.USER_ROLE || "STUDENT");
+  const [mode, setMode]           = useState(null); // null | 'random' | 'manual'
   const [questions, setQuestions] = useState([]);
-  const [count, setCount] = useState(null);
+  const [count, setCount]         = useState(null);
   const [filterMeta, setFilterMeta] = useState(null);
+  const [flags, setFlags]         = useState({ random: true, manual: true });
 
-  // Feature flags for disabling modes
-  const [flags, setFlags] = useState({ random: true, manual: true });
+  // My Tests modal state
+  const [showMyTests, setShowMyTests]           = useState(false);
+  // When a manual test is opened from My Tests, pre-populate the builder
+  const [resumeTest, setResumeTest]             = useState(null); // { savedTestId, title, questions }
 
   useEffect(() => {
     if (window.USER_ROLE) setUserRole(window.USER_ROLE);
@@ -109,28 +116,22 @@ export default function App() {
       .then(setAccess)
       .catch(() =>
         setAccess({
-          allowed: false,
-          is_free: true,
-          trials_remaining: 0,
-          max_questions: 15,
-          pdf_only: true,
-          reason: "",
-        }),
+          allowed: false, is_free: true, trials_remaining: 0,
+          max_questions: 15, pdf_only: true, reason: '',
+        })
       );
-    // Fetch feature flags to check if modes are enabled
-    api
-      .get("/api/catalog/feature-flags/")
-      .then((r) => {
+    api.get('/api/catalog/feature-flags/')
+      .then(r => {
         const f = r.data;
         setFlags({
           random: f.test_builder_random !== false,
           manual: f.test_builder_manual !== false,
         });
       })
-      .catch(() => {}); // silently fail — defaults to both enabled
+      .catch(() => {});
   }, []);
 
-  const isTeacher = userRole === "TEACHER";
+  const isTeacher = userRole === 'TEACHER';
 
   const handleResults = (data) => {
     setQuestions(data.questions);
@@ -144,58 +145,58 @@ export default function App() {
     setFilterMeta(null);
   };
 
+  // Called from MyTestsModal when teacher clicks "Open" on a manual test
+  const handleOpenTest = (testData) => {
+    setResumeTest(testData);
+    setShowMyTests(false);
+    setMode('manual');
+  };
+
+  const handleChangeMode = () => {
+    setMode(null);
+    setResumeTest(null);
+    handleClear();
+  };
+
   return (
     <>
       <style>{appStyles}</style>
       <div className="app-shell">
+
         {/* ── Topbar ── */}
         <header className="app-topbar">
-                    <a href="/" className="app-logo">
-                      <img 
-                        src="/static/Users/images/brainz_logo.png" 
-                        alt="Brainz Academy" 
-                        style={{ height: '36px', width: 'auto' }} 
-                      />
-                    </a>
+          <a href="/" className="app-logo">
+            <img
+              src="/static/Users/images/brainz_logo.png"
+              alt="Brainz Academy"
+              style={{ height: '36px', width: 'auto' }}
+            />
+          </a>
           <div className="topbar-right">
-            
-            {isTeacher && mode === "random" && (
-              <button
-                className="btn-back"
-                onClick={() => {
-                  setMode(null);
-                  handleClear();
-                }}
-              >
+            {isTeacher && mode === 'random' && (
+              <button className="btn-back" onClick={handleChangeMode}>
                 ← Change Mode
               </button>
             )}
             {isTeacher && (
-              <a
-                href="/teacher/"
+              <a href="/teacher/"
                 style={{
-                  display: "flex", alignItems: "center", gap: "0.4rem",
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "rgba(255,255,255,0.9)",
-                  borderRadius: "100px",
-                  padding: "0.38rem 0.9rem",
-                  textDecoration: "none",
-                  fontFamily: "Plus Jakarta Sans, sans-serif",
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  transition: "all 0.15s",
-                }}
-              >
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.9)',
+                  borderRadius: '100px', padding: '0.38rem 0.9rem',
+                  textDecoration: 'none',
+                  fontFamily: 'Plus Jakarta Sans, sans-serif',
+                  fontSize: '0.82rem', fontWeight: 600, transition: 'all 0.15s',
+                }}>
                 ← Dashboard
               </a>
             )}
             <div className="user-chip">
               <span>👤</span>
-              <span
-                className={`role-badge ${isTeacher ? "teacher" : "student"}`}
-              >
-                {isTeacher ? "Teacher" : "Student"}
+              <span className={`role-badge ${isTeacher ? 'teacher' : 'student'}`}>
+                {isTeacher ? 'Teacher' : 'Student'}
               </span>
             </div>
           </div>
@@ -204,38 +205,31 @@ export default function App() {
         {/* ── Main content ── */}
         <main className="app-main">
           {!isTeacher ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "4rem 2rem",
-                color: "var(--muted)",
-              }}
-            >
+            <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#6B7FA3' }}>
               Test builder is for teachers only.
             </div>
+
           ) : mode === null ? (
-            /* Mode selector */
+            /* ── Mode selector ── */
             <div className="mode-selector">
               <h2>🛠️ Test Builder</h2>
               <p>Choose how you want to build your question set.</p>
               <div className="mode-cards">
                 <div
-                  className={`mode-card ${!flags.random ? "disabled" : ""}`}
-                  onClick={() => flags.random && setMode("random")}
-                >
+                  className={`mode-card ${!flags.random ? 'disabled' : ''}`}
+                  onClick={() => flags.random && setMode('random')}>
                   <span className="mode-card-icon">🎲</span>
                   <div className="mode-card-title">Random / Filter</div>
                   <div className="mode-card-desc">
                     Set filters — subject, year, topic, difficulty — and let the
-                    system pick questions automatically. Fast and great for
-                    mixed practice sets.
+                    system pick questions automatically. Fast and great for mixed practice sets.
                   </div>
                   <span className="mode-card-badge">Quick Generate</span>
                 </div>
+
                 <div
-                  className={`mode-card ${!flags.manual ? "disabled" : ""}`}
-                  onClick={() => flags.manual && setMode("manual")}
-                >
+                  className={`mode-card ${!flags.manual ? 'disabled' : ''}`}
+                  onClick={() => flags.manual && setMode('manual')}>
                   <span className="mode-card-icon">✋</span>
                   <div className="mode-card-title">Manual Selection</div>
                   <div className="mode-card-desc">
@@ -244,10 +238,23 @@ export default function App() {
                   </div>
                   <span className="mode-card-badge">Full Control</span>
                 </div>
+
+                <div
+                  className="mode-card my-tests"
+                  onClick={() => setShowMyTests(true)}>
+                  <span className="mode-card-icon">📂</span>
+                  <div className="mode-card-title">My Tests</div>
+                  <div className="mode-card-desc">
+                    View, re-download, or continue editing your previously built tests.
+                    Manual tests can be reopened in the builder.
+                  </div>
+                  <span className="mode-card-badge saved">Saved Tests</span>
+                </div>
               </div>
             </div>
-          ) : mode === "random" ? (
-            /* Existing random generator */
+
+          ) : mode === 'random' ? (
+            /* ── Random generator ── */
             <div className="teacher-layout">
               <aside className="form-sidebar">
                 <QuestionGeneratorForm
@@ -269,9 +276,22 @@ export default function App() {
                   <>
                     <div className="results-header">
                       <div className="panel-title">Generated Questions</div>
-                      <span className="results-count">
-                        ✓ {count} question{count !== 1 ? "s" : ""} found
-                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span className="results-count">
+                          ✓ {count} question{count !== 1 ? 's' : ''} found
+                        </span>
+                        <button
+                          onClick={() => setShowMyTests(true)}
+                          style={{
+                            background: '#ffffff', border: '1.5px solid #C2D4EC',
+                            color: '#6B7FA3', borderRadius: '100px',
+                            padding: '0.25rem 0.7rem', fontSize: '0.75rem',
+                            fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700,
+                            cursor: 'pointer',
+                          }}>
+                          📂 My Tests
+                        </button>
+                      </div>
                     </div>
                     <QuestionList
                       questions={questions}
@@ -282,12 +302,26 @@ export default function App() {
                 )}
               </div>
             </div>
+
           ) : (
-            /* New manual builder */
-            <BuilderLayout access={access} onChangeMode={() => { setMode(null); handleClear(); }} />
+            /* ── Manual builder ── */
+            <BuilderLayout
+              access={access}
+              resumeTest={resumeTest}
+              onChangeMode={handleChangeMode}
+              onOpenMyTests={() => setShowMyTests(true)}
+            />
           )}
         </main>
       </div>
+
+      {/* ── My Tests modal (available from all modes) ── */}
+      {showMyTests && (
+        <MyTestsModal
+          onClose={() => setShowMyTests(false)}
+          onOpenTest={handleOpenTest}
+        />
+      )}
     </>
   );
 }
