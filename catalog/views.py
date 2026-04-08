@@ -548,11 +548,15 @@ class QuestionDownloadView(APIView):
             )
 
         # ── Access / trial check ──────────────────────────────────────────────
-        is_pro = UserSubscription.objects.filter(
-            user=request.user,
-            plan__plan_type='TEACHER_PRO',
-            status='ACTIVE',
-        ).exists()
+        is_pro = (
+            getattr(request.user, 'is_admin', False) or
+            getattr(request.user, 'is_staff', False) or
+            UserSubscription.objects.filter(
+                user=request.user,
+                plan__plan_type='TEACHER_PRO',
+                status='ACTIVE',
+            ).exists()
+        )
 
         tracker = None  # only fetched for free-tier teachers
 

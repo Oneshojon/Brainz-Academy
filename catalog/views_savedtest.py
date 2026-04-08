@@ -15,7 +15,9 @@ from .serializers_savedtest import SavedTestListSerializer, SavedTestDetailSeria
 # ── Shared helpers ────────────────────────────────────────────────────────────
  
 def _is_teacher_pro(user):
-    """True if the teacher has an active Teacher Pro subscription."""
+    """True if the user has full access — admin or active Teacher Pro subscription."""
+    if getattr(user, 'is_admin', False) or getattr(user, 'is_staff', False):
+        return True
     return UserSubscription.objects.filter(
         user=user,
         plan__plan_type='TEACHER_PRO',
