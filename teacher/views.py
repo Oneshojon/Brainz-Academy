@@ -1556,6 +1556,11 @@ def upload_past_paper(request):
         updated_fields.append('video URL')
 
     paper.save(update_fields=save_fields)
+    from django.core.cache import cache
+    cache.delete_many([
+        f'pp:papers_board_{exam_board.id}',
+        'pp:boards_with_counts',
+    ])
 
     # ── PRG pattern — redirect on success to prevent duplicate POSTs ──────────
     action  = 'Created' if created else 'Updated'

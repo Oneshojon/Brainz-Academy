@@ -1,179 +1,371 @@
-/* ── Layout ── */
-.pp-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
-@media (max-width: 860px) { .pp-layout { grid-template-columns: 1fr; } }
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/past_papers.css' %}">
 
-/* ── Sidebar ── */
-.pp-sidebar {
-  background: #ffffff;
-  border: 1.5px solid var(--border, #C2D4EC);
-  border-radius: 16px;
-  padding: 1.25rem;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-  box-shadow: 0 2px 12px rgba(11,45,114,0.07);
-}
-.pp-sidebar::-webkit-scrollbar { width: 3px; }
-.pp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+<div class="page-body">
 
-.pp-sidebar-section { }
-.pp-sidebar-label {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 0.68rem;
-  text-transform: uppercase; letter-spacing: 0.09em;
-  color: var(--navy, #0B2D72); margin-bottom: 0.65rem;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.pp-paper-count {
-  background: var(--navy); color: #fff;
-  font-size: 0.62rem; padding: 0.1rem 0.45rem;
-  border-radius: 100px;
+  <div class="page-header-row">
+    <div class="pp-breadcrumb">
+      <a href="{% url 'past_papers_boards' %}" class="pp-breadcrumb-link">← All Boards</a>
+      <span class="pp-breadcrumb-sep">/</span>
+      <span class="pp-breadcrumb-current">{{ selected_board.abbreviation }}</span>
+    </div>
+    <div>
+      <div class="page-eyebrow">Past Questions · {{ selected_board.abbreviation }}</div>
+      <h1 class="page-title">Past Exam Papers</h1>
+      <p class="page-sub">Browse and download full past papers by subject and year.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       DESKTOP LAYOUT (hidden on mobile)
+  ════════════════════════════════════════════ -->
+  <div class="pp-layout pp-desktop-layout">
+
+    <!-- Left: Subject dropdown + Papers list -->
+    <aside class="pp-sidebar">
+
+      <!-- Subject selector (dropdown) -->
+      <div class="pp-sidebar-section">
+        <div class="pp-sidebar-label">Subject</div>
+        <div class="pp-select-wrap">
+          <select class="pp-subject-select" id="subjectSelect" onchange="changeSubject(this.value)">
+            <option value="">— Select a subject —</option>
+            {% for subj in all_subjects %}
+            <option value="{{ subj.id }}" {% if selected_subject.id == subj.id %}selected{% endif %}>
+              {{ subj.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <span class="pp-select-chevron">▾</span>
+        </div>
+      </div>
+
+      <!-- Papers list (shown after subject selected) -->
+      {% if selected_subject and papers_flat %}
+      <div class="pp-sidebar-section pp-papers-section" style="margin-top:1.25rem;">
+        <div class="pp-sidebar-label">
+          Available Papers
+          <span class="pp-paper-count">{{ papers_flat|length }}</span>
+        </div>
+
+        <div class="pp-papers-list" id="papersList">
+          {% for paper in papers_flat %}
+          <button
+            class="pp-paper-row {% if selected_paper.id == paper.id %}active{% endif %} {% if forloop.counter > 12 %}pp-paper-extra{% endif %}"
+            onclick="selectPaper({{ paper.id }}, this)"
+            data-paperid="{{ paper.id }}"
+            {% if forloop.counter > 12 %}style="display:none"{% endif %}>
+            <span class="pp-row-sitting">{{ paper.exam_series.get_sitting_display }} {{ paper.exam_series.year }}</span>
+            <span class="pp-row-sep">·</span>
+            <span class="pp-row-board">{{ paper.exam_series.exam_board.abbreviation }}</span>
+            <span class="pp-row-sep">·</span>
+            <span class="pp-row-type pp-type-{{ paper.paper_type|lower }}">{{ paper.get_paper_type_display }}</span>
+            <div class="pp-row-dots">
+              {% if paper.question_pdf %}<span class="pp-dot green" title="Questions">Q</span>{% endif %}
+              {% if paper.answer_pdf %}<span class="pp-dot blue" title="Solutions">S</span>{% endif %}
+              {% if paper.video_url %}<span class="pp-dot gold" title="Video">▶</span>{% endif %}
+            </div>
+          </button>
+          {% endfor %}
+        </div>
+
+        {% if papers_flat|length > 12 %}
+        <button class="pp-show-more" id="showMoreBtn" onclick="toggleShowMore()">
+          Show all {{ papers_flat|length }} papers ▾
+        </button>
+        {% endif %}
+      </div>
+
+      {% elif selected_subject %}
+      <div class="pp-sidebar-section" style="margin-top:1.25rem;">
+        <div style="font-size:0.82rem; color:var(--muted); line-height:1.7;">
+          No papers uploaded for {{ selected_subject.name }} yet.
+        </div>
+      </div>
+      {% endif %}
+
+    </aside>
+
+    <!-- Right: Detail panel -->
+    <main class="pp-main">
+      {% include 'practice/includes/pp_detail_panel.html' %}
+    </main>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════
+       MOBILE LAYOUT (hidden on desktop)
+  ════════════════════════════════════════════ -->
+  <div class="pp-mobile-layout">
+
+    {% if not all_subjects %}
+    <div class="pp-state">
+      <span class="pp-state-icon">📭</span>
+      <div class="pp-state-title">No Papers Yet</div>
+      <div class="pp-state-body">No past papers have been uploaded for {{ selected_board.name }} yet.</div>
+    </div>
+
+    {% else %}
+    <div class="ppm-subjects" id="mobileSubjects">
+      {% for subj in all_subjects %}
+      {% if subj.papers %}
+      <div class="ppm-subject-block" id="msubj-{{ subj.id }}">
+
+        <!-- Subject header (tap to expand/collapse) -->
+        <button class="ppm-subject-btn" onclick="toggleMobileSubject({{ subj.id }}, this)">
+          <span class="ppm-subject-name">{{ subj.name }}</span>
+          <span class="ppm-subject-meta">{{ subj.papers|length }} paper{% if subj.papers|length != 1 %}s{% endif %}</span>
+          <span class="ppm-chevron">▾</span>
+        </button>
+
+        <!-- Papers list (collapsible) -->
+        <div class="ppm-papers-wrap" id="mpw-{{ subj.id }}">
+          <div class="ppm-papers-inner">
+            {% for paper in subj.papers %}
+            <button
+              class="ppm-paper-row"
+              id="mpaper-{{ paper.id }}"
+              onclick="toggleMobilePaper({{ paper.id }}, {{ subj.id }}, this)">
+              <div class="ppm-paper-info">
+                <span class="ppm-paper-label">{{ paper.exam_series.get_sitting_display }} {{ paper.exam_series.year }}</span>
+                <span class="pp-row-type pp-type-{{ paper.paper_type|lower }}">{{ paper.get_paper_type_display }}</span>
+              </div>
+              <div class="ppm-paper-dots">
+                {% if paper.question_pdf %}<span class="pp-dot green" title="Questions">Q</span>{% endif %}
+                {% if paper.answer_pdf %}<span class="pp-dot blue" title="Solutions">S</span>{% endif %}
+                {% if paper.video_url %}<span class="pp-dot gold" title="Video">▶</span>{% endif %}
+              </div>
+              <span class="ppm-paper-chevron">▾</span>
+            </button>
+
+            <!-- Inline paper detail (collapsible) -->
+            <div class="ppm-paper-detail-wrap" id="mdetail-{{ paper.id }}">
+              <div class="ppm-paper-detail-inner">
+
+                <!-- Tab switcher -->
+                <div class="ppm-tabs">
+                  {% if paper.question_pdf %}
+                  <button class="ppm-tab active" id="mtab-q-{{ paper.id }}" onclick="switchMobileTab('q', {{ paper.id }})">📄 Questions</button>
+                  {% endif %}
+                  {% if paper.answer_pdf %}
+                  <button class="ppm-tab {% if not paper.question_pdf %}active{% endif %}" id="mtab-s-{{ paper.id }}" onclick="switchMobileTab('s', {{ paper.id }})">✅ Solutions</button>
+                  {% endif %}
+                  {% if paper.video_url %}
+                  <button class="ppm-tab {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mtab-v-{{ paper.id }}" onclick="switchMobileTab('v', {{ paper.id }})">🎬 Video</button>
+                  {% endif %}
+                </div>
+
+                <!-- Questions panel -->
+                {% if paper.question_pdf %}
+                <div class="ppm-panel active" id="mpanel-q-{{ paper.id }}">
+                  <div class="ppm-pdf-actions">
+                    <a href="{{ paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
+                    <a href="{{ paper.question_pdf.url }}" download class="pp-btn-primary" style="flex:1; text-align:center;">⬇ Download</a>
+                  </div>
+                  <div class="ppm-pdf-scroll">
+                    <iframe src="{{ paper.question_pdf.url }}" class="ppm-pdf-embed" title="Questions"></iframe>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Solutions panel -->
+                {% if paper.answer_pdf %}
+                <div class="ppm-panel {% if not paper.question_pdf %}active{% endif %}" id="mpanel-s-{{ paper.id }}">
+                  <div class="ppm-pdf-actions">
+                    <a href="{{ paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
+                    <a href="{{ paper.answer_pdf.url }}" download class="pp-btn-primary" style="flex:1; text-align:center;">⬇ Download</a>
+                  </div>
+                  <div class="ppm-pdf-scroll">
+                    <iframe src="{{ paper.answer_pdf.url }}" class="ppm-pdf-embed" title="Solutions"></iframe>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Video panel -->
+                {% if paper.video_url %}
+                <div class="ppm-panel {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mpanel-v-{{ paper.id }}">
+                  <div class="ppm-video-wrap">
+                    <iframe src="{{ paper.video_embed_url }}"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen></iframe>
+                  </div>
+                  <div class="ppm-pdf-actions" style="margin-top:0.75rem;">
+                    <a href="{{ paper.video_url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Watch on YouTube</a>
+                  </div>
+                </div>
+                {% endif %}
+
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div><!-- /pp-mobile-layout -->
+
+</div><!-- /page-body -->
+
+<script>
+/* ─── DESKTOP ─── */
+
+function changeSubject(subjectId) {
+  const url = new URL(window.location.href);
+  if (subjectId) {
+    url.searchParams.set('subject', subjectId);
+  } else {
+    url.searchParams.delete('subject');
+  }
+  url.searchParams.delete('paper');
+  window.location.href = url.toString();
 }
 
-/* Subject list */
-.pp-subject-list { display: flex; flex-direction: column; gap: 0.2rem; }
-.pp-subject-item {
-  padding: 0.5rem 0.65rem; border-radius: 8px;
-  font-size: 0.85rem; font-weight: 500; color: var(--muted, #6B7FA3);
-  text-decoration: none; transition: all 0.12s;
-}
-.pp-subject-item:hover { background: var(--offwhite, #F3F6FA); color: var(--navy); }
-.pp-subject-item.active {
-  background: rgba(11,45,114,0.07); color: var(--navy);
-  font-weight: 700; border-left: 3px solid var(--navy);
+function selectPaper(paperId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('paper', paperId);
+  window.location.href = url.toString();
 }
 
-/* Papers list */
-.pp-papers-list { display: flex; flex-direction: column; gap: 0.3rem; }
-.pp-paper-row {
-  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
-  padding: 0.6rem 0.65rem; border-radius: 8px; cursor: pointer;
-  border: 1.5px solid transparent; background: var(--offwhite, #F3F6FA);
-  transition: all 0.12s; text-align: left; width: 100%;
-  font-size: 0.78rem;
-}
-.pp-paper-row:hover { border-color: var(--border); background: #ffffff; }
-.pp-paper-row.active {
-  border-color: var(--navy); background: rgba(11,45,114,0.06);
-  border-left: 3px solid var(--navy);
-}
-.pp-row-sitting { font-weight: 700; color: var(--navy); font-size: 0.78rem; }
-.pp-row-sep { color: var(--muted); }
-.pp-row-board { color: var(--blue, #0992C2); font-weight: 600; font-size: 0.75rem; }
-.pp-row-type { font-weight: 700; font-size: 0.72rem; }
-.pp-row-type.pp-type-obj       { color: var(--blue); }
-.pp-row-type.pp-type-theory    { color: var(--gold, #B8860B); }
-.pp-row-type.pp-type-practical { color: var(--green, #15803D); }
-
-.pp-row-dots { display: flex; gap: 0.2rem; margin-left: auto; }
-.pp-dot {
-  width: 18px; height: 18px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.55rem; font-weight: 700; flex-shrink: 0;
-}
-.pp-dot.green { background: #DCFCE7; color: var(--green, #15803D); }
-.pp-dot.blue  { background: rgba(9,146,194,0.1); color: var(--blue); }
-.pp-dot.gold  { background: #FEF3C7; color: var(--gold, #B8860B); }
-
-.pp-show-more {
-  width: 100%; margin-top: 0.5rem; padding: 0.5rem;
-  background: transparent; border: 1.5px solid var(--border);
-  border-radius: 8px; font-size: 0.78rem; font-weight: 600;
-  color: var(--blue); cursor: pointer; transition: all 0.15s;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.pp-show-more:hover { border-color: var(--blue); background: rgba(9,146,194,0.05); }
-
-/* ── Main panel ── */
-.pp-main { min-height: 500px; }
-
-/* Empty states */
-.pp-state {
-  background: #ffffff; border: 1.5px solid var(--border);
-  border-radius: 16px; padding: 3rem 2rem; text-align: center;
-  box-shadow: 0 1px 4px rgba(11,45,114,0.05);
-}
-.pp-state-icon { font-size: 2.5rem; display: block; margin-bottom: 1rem; opacity: 0.6; }
-.pp-state-title {
-  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
-  font-size: 1.1rem; color: var(--navy); margin-bottom: 0.5rem;
-}
-.pp-state-body { font-size: 0.875rem; color: var(--muted); line-height: 1.7; }
-
-/* Detail panel */
-.pp-detail {
-  background: #ffffff; border: 1.5px solid var(--border);
-  border-radius: 16px; overflow: hidden;
-  box-shadow: 0 2px 12px rgba(11,45,114,0.07);
-}
-.pp-detail-head {
-  padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border);
-  background: var(--offwhite, #F3F6FA);
-}
-.pp-detail-title {
-  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
-  font-size: 1rem; color: var(--navy);
-}
-.pp-detail-sub { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
-
-/* Tabs */
-.pp-tabs {
-  display: flex; gap: 0.3rem; padding: 0.85rem 1.5rem 0;
-  border-bottom: 2px solid var(--border);
-}
-.pp-tab {
-  padding: 0.5rem 1.1rem; border-radius: 8px 8px 0 0;
-  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.82rem;
-  cursor: pointer; border: 1.5px solid var(--border); border-bottom: none;
-  background: var(--offwhite, #F3F6FA); color: var(--muted);
-  transition: all 0.15s; margin-bottom: -2px;
-}
-.pp-tab:hover { color: var(--navy); background: #fff; }
-.pp-tab.active { background: #fff; color: var(--navy); border-bottom-color: #fff; }
-
-/* Panels */
-.pp-panel { display: none; padding: 1.25rem 1.5rem 1.5rem; }
-.pp-panel.active { display: block; }
-
-.pp-pdf-actions {
-  display: flex; gap: 0.65rem; flex-wrap: wrap; margin-bottom: 1rem;
-}
-.pp-btn-primary {
-  background: var(--navy); color: #ffffff; border: none; border-radius: 100px;
-  padding: 0.55rem 1.2rem; font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 0.82rem; text-decoration: none; transition: all 0.15s;
-  box-shadow: 0 4px 12px rgba(11,45,114,0.2);
-}
-.pp-btn-primary:hover { background: #0a2360; }
-.pp-btn-secondary {
-  background: #ffffff; color: var(--navy); border: 1.5px solid var(--border);
-  border-radius: 100px; padding: 0.55rem 1.2rem;
-  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
-  font-size: 0.82rem; text-decoration: none; transition: all 0.15s;
-}
-.pp-btn-secondary:hover { border-color: var(--navy); }
-
-.pp-pdf-embed {
-  width: 100%; height: 650px;
-  border: 1.5px solid var(--border); border-radius: 10px; display: block;
+function switchTab(tab) {
+  document.querySelectorAll('.pp-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.pp-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + tab);
+  const btn   = document.getElementById('tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn)   btn.classList.add('active');
 }
 
-/* Video */
-.pp-video-wrap {
-  position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;
-  border-radius: 12px; border: 1.5px solid var(--border);
-  box-shadow: 0 2px 12px rgba(11,45,114,0.08);
+function toggleShowMore() {
+  const extras  = document.querySelectorAll('.pp-paper-extra');
+  const btn     = document.getElementById('showMoreBtn');
+  const hidden  = extras[0]?.style.display === 'none';
+  extras.forEach(el => el.style.display = hidden ? 'flex' : 'none');
+  btn.textContent = hidden
+    ? 'Show less ▴'
+    : `Show all {{ papers_flat|length }} papers ▾`;
 }
-.pp-video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-/* Mobile */
-@media (max-width: 860px) {
-  .pp-sidebar { position: static; max-height: none; }
-  .pp-pdf-embed { height: 400px; }
+/* ─── MOBILE ─── */
+
+// Track open state
+const openSubject = { id: null };
+const openPaper   = { id: null };
+
+function toggleMobileSubject(subjId, btn) {
+  const wrap = document.getElementById('mpw-' + subjId);
+  const chevron = btn.querySelector('.ppm-chevron');
+
+  if (openSubject.id === subjId) {
+    // Collapse this subject (and any open paper inside)
+    if (openPaper.id) collapsePaper(openPaper.id);
+    collapseEl(wrap);
+    chevron.style.transform = '';
+    openSubject.id = null;
+  } else {
+    // Collapse previously open subject
+    if (openSubject.id && openSubject.id !== subjId) {
+      if (openPaper.id) collapsePaper(openPaper.id);
+      const prevWrap = document.getElementById('mpw-' + openSubject.id);
+      const prevBtn  = prevWrap?.previousElementSibling;
+      if (prevWrap) collapseEl(prevWrap);
+      if (prevBtn)  prevBtn.querySelector('.ppm-chevron').style.transform = '';
+    }
+    expandEl(wrap);
+    chevron.style.transform = 'rotate(180deg)';
+    openSubject.id = subjId;
+  }
 }
+
+function toggleMobilePaper(paperId, subjId, btn) {
+  const detail  = document.getElementById('mdetail-' + paperId);
+  const chevron = btn.querySelector('.ppm-paper-chevron');
+
+  if (openPaper.id === paperId) {
+    // Collapse this paper
+    collapsePaper(paperId);
+  } else {
+    // Collapse any previously open paper
+    if (openPaper.id) collapsePaper(openPaper.id);
+    expandEl(detail);
+    chevron.style.transform = 'rotate(180deg)';
+    btn.classList.add('active');
+    openPaper.id = paperId;
+    // Scroll into view after animation
+    setTimeout(() => detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 320);
+  }
+}
+
+function collapsePaper(paperId) {
+  const detail  = document.getElementById('mdetail-' + paperId);
+  const btn     = document.getElementById('mpaper-' + paperId);
+  const chevron = btn?.querySelector('.ppm-paper-chevron');
+  collapseEl(detail);
+  if (chevron) chevron.style.transform = '';
+  if (btn) btn.classList.remove('active');
+  openPaper.id = null;
+}
+
+function expandEl(el) {
+  el.style.display = 'block';
+  el.style.maxHeight = '0';
+  el.style.opacity   = '0';
+  el.style.overflow  = 'hidden';
+  el.style.transition = 'max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease';
+  requestAnimationFrame(() => {
+    el.style.maxHeight = el.scrollHeight + 'px';
+    el.style.opacity   = '1';
+  });
+  el.addEventListener('transitionend', function onEnd() {
+    el.style.maxHeight = 'none'; // allow dynamic content
+    el.removeEventListener('transitionend', onEnd);
+  }, { once: true });
+}
+
+function collapseEl(el) {
+  el.style.maxHeight = el.scrollHeight + 'px';
+  el.style.overflow  = 'hidden';
+  el.style.transition = 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease';
+  requestAnimationFrame(() => {
+    el.style.maxHeight = '0';
+    el.style.opacity   = '0';
+  });
+  el.addEventListener('transitionend', function onEnd() {
+    el.style.display = 'none';
+    el.removeEventListener('transitionend', onEnd);
+  }, { once: true });
+}
+
+function switchMobileTab(tab, paperId) {
+  ['q','s','v'].forEach(t => {
+    const panel = document.getElementById('mpanel-' + t + '-' + paperId);
+    const tabBtn = document.getElementById('mtab-' + t + '-' + paperId);
+    if (panel) panel.classList.remove('active');
+    if (tabBtn) tabBtn.classList.remove('active');
+  });
+  const activePanel = document.getElementById('mpanel-' + tab + '-' + paperId);
+  const activeTab   = document.getElementById('mtab-' + tab + '-' + paperId);
+  if (activePanel) activePanel.classList.add('active');
+  if (activeTab)   activeTab.classList.add('active');
+}
+
+// Initialise mobile: hide all collapsibles on load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.ppm-papers-wrap, .ppm-paper-detail-wrap').forEach(el => {
+    el.style.display = 'none';
+    el.style.maxHeight = '0';
+    el.style.opacity = '0';
+    el.style.overflow = 'hidden';
+  });
+});
+</script>
+{% endblock %}

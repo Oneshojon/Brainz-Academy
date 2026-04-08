@@ -8,34 +8,45 @@
 <div class="page-body">
 
   <div class="page-header-row">
+    <div class="pp-breadcrumb">
+      <a href="{% url 'past_papers_boards' %}" class="pp-breadcrumb-link">← All Boards</a>
+      <span class="pp-breadcrumb-sep">/</span>
+      <span class="pp-breadcrumb-current">{{ selected_board.abbreviation }}</span>
+    </div>
     <div>
-      <div class="page-eyebrow">Past Questions</div>
+      <div class="page-eyebrow">Past Questions · {{ selected_board.abbreviation }}</div>
       <h1 class="page-title">Past Exam Papers</h1>
-      <p class="page-sub">Browse and download full past papers by subject, board and year.</p>
+      <p class="page-sub">Browse and download full past papers by subject and year.</p>
     </div>
   </div>
 
-  <div class="pp-layout">
+  <!-- ═══════════════════════════════════════════
+       DESKTOP LAYOUT (hidden on mobile)
+  ════════════════════════════════════════════ -->
+  <div class="pp-layout pp-desktop-layout">
 
-    <!-- ── Left: Subject + Papers list ── -->
+    <!-- Left: Subject dropdown + Papers list -->
     <aside class="pp-sidebar">
 
-      <!-- Subject selector -->
+      <!-- Subject selector (dropdown) -->
       <div class="pp-sidebar-section">
         <div class="pp-sidebar-label">Subject</div>
-        <div class="pp-subject-list">
-          {% for subj in all_subjects %}
-          <a href="?subject={{ subj.id }}"
-             class="pp-subject-item {% if selected_subject.id == subj.id %}active{% endif %}">
-            {{ subj.name }}
-          </a>
-          {% endfor %}
+        <div class="pp-select-wrap">
+          <select class="pp-subject-select" id="subjectSelect" onchange="changeSubject(this.value)">
+            <option value="">— Select a subject —</option>
+            {% for entry in all_subjects %}
+            <option value="{{ entry.subject.id }}" {% if selected_subject.id == entry.subject.id %}selected{% endif %}>
+              {{ entry.subject.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <span class="pp-select-chevron">▾</span>
         </div>
       </div>
 
       <!-- Papers list (shown after subject selected) -->
       {% if selected_subject and papers_flat %}
-      <div class="pp-sidebar-section" style="margin-top:1.25rem;">
+      <div class="pp-sidebar-section pp-papers-section" style="margin-top:1.25rem;">
         <div class="pp-sidebar-label">
           Available Papers
           <span class="pp-paper-count">{{ papers_flat|length }}</span>
@@ -44,10 +55,10 @@
         <div class="pp-papers-list" id="papersList">
           {% for paper in papers_flat %}
           <button
-            class="pp-paper-row {% if selected_paper.id == paper.id %}active{% endif %} {% if forloop.counter > 10 %}pp-paper-extra{% endif %}"
+            class="pp-paper-row {% if selected_paper.id == paper.id %}active{% endif %} {% if forloop.counter > 12 %}pp-paper-extra{% endif %}"
             onclick="selectPaper({{ paper.id }}, this)"
             data-paperid="{{ paper.id }}"
-            {% if forloop.counter > 10 %}style="display:none"{% endif %}>
+            {% if forloop.counter > 12 %}style="display:none"{% endif %}>
             <span class="pp-row-sitting">{{ paper.exam_series.get_sitting_display }} {{ paper.exam_series.year }}</span>
             <span class="pp-row-sep">·</span>
             <span class="pp-row-board">{{ paper.exam_series.exam_board.abbreviation }}</span>
@@ -62,7 +73,7 @@
           {% endfor %}
         </div>
 
-        {% if papers_flat|length > 10 %}
+        {% if papers_flat|length > 12 %}
         <button class="pp-show-more" id="showMoreBtn" onclick="toggleShowMore()">
           Show all {{ papers_flat|length }} papers ▾
         </button>
@@ -79,129 +90,152 @@
 
     </aside>
 
-    <!-- ── Right: Detail panel ── -->
+    <!-- Right: Detail panel -->
     <main class="pp-main">
-
-      {% if not selected_subject %}
-      <div class="pp-state">
-        <span class="pp-state-icon">📚</span>
-        <div class="pp-state-title">Select a Subject</div>
-        <div class="pp-state-body">Choose a subject from the left to browse available past papers.</div>
-      </div>
-
-      {% elif not papers_flat %}
-      <div class="pp-state">
-        <span class="pp-state-icon">📭</span>
-        <div class="pp-state-title">No Papers Yet</div>
-        <div class="pp-state-body">No past papers have been uploaded for {{ selected_subject.name }} yet. Check back soon.</div>
-      </div>
-
-      {% elif not selected_paper %}
-      <div class="pp-state">
-        <span class="pp-state-icon">👈</span>
-        <div class="pp-state-title">Select a Paper</div>
-        <div class="pp-state-body">Click any paper from the list on the left to view it here.</div>
-      </div>
-
-      {% else %}
-
-      <!-- ── Paper detail ── -->
-      <div class="pp-detail">
-
-        <!-- Header -->
-        <div class="pp-detail-head">
-          <div>
-            <div class="pp-detail-title">
-              {{ selected_paper.exam_series.exam_board.abbreviation }}
-              {{ selected_subject.name }}
-              · {{ selected_paper.exam_series.get_sitting_display }}
-              {{ selected_paper.exam_series.year }}
-            </div>
-            <div class="pp-detail-sub">{{ selected_paper.get_paper_type_display }}</div>
-          </div>
-        </div>
-
-        <!-- Tabs — always show all 3 -->
-        <div class="pp-tabs">
-          <button class="pp-tab active" id="tab-q" onclick="switchTab('q')">
-            📄 Questions
-          </button>
-          <button class="pp-tab" id="tab-s" onclick="switchTab('s')">
-            ✅ Solutions
-          </button>
-          <button class="pp-tab" id="tab-v" onclick="switchTab('v')">
-            🎬 Video
-          </button>
-        </div>
-
-        <!-- Questions panel -->
-        <div class="pp-panel active" id="panel-q">
-          {% if selected_paper.question_pdf %}
-          <div class="pp-pdf-actions">
-            <a href="{{ selected_paper.question_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
-            <a href="{{ selected_paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
-          </div>
-          <iframe src="{{ selected_paper.question_pdf.url }}"
-                  class="pp-pdf-embed" title="Questions"></iframe>
-          {% else %}
-          <div class="pp-state">
-            <span class="pp-state-icon">📄</span>
-            <div class="pp-state-title">No Questions PDF</div>
-            <div class="pp-state-body">Questions have not been uploaded for this paper yet.</div>
-          </div>
-          {% endif %}
-        </div>
-
-        <!-- Solutions panel -->
-        <div class="pp-panel" id="panel-s">
-          {% if selected_paper.answer_pdf %}
-          <div class="pp-pdf-actions">
-            <a href="{{ selected_paper.answer_pdf.url }}" download class="pp-btn-primary">⬇ Download</a>
-            <a href="{{ selected_paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary">↗ Open in new tab</a>
-          </div>
-          <iframe src="{{ selected_paper.answer_pdf.url }}"
-                  class="pp-pdf-embed" title="Solutions"></iframe>
-          {% else %}
-          <div class="pp-state">
-            <span class="pp-state-icon">✅</span>
-            <div class="pp-state-title">No Solutions Yet</div>
-            <div class="pp-state-body">Solutions for this paper have not been uploaded yet.</div>
-          </div>
-          {% endif %}
-        </div>
-
-        <!-- Video panel -->
-        <div class="pp-panel" id="panel-v">
-          {% if selected_paper.video_url %}
-          <div class="pp-video-wrap">
-            <iframe src="{{ selected_paper.video_embed_url }}"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen></iframe>
-          </div>
-          <div class="pp-pdf-actions" style="margin-top:0.75rem;">
-            <a href="{{ selected_paper.video_url }}" target="_blank" class="pp-btn-secondary">
-              ↗ Watch on YouTube
-            </a>
-          </div>
-          {% else %}
-          <div class="pp-state">
-            <span class="pp-state-icon">🎬</span>
-            <div class="pp-state-title">No Video Yet</div>
-            <div class="pp-state-body">A video walkthrough for this paper hasn't been added yet.</div>
-          </div>
-          {% endif %}
-        </div>
-
-      </div>
-      {% endif %}
-
+      {% include 'practice/includes/pp_detail_panel.html' %}
     </main>
   </div>
-</div>
+
+
+  <!-- ═══════════════════════════════════════════
+       MOBILE LAYOUT (hidden on desktop)
+  ════════════════════════════════════════════ -->
+  <div class="pp-mobile-layout">
+
+    {% if not all_subjects %}
+    <div class="pp-state">
+      <span class="pp-state-icon">📭</span>
+      <div class="pp-state-title">No Papers Yet</div>
+      <div class="pp-state-body">No past papers have been uploaded for {{ selected_board.name }} yet.</div>
+    </div>
+
+    {% else %}
+    <div class="ppm-subjects" id="mobileSubjects">
+      {% for entry in all_subjects %}
+      {% with subj=entry.subject papers=entry.papers %}
+      <div class="ppm-subject-block" id="msubj-{{ subj.id }}">
+
+        <!-- Subject header (tap to expand/collapse) -->
+        <button class="ppm-subject-btn" onclick="toggleMobileSubject({{ subj.id }}, this)">
+          <span class="ppm-subject-name">{{ subj.name }}</span>
+          <span class="ppm-subject-meta">{{ papers|length }} paper{% if papers|length != 1 %}s{% endif %}</span>
+          <span class="ppm-chevron">▾</span>
+        </button>
+
+        <!-- Papers list (collapsible) -->
+        <div class="ppm-papers-wrap" id="mpw-{{ subj.id }}">
+          <div class="ppm-papers-inner">
+            {% for paper in papers %}
+            <button
+              class="ppm-paper-row"
+              id="mpaper-{{ paper.id }}"
+              onclick="toggleMobilePaper({{ paper.id }}, {{ subj.id }}, this)">
+              <div class="ppm-paper-info">
+                <span class="ppm-paper-label">{{ paper.exam_series.get_sitting_display }} {{ paper.exam_series.year }}</span>
+                <span class="pp-row-type pp-type-{{ paper.paper_type|lower }}">{{ paper.get_paper_type_display }}</span>
+              </div>
+              <div class="ppm-paper-dots">
+                {% if paper.question_pdf %}<span class="pp-dot green" title="Questions">Q</span>{% endif %}
+                {% if paper.answer_pdf %}<span class="pp-dot blue" title="Solutions">S</span>{% endif %}
+                {% if paper.video_url %}<span class="pp-dot gold" title="Video">▶</span>{% endif %}
+              </div>
+              <span class="ppm-paper-chevron">▾</span>
+            </button>
+
+            <!-- Inline paper detail (collapsible) -->
+            <div class="ppm-paper-detail-wrap" id="mdetail-{{ paper.id }}">
+              <div class="ppm-paper-detail-inner">
+
+                <!-- Tab switcher -->
+                <div class="ppm-tabs">
+                  {% if paper.question_pdf %}
+                  <button class="ppm-tab active" id="mtab-q-{{ paper.id }}" onclick="switchMobileTab('q', {{ paper.id }})">📄 Questions</button>
+                  {% endif %}
+                  {% if paper.answer_pdf %}
+                  <button class="ppm-tab {% if not paper.question_pdf %}active{% endif %}" id="mtab-s-{{ paper.id }}" onclick="switchMobileTab('s', {{ paper.id }})">✅ Solutions</button>
+                  {% endif %}
+                  {% if paper.video_url %}
+                  <button class="ppm-tab {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mtab-v-{{ paper.id }}" onclick="switchMobileTab('v', {{ paper.id }})">🎬 Video</button>
+                  {% endif %}
+                </div>
+
+                <!-- Questions panel -->
+                {% if paper.question_pdf %}
+                <div class="ppm-panel active" id="mpanel-q-{{ paper.id }}">
+                  <div class="ppm-pdf-actions">
+                    <a href="{{ paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
+                    <a href="{{ paper.question_pdf.url }}" download class="pp-btn-primary" style="flex:1; text-align:center;">⬇ Download</a>
+                  </div>
+                  <div class="ppm-pdf-scroll">
+                    <iframe src="{{ paper.question_pdf.url }}" class="ppm-pdf-embed" title="Questions"></iframe>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Solutions panel -->
+                {% if paper.answer_pdf %}
+                <div class="ppm-panel {% if not paper.question_pdf %}active{% endif %}" id="mpanel-s-{{ paper.id }}">
+                  <div class="ppm-pdf-actions">
+                    <a href="{{ paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
+                    <a href="{{ paper.answer_pdf.url }}" download class="pp-btn-primary" style="flex:1; text-align:center;">⬇ Download</a>
+                  </div>
+                  <div class="ppm-pdf-scroll">
+                    <iframe src="{{ paper.answer_pdf.url }}" class="ppm-pdf-embed" title="Solutions"></iframe>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Video panel -->
+                {% if paper.video_url %}
+                <div class="ppm-panel {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mpanel-v-{{ paper.id }}">
+                  <div class="ppm-video-wrap">
+                    <iframe src="{{ paper.video_embed_url }}"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen></iframe>
+                  </div>
+                  <div class="ppm-pdf-actions" style="margin-top:0.75rem;">
+                    <a href="{{ paper.video_url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Watch on YouTube</a>
+                  </div>
+                </div>
+                {% endif %}
+
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div><!-- /pp-mobile-layout -->
+
+</div><!-- /page-body -->
 
 <script>
-// Tab switching
+/* ─── DESKTOP ─── */
+
+function changeSubject(subjectId) {
+  const url = new URL(window.location.href);
+  if (subjectId) {
+    url.searchParams.set('subject', subjectId);
+  } else {
+    url.searchParams.delete('subject');
+  }
+  url.searchParams.delete('paper');
+  window.location.href = url.toString();
+}
+
+function selectPaper(paperId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('paper', paperId);
+  window.location.href = url.toString();
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.pp-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.pp-tab').forEach(t => t.classList.remove('active'));
@@ -211,22 +245,127 @@ function switchTab(tab) {
   if (btn)   btn.classList.add('active');
 }
 
-// Select paper — navigate to URL with paper param
-function selectPaper(paperId, btn) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('paper', paperId);
-  window.location.href = url.toString();
-}
-
-// Show more / less
 function toggleShowMore() {
-  const extras = document.querySelectorAll('.pp-paper-extra');
-  const btn    = document.getElementById('showMoreBtn');
-  const hidden = extras[0]?.style.display === 'none';
+  const extras  = document.querySelectorAll('.pp-paper-extra');
+  const btn     = document.getElementById('showMoreBtn');
+  const hidden  = extras[0]?.style.display === 'none';
   extras.forEach(el => el.style.display = hidden ? 'flex' : 'none');
   btn.textContent = hidden
     ? 'Show less ▴'
     : `Show all {{ papers_flat|length }} papers ▾`;
 }
+
+/* ─── MOBILE ─── */
+
+// Track open state
+const openSubject = { id: null };
+const openPaper   = { id: null };
+
+function toggleMobileSubject(subjId, btn) {
+  const wrap = document.getElementById('mpw-' + subjId);
+  const chevron = btn.querySelector('.ppm-chevron');
+
+  if (openSubject.id === subjId) {
+    // Collapse this subject (and any open paper inside)
+    if (openPaper.id) collapsePaper(openPaper.id);
+    collapseEl(wrap);
+    chevron.style.transform = '';
+    openSubject.id = null;
+  } else {
+    // Collapse previously open subject
+    if (openSubject.id && openSubject.id !== subjId) {
+      if (openPaper.id) collapsePaper(openPaper.id);
+      const prevWrap = document.getElementById('mpw-' + openSubject.id);
+      const prevBtn  = prevWrap?.previousElementSibling;
+      if (prevWrap) collapseEl(prevWrap);
+      if (prevBtn)  prevBtn.querySelector('.ppm-chevron').style.transform = '';
+    }
+    expandEl(wrap);
+    chevron.style.transform = 'rotate(180deg)';
+    openSubject.id = subjId;
+  }
+}
+
+function toggleMobilePaper(paperId, subjId, btn) {
+  const detail  = document.getElementById('mdetail-' + paperId);
+  const chevron = btn.querySelector('.ppm-paper-chevron');
+
+  if (openPaper.id === paperId) {
+    // Collapse this paper
+    collapsePaper(paperId);
+  } else {
+    // Collapse any previously open paper
+    if (openPaper.id) collapsePaper(openPaper.id);
+    expandEl(detail);
+    chevron.style.transform = 'rotate(180deg)';
+    btn.classList.add('active');
+    openPaper.id = paperId;
+    // Scroll into view after animation
+    setTimeout(() => detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 320);
+  }
+}
+
+function collapsePaper(paperId) {
+  const detail  = document.getElementById('mdetail-' + paperId);
+  const btn     = document.getElementById('mpaper-' + paperId);
+  const chevron = btn?.querySelector('.ppm-paper-chevron');
+  collapseEl(detail);
+  if (chevron) chevron.style.transform = '';
+  if (btn) btn.classList.remove('active');
+  openPaper.id = null;
+}
+
+function expandEl(el) {
+  el.style.display = 'block';
+  el.style.maxHeight = '0';
+  el.style.opacity   = '0';
+  el.style.overflow  = 'hidden';
+  el.style.transition = 'max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease';
+  requestAnimationFrame(() => {
+    el.style.maxHeight = el.scrollHeight + 'px';
+    el.style.opacity   = '1';
+  });
+  el.addEventListener('transitionend', function onEnd() {
+    el.style.maxHeight = 'none'; // allow dynamic content
+    el.removeEventListener('transitionend', onEnd);
+  }, { once: true });
+}
+
+function collapseEl(el) {
+  el.style.maxHeight = el.scrollHeight + 'px';
+  el.style.overflow  = 'hidden';
+  el.style.transition = 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease';
+  requestAnimationFrame(() => {
+    el.style.maxHeight = '0';
+    el.style.opacity   = '0';
+  });
+  el.addEventListener('transitionend', function onEnd() {
+    el.style.display = 'none';
+    el.removeEventListener('transitionend', onEnd);
+  }, { once: true });
+}
+
+function switchMobileTab(tab, paperId) {
+  ['q','s','v'].forEach(t => {
+    const panel = document.getElementById('mpanel-' + t + '-' + paperId);
+    const tabBtn = document.getElementById('mtab-' + t + '-' + paperId);
+    if (panel) panel.classList.remove('active');
+    if (tabBtn) tabBtn.classList.remove('active');
+  });
+  const activePanel = document.getElementById('mpanel-' + tab + '-' + paperId);
+  const activeTab   = document.getElementById('mtab-' + tab + '-' + paperId);
+  if (activePanel) activePanel.classList.add('active');
+  if (activeTab)   activeTab.classList.add('active');
+}
+
+// Initialise mobile: hide all collapsibles on load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.ppm-papers-wrap, .ppm-paper-detail-wrap').forEach(el => {
+    el.style.display = 'none';
+    el.style.maxHeight = '0';
+    el.style.opacity = '0';
+    el.style.overflow = 'hidden';
+  });
+});
 </script>
 {% endblock %}

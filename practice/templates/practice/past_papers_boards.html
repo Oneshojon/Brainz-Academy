@@ -1,0 +1,42 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'practice/css/past_papers_boards.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Past Questions</div>
+      <h1 class="page-title">Past Exam Papers</h1>
+      <p class="page-sub">Select an exam board to browse past papers by subject and year.</p>
+    </div>
+  </div>
+
+  <div class="ppb-grid">
+    {% for board in boards %}
+    <a
+      href="{% if board.has_data %}?board={{ board.id }}{% else %}#{% endif %}"
+      class="ppb-card {% if not board.has_data %}ppb-card--muted{% endif %}"
+      {% if not board.has_data %}aria-disabled="true" title="No papers available yet"{% endif %}
+    >
+      <div class="ppb-card-inner">
+        <div class="ppb-abbr">{{ board.abbreviation }}</div>
+        <div class="ppb-name">{{ board.name }}</div>
+        {% if not board.has_data %}
+        <div class="ppb-badge">Coming Soon</div>
+        {% else %}
+        <div class="ppb-badge ppb-badge--available">{{ board.paper_count }} paper{% if board.paper_count != 1 %}s{% endif %}</div>
+        {% endif %}
+      </div>
+      {% if board.has_data %}
+      <div class="ppb-arrow">→</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

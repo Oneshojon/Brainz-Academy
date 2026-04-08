@@ -1,0 +1,134 @@
+/* ── past_papers_boards.css ── */
+
+.ppb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+/* ── Card ── */
+.ppb-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1.5px solid #C2D4EC;
+  border-radius: 16px;
+  padding: 1.75rem 1.5rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-shadow: 0 1px 4px rgba(11, 45, 114, 0.06);
+  overflow: hidden;
+}
+
+.ppb-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(9, 146, 194, 0.04) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ppb-card:hover:not(.ppb-card--muted) {
+  border-color: #0B2D72;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(11, 45, 114, 0.13);
+}
+
+.ppb-card:hover:not(.ppb-card--muted)::before {
+  opacity: 1;
+}
+
+.ppb-card:active:not(.ppb-card--muted) {
+  transform: scale(0.97);
+}
+
+/* ── Muted (no data) state ── */
+.ppb-card--muted {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+}
+
+/* ── Card inner ── */
+.ppb-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ppb-abbr {
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: #0992C2;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.ppb-card--muted .ppb-abbr {
+  color: #8fa5c2;
+}
+
+/* Long abbreviations like "WAEC+NECO" */
+.ppb-abbr:has(~ .ppb-name) {
+  font-size: clamp(1rem, 3.5vw, 1.75rem);
+}
+
+.ppb-name {
+  font-size: 0.78rem;
+  color: #6B7FA3;
+  line-height: 1.4;
+  max-width: 140px;
+}
+
+.ppb-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(107, 127, 163, 0.1);
+  color: #6B7FA3;
+  width: fit-content;
+}
+
+.ppb-badge--available {
+  background: rgba(9, 146, 194, 0.08);
+  color: #0992C2;
+}
+
+.ppb-arrow {
+  font-size: 1.2rem;
+  color: #C2D4EC;
+  transition: color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.ppb-card:hover:not(.ppb-card--muted) .ppb-arrow {
+  color: #0B2D72;
+  transform: translateX(4px);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .ppb-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.9rem;
+  }
+
+  .ppb-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .ppb-abbr {
+    font-size: 1.4rem;
+  }
+}

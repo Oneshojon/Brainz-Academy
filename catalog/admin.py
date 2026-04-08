@@ -10,6 +10,20 @@ class PastPaperAdmin(admin.ModelAdmin):
     list_filter   = ['paper_type', 'exam_series__exam_board', 'exam_series__year']
     search_fields = ['exam_series__subject__name']
 
+    def _invalidate(self, obj):
+        from django.core.cache import cache
+        cache.delete_many([
+            f'pp:papers_board_{obj.exam_series.exam_board_id}',
+            'pp:boards_with_counts',
+        ])
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        self._invalidate(obj)
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        self._invalidate(obj)
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
