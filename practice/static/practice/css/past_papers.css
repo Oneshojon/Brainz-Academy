@@ -37,9 +37,9 @@
 .pp-desktop-layout { display: grid; }
 .pp-mobile-layout  { display: none; }
 
-@media (max-width: 768px) {
-  .pp-desktop-layout { display: none; }
-  .pp-mobile-layout  { display: block; }
+@media screen and (max-width: 768px) {
+  .pp-desktop-layout { display: none !important; }
+  .pp-mobile-layout  { display: block !important; }
   .pp-page { padding: 1rem 1rem 3rem; }
 }
 
@@ -498,4 +498,86 @@ body:has(.pp-page) {
 /* ── PDF panel bottom padding so embed doesn't bleed to card edge ── */
 .pp-panel.active:has(.pp-pdf-embed) {
   padding-bottom: 1.75rem;
+}
+
+/* ══════════════════════════════════════════════
+   MOBILE OVERRIDES & IMPROVEMENTS
+   ══════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+
+  /* Page background on mobile */
+  .pp-page {
+    background: var(--offwhite, #F3F6FA) !important;
+    min-height: 100vh;
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  /* Header spacing */
+  .pp-breadcrumb { margin-bottom: 0.25rem; }
+
+  /* Subject blocks as lifted cards */
+  .ppm-subject-block {
+    box-shadow: 0 4px 16px rgba(11, 45, 114, 0.08);
+    border-radius: 14px;
+  }
+
+  /* Subject button more breathing room */
+  .ppm-subject-btn {
+    padding: 1rem 1.1rem;
+  }
+
+  .ppm-subject-name { font-size: 0.95rem; }
+
+  /* Papers inner padding */
+  .ppm-papers-inner {
+    padding: 0.25rem 0.6rem 0.75rem;
+  }
+
+  /* Paper rows */
+  .ppm-paper-row {
+    padding: 0.8rem 0.9rem;
+    background: var(--offwhite, #F3F6FA);
+    border-radius: 10px;
+  }
+  .ppm-paper-row.active {
+    background: rgba(11, 45, 114, 0.05);
+    border-color: var(--navy, #0B2D72);
+  }
+
+  /* Inline detail panel */
+  .ppm-paper-detail-inner {
+    padding: 1rem 0.75rem 1.25rem;
+    border-radius: 0 0 12px 12px;
+  }
+
+  /* PDF action buttons full width on small screens */
+  .ppm-pdf-actions {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  .ppm-pdf-actions .pp-btn-primary,
+  .ppm-pdf-actions .pp-btn-secondary {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  /* PDF scroll area */
+  .ppm-pdf-scroll {
+    height: 55vh;
+    border-radius: 10px;
+    border: 1.5px solid var(--border, #C2D4EC);
+  }
+
+  /* Video */
+  .ppm-video-wrap { border-radius: 10px; }
+
+  /* Tabs */
+  .ppm-tabs { gap: 0.25rem; }
+  .ppm-tab {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.77rem;
+  }
 }
