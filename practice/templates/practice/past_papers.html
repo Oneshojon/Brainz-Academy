@@ -5,19 +5,18 @@
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
 <link rel="stylesheet" href="{% static 'practice/css/past_papers.css' %}">
 
-<div class="page-body">
+<div class="pp-page">
 
-  <div class="page-header-row">
-    <div class="pp-breadcrumb">
-      <a href="{% url 'practice:past_papers_boards' %}" class="pp-breadcrumb-link">← All Boards</a>
-      <span class="pp-breadcrumb-sep">/</span>
-      <span class="pp-breadcrumb-current">{{ selected_board.abbreviation }}</span>
-    </div>
-    <div>
-      <div class="page-eyebrow">Past Questions · {{ selected_board.abbreviation }}</div>
-      <h1 class="page-title">Past Exam Papers</h1>
-      <p class="page-sub">Browse and download full past papers by subject and year.</p>
-    </div>
+  <div class="pp-breadcrumb">
+    <a href="{% url 'practice:past_papers_boards' %}" class="pp-breadcrumb-link">← All Boards</a>
+    <span class="pp-breadcrumb-sep">/</span>
+    <span class="pp-breadcrumb-current">{{ selected_board.abbreviation }}</span>
+  </div>
+
+  <div>
+    <div class="page-eyebrow">Past Questions · {{ selected_board.abbreviation }}</div>
+    <h1 class="page-title">Past Exam Papers</h1>
+    <p class="page-sub">Browse and download full past papers by subject and year.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════
@@ -92,7 +91,7 @@
 
     <!-- Right: Detail panel -->
     <main class="pp-main">
-      {% include 'practice/pp_detail_panel.html' %}
+      {% include 'practice/includes/pp_detail_panel.html' %}
     </main>
   </div>
 
@@ -214,7 +213,7 @@
 
   </div><!-- /pp-mobile-layout -->
 
-</div><!-- /page-body -->
+</div><!-- /pp-page -->
 
 <script>
 /* ─── DESKTOP ─── */
