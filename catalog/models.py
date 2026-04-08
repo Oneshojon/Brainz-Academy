@@ -891,3 +891,36 @@ class FreeTeacherTopicAccess(models.Model):
         """
         _, created = cls.objects.get_or_create(user=user, topic=topic)
         return created
+
+class SavedTest(models.Model):
+    FORMAT_CHOICES   = [('pdf','PDF'), ('docx','Word')]
+    COPY_CHOICES     = [('student','Student'), ('teacher','Teacher')]
+    MODE_CHOICES     = [('manual','Manual'), ('random','Random')]
+
+    teacher          = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_tests')  # ← fix
+    title            = models.CharField(max_length=255)
+    questions        = models.ManyToManyField('Question', through='SavedTestQuestion')
+    format           = models.CharField(max_length=10, choices=FORMAT_CHOICES, default='pdf')
+    copy_type        = models.CharField(max_length=10, choices=COPY_CHOICES, default='student')
+    builder_mode     = models.CharField(max_length=10, choices=MODE_CHOICES, default='manual')
+    question_count   = models.PositiveIntegerField(default=0)
+    total_marks      = models.PositiveIntegerField(default=0)
+    cloned_from      = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='clones')
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+class SavedTestQuestion(models.Model):
+    saved_test   = models.ForeignKey(SavedTest, on_delete=models.CASCADE, related_name='test_questions')
+    question     = models.ForeignKey('Question', on_delete=models.CASCADE, related_name='saved_in_tests')
+    custom_marks = models.PositiveIntegerField(default=1)
+    order        = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering        = ['order']
+        unique_together = ['saved_test', 'question']
+
+    def __str__(self):
+        return f"{self.saved_test.title} → Q{self.question.question_number}"

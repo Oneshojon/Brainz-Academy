@@ -4,6 +4,9 @@ from .views import (
     TopicListView, AvailableYearsView, GenerateQuestionsView, QuestionDownloadView,
     ThemeListView, TopicsByThemeView, QuestionsByTopicView, QuestionDetailView, FeatureFlagsView
 )
+from .views_savedtest import (
+    SavedTestListView, SavedTestDetailView, SavedTestCloneView,
+)
 
 app_name = 'catalog'
 
@@ -20,5 +23,9 @@ urlpatterns = [
     path('themes/',             ThemeListView.as_view(),       name='theme-list'),
     path('topics-by-theme/',    TopicsByThemeView.as_view(),   name='topics-by-theme'),
     path('questions-by-topic/', QuestionsByTopicView.as_view(), name='questions-by-topic'),
+
+     path('saved-tests/',              SavedTestListView.as_view(),    name='saved-test-list'),
+    path('saved-tests/<int:pk>/',     SavedTestDetailView.as_view(),  name='saved-test-detail'),
+    path('saved-tests/<int:pk>/clone/', SavedTestCloneView.as_view(), name='saved-test-clone'),
 
 ]
