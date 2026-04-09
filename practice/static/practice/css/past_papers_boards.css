@@ -1,14 +1,17 @@
 /* ── past_papers_boards.css ── */
 
 .ppb-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 1.25rem;
   margin-top: 2rem;
+  max-width: 1200px;
 }
 
 /* ── Card ── */
 .ppb-card {
+  flex: 1 1 0;
+  min-width: 0;
   position: relative;
   display: flex;
   align-items: center;
@@ -60,12 +63,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  min-width: 0;         /* allow text to truncate inside flex child */
 }
 
 .ppb-abbr {
   font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
   font-weight: 800;
-  font-size: 1.75rem;
+  font-size: clamp(1rem, 2.5vw, 1.75rem);   /* scales with viewport so it fits narrow cards */
   color: #0992C2;
   letter-spacing: -0.5px;
   line-height: 1;
@@ -73,11 +77,6 @@
 
 .ppb-card--muted .ppb-abbr {
   color: #8fa5c2;
-}
-
-/* Long abbreviations like "WAEC+NECO" */
-.ppb-abbr:has(~ .ppb-name) {
-  font-size: clamp(1rem, 3.5vw, 1.75rem);
 }
 
 .ppb-name {
@@ -118,13 +117,14 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .ppb-grid {
-    grid-template-columns: repeat(2, 1fr);
+    flex-wrap: wrap;              /* allow wrapping on mobile */
     gap: 0.9rem;
   }
 
   .ppb-card {
+    flex: 1 1 calc(50% - 0.45rem);   /* 2 columns on mobile */
     padding: 1.25rem 1rem;
   }
 
