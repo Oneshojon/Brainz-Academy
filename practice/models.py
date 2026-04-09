@@ -16,6 +16,7 @@ class PracticeSession(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='practice_sessions')
     session_type = models.CharField(max_length=10, choices=SESSION_TYPES, default='EXAM')
+    total_questions = models.PositiveIntegerField(default=0)
     exam_series = models.ForeignKey(
         ExamSeries, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='practice_sessions'

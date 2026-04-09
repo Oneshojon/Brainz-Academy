@@ -155,6 +155,7 @@ def start_session(request):
         subject      = subject,
         exam_series  = exam_series,
         total_marks  = sum(q.marks for q in questions),
+        total_questions = len(questions),
     )
     request.session[f'session_{session.id}_questions'] = [q.id for q in questions]
  
@@ -341,14 +342,17 @@ def results_page(request, session_id):
             topic__id__in=flat_ids
         ).select_related('topic', 'topic__subject')
 
+    answered_count = sum(1 for a in answers if a.is_correct is not None or a.theory_response)
+
     context = {
         'session':           session,
         'answer_review':     answer_review,
         'correct_count':     sum(1 for a in answers if a.is_correct),
         'incorrect_count':   sum(1 for a in answers if a.is_correct is False),
-        'unanswered_count':  sum(1 for a in answers if a.is_correct is None and not a.theory_response),
+        'unanswered_count':  session.total_questions - answered_count,
         'recommended_notes': recommended_notes,
     }
+    
     return render(request, 'practice/results_page.html', context)
 
 
