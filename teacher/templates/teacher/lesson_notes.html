@@ -107,8 +107,11 @@
 }
 
 .ln-topic-item {
-  display: block;
-  padding: 0.5rem 1.25rem 0.5rem 1.75rem;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  gap: 0;
+  padding: 0.5rem 1.25rem 0.5rem 1rem;
   font-size: 0.82rem;
   color: var(--navy);
   text-decoration: none;
@@ -126,14 +129,39 @@
 }
 
 .ln-topic-dot {
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.35rem;
+}
+.ln-topic-dot::before {
+  content: '';
+  display: block;
   width: 7px; height: 7px;
   border-radius: 50%;
-  margin-right: 0.5rem;
   background: var(--border);
-  vertical-align: middle;
+  flex-shrink: 0;
 }
-.ln-topic-dot.has-note { background: var(--blue, #0992C2); }
+.ln-topic-dot.has-note::before { background: var(--blue, #0992C2); }
+
+/* ── Mobile inline topic content ── */
+.ln-topic-content-wrap {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
+  background: var(--offwhite, #F3F6FA);
+  border-top: 1px solid var(--border);
+}
+.ln-topic-content-inner {
+  padding: 1rem;
+}
+.ln-topic-content-inner .ln-pdf-embed {
+  height: 55vh;
+}
+.ln-topic-content-inner .ln-video-wrap {
+  margin-bottom: 0.75rem;
+}
 
 /* ── Main content area ── */
 .ln-main { background:#fff; border:1.5px solid var(--border); border-radius:14px; overflow:hidden; }
@@ -203,8 +231,16 @@
     font-size: 0.88rem;
   }
   .ln-topic-item {
-    padding: 0.55rem 1rem 0.55rem 1.6rem;
     font-size: 0.85rem;
+    padding: 0.6rem 1rem 0.6rem 1rem;
+  }
+  /* On mobile, topic items are buttons not links */
+  .ln-topic-item-mobile {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
   }
 }
 </style>
@@ -266,11 +302,40 @@
           </button>
           <div class="ln-topics-list {% if selected_topic and selected_topic in theme_topics %}open{% endif %}">
             {% for t in theme_topics %}
-            <a href="?subject={{ selected_subject.id }}&topic={{ t.id }}"
-               class="ln-topic-item {% if selected_topic.id == t.id %}active{% endif %}">
-              <span class="ln-topic-dot {% if t.lesson_note %}has-note{% endif %}"></span>
-              {{ t.name }}
-            </a>
+            <div class="ln-topic-block">
+              <a href="?subject={{ selected_subject.id }}&topic={{ t.id }}"
+                 class="ln-topic-item {% if selected_topic.id == t.id %}active{% endif %}"
+                 onclick="handleTopicClick(event, {{ t.id }}, this)">
+                <span class="ln-topic-dot {% if t.lesson_note %}has-note{% endif %}"></span>
+                <span>{{ t.name }}</span>
+              </a>
+              <!-- Mobile inline content panel -->
+              <div class="ln-topic-content-wrap" id="ln-topic-content-{{ t.id }}">
+                <div class="ln-topic-content-inner">
+                  {% if t.lesson_note and t.lesson_note.pdf_file %}
+                    <div class="ln-pdf-actions">
+                      <a href="{{ t.lesson_note.pdf_file.url }}" download class="btn-dl primary">⬇ Download PDF</a>
+                      <a href="{{ t.lesson_note.pdf_file.url }}" target="_blank" class="btn-dl">↗ Open</a>
+                    </div>
+                    <iframe src="{{ t.lesson_note.pdf_file.url }}" class="ln-pdf-embed" title="{{ t.name }}"></iframe>
+                  {% elif t.lesson_note and t.lesson_note.ai_content %}
+                    <div style="font-size:0.83rem; color:var(--muted); padding:0.5rem 0;">
+                      AI-generated note available — open on desktop to view.
+                    </div>
+                  {% elif t.lesson_note and t.lesson_note.video_url %}
+                    <div class="ln-video-wrap">
+                      <iframe src="{{ t.lesson_note.video_url }}" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                    </div>
+                  {% else %}
+                    <div style="font-size:0.83rem; color:var(--muted); padding:0.5rem 0; text-align:center;">
+                      📭 No content uploaded yet for <strong>{{ t.name }}</strong>.
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
             {% endfor %}
           </div>
         </div>
@@ -441,6 +506,58 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active')
 }
 
+// Topic click — desktop navigates, mobile expands inline
+let openTopicId = null;
+
+function handleTopicClick(e, topicId, linkEl) {
+  // Desktop: navigate normally
+  if (window.innerWidth > 768) return;
+
+  // Mobile: prevent navigation, expand inline instead
+  e.preventDefault();
+
+  const wrap = document.getElementById('ln-topic-content-' + topicId);
+  if (!wrap) return;
+
+  if (openTopicId === topicId) {
+    // Collapse this topic
+    collapseTopicContent(topicId, linkEl);
+    openTopicId = null;
+  } else {
+    // Collapse previously open topic
+    if (openTopicId) {
+      const prevLink = document.querySelector('.ln-topic-item.mobile-open');
+      collapseTopicContent(openTopicId, prevLink);
+    }
+    // Expand this topic
+    expandTopicContent(topicId, linkEl);
+    openTopicId = topicId;
+  }
+}
+
+function expandTopicContent(topicId, linkEl) {
+  const wrap = document.getElementById('ln-topic-content-' + topicId);
+  if (!wrap) return;
+  wrap.style.maxHeight = wrap.scrollHeight + 'px';
+  wrap.style.opacity   = '1';
+  if (linkEl) linkEl.classList.add('active', 'mobile-open');
+  wrap.addEventListener('transitionend', function onEnd() {
+    wrap.style.maxHeight = 'none';
+    wrap.removeEventListener('transitionend', onEnd);
+  }, { once: true });
+}
+
+function collapseTopicContent(topicId, linkEl) {
+  const wrap = document.getElementById('ln-topic-content-' + topicId);
+  if (!wrap) return;
+  wrap.style.maxHeight = wrap.scrollHeight + 'px';
+  requestAnimationFrame(() => {
+    wrap.style.maxHeight = '0';
+    wrap.style.opacity   = '0';
+  });
+  if (linkEl) linkEl.classList.remove('active', 'mobile-open');
+}
+
 // Theme accordion — animated
 function toggleTheme(btn) {
   const list   = btn.nextElementSibling;
@@ -477,6 +594,11 @@ document.addEventListener('DOMContentLoaded', () => {
       list.style.maxHeight = '0';
       list.style.opacity   = '0';
     }
+  });
+  // Mobile: all topic content wraps start closed
+  document.querySelectorAll('.ln-topic-content-wrap').forEach(wrap => {
+    wrap.style.maxHeight = '0';
+    wrap.style.opacity   = '0';
   });
 });
 
