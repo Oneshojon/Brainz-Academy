@@ -21,7 +21,7 @@ def index(request):
 def request_otp(request):
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
-        ref = request.POST.get('ref', '').strip()  # carry referral code forward
+        ref = request.POST.get('ref', '').strip() 
 
         if not email:
             return render(request, 'Users/login.html', {'error': 'Please enter your email address.'})
@@ -46,13 +46,13 @@ def request_otp(request):
         from django.core.mail import EmailMultiAlternatives
 
         msg = EmailMultiAlternatives(
-            subject='Your ExamPrep Login Code',
-            body=f'Your ExamPrep login code is: {otp}\n\nThis code expires in 10 minutes.',
+            subject='BrainzAcademy Login Code',
+            body=f'Your login code is: {otp}\n\nThis code expires in 10 minutes.',
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[email],
         )
         msg.attach_alternative(
-            f'<p>Your ExamPrep login code is: <strong>{otp}</strong></p><p>This code expires in 10 minutes.</p>',
+            f'<p>Your BrainzAcademy login code is: <strong>{otp}</strong></p><p>This code expires in 10 minutes.</p>',
             "text/html"
         )
         msg.send(fail_silently=False)
