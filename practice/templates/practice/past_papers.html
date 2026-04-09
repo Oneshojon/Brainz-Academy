@@ -189,10 +189,10 @@
                 <div class="ppm-panel {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mpanel-v-{{ paper.id }}">
                   <div class="ppm-video-wrap">
                     <iframe src="{{ paper.video_embed_url }}"
-                            frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowfullscreen></iframe>
-                  </div>
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
                   <div class="ppm-pdf-actions" style="margin-top:0.75rem;">
                     <a href="{{ paper.video_url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Watch on YouTube</a>
                   </div>
