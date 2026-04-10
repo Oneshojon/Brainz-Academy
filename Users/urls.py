@@ -7,6 +7,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('', views.index, name='index'),
     path('get-otp/', views.request_otp, name='request_otp'),
+    path('join/', views.request_otp, name='join'),
     path('verify/', views.verify_otp, name="verify_otp"),
     path('logout_view/', views.logout_view, name='logout'),
     path('pricing/', views.pricing, name='pricing'),

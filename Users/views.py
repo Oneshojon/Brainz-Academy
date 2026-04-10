@@ -190,7 +190,7 @@ def referrals(request):
     )
  
     # Shareable link
-    referral_link = request.build_absolute_uri(f'/get-otp/?ref={user.referral_code}')
+    referral_link = request.build_absolute_uri(f'/join/?ref={user.referral_code}')
  
     # Leaderboard — only shown if admin has enabled the flag
     show_leaderboard = FeatureFlag.objects.filter(
@@ -252,7 +252,7 @@ def dashboard(request):
             .select_related('referred')
             .order_by('-created_at')[:3]
         )
-        referral_link = request.build_absolute_uri(f'/get-otp/?ref={user.referral_code}')
+        referral_link = request.build_absolute_uri(f'/join/?ref={user.referral_code}')
  
     context = {
         'user':             user,
