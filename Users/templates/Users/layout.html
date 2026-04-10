@@ -35,7 +35,6 @@
             <a href="{% url 'Users:dashboard' %}" class="nav-link">Dashboard</a>
             <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
             <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
-            <a href="{% url 'Users:referrals' %}" class="nav-link">Referrals</a>
             {% if user.role == 'TEACHER' %}
               <a href="{% url 'teacher:dashboard' %}" class="nav-link">Teacher Portal</a>
             {% endif %}
@@ -72,6 +71,7 @@
       {% if user.role == 'TEACHER' %}
         <a href="{% url 'teacher:dashboard' %}" class="dropdown-item">Teacher Portal</a>
       {% endif %}
+      <a href="{% url 'Users:referrals' %}" class="dropdown-item">Referrals</a>
       <a href="{% url 'Users:logout' %}" class="dropdown-item">Logout</a>
     </div>
   </div>
