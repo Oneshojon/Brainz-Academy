@@ -13,21 +13,21 @@
       <div class="page-eyebrow">Teacher Portal</div>
       <h1 class="page-title">Welcome, <span style="color:var(--blue);">{{ request.user.first_name }}</span> </h1>
     </div>
-     <nav class="teacher-nav">
-    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
-    <a href="/app/">Test Builder ↗</a>
-    <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
-    {% if user.is_admin %}
-      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
-      <a href="{% url 'teacher:students' %}">Students</a>
-      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
-      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
-      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
-      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
-      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
-    {% endif %}
-    <a href="{% url 'teacher:lesson_notes' %}">Revision Notes</a>
-  </nav>
+    <nav class="teacher-nav">
+      <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+      <a href="/app/">Test Builder ↗</a>
+      <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
+      {% if user.is_admin %}
+        <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+        <a href="{% url 'teacher:students' %}">Students</a>
+        <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+        <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+        <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+        <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+        <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+      {% endif %}
+      <a href="{% url 'teacher:lesson_notes' %}">Revision Notes</a>
+    </nav>
   </div>
 
   <!-- ── CONTAINER 2: Stats + Quick Actions ── -->
@@ -92,88 +92,84 @@
     </div>
   </div>
 
-  <!-- ── CONTAINER 3: Recent Sessions + Top Subjects (admin only) ── -->
+  <!-- ── CONTAINER 3: Recent Sessions (admin only) ── -->
   {% if is_admin %}
   <div class="dash-container">
-    <div class="two-col">
-
-      <div>
-        <div class="section-head">
-          <div class="section-head-title">Recent Sessions</div>
-          <a href="{% url 'teacher:students' %}" class="see-all">See all →</a>
-        </div>
-        {% if recent_sessions %}
-        <div class="table-wrap">
-          <table class="sessions-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Subject</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for session in recent_sessions %}
-              <tr class="session-row">
-                <td><strong>{{ session.user.first_name }} {{ session.user.last_name|first }}.</strong></td>
-                <td style="color:var(--muted)">{{ session.subject|default:"—" }}</td>
-                <td>
-                  {% if session.score_percentage is not None %}
-                    {% if session.score_percentage >= 70 %}
-                      <span class="score-high">{{ session.score_percentage }}%</span>
-                    {% elif session.score_percentage >= 50 %}
-                      <span class="score-mid">{{ session.score_percentage }}%</span>
-                    {% else %}
-                      <span class="score-low">{{ session.score_percentage }}%</span>
-                    {% endif %}
-                  {% else %}
-                    <span style="color:var(--muted)">—</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="empty-state">
-          <span class="empty-icon">📊</span>
-          <div class="empty-title">No sessions yet</div>
-        </div>
-        {% endif %}
-      </div>
-
-      <div>
-        <div class="section-head">
-          <div class="section-head-title">Top Subjects</div>
-        </div>
-        {% if top_subjects %}
-        <div class="subject-pills">
-          {% for s in top_subjects %}
-          <div class="subject-pill">
-            <span class="subject-pill-name">{{ s.subject__name|default:"—" }}</span>
-            <span class="subject-pill-count">{{ s.count }} session{{ s.count|pluralize }}</span>
-            {% if s.avg_score %}
-              {% if s.avg_score >= 70 %}
-                <span class="subject-pill-score score-high">{{ s.avg_score|floatformat:0 }}%</span>
-              {% elif s.avg_score >= 50 %}
-                <span class="subject-pill-score score-mid">{{ s.avg_score|floatformat:0 }}%</span>
-              {% else %}
-                <span class="subject-pill-score score-low">{{ s.avg_score|floatformat:0 }}%</span>
-              {% endif %}
-            {% endif %}
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-          <span class="empty-icon">📚</span>
-          <div class="empty-title">No data yet</div>
-        </div>
-        {% endif %}
-      </div>
-
+    <div class="section-head">
+      <div class="section-head-title">Recent Sessions</div>
+      <a href="{% url 'teacher:students' %}" class="see-all">See all →</a>
     </div>
+
+    {% if recent_sessions %}
+    <div class="sessions-grid">
+      <!-- Header row -->
+      <div class="sessions-grid-header">
+        <span>Student</span>
+        <span>Subject</span>
+        <span>Score</span>
+      </div>
+
+      <!-- Data rows (max 6) -->
+      {% for session in recent_sessions|slice:":6" %}
+      <div class="sessions-grid-row">
+        <span class="session-student">
+          <strong>{{ session.user.first_name }} {{ session.user.last_name|first }}.</strong>
+        </span>
+        <span class="session-subject">{{ session.subject|default:"—" }}</span>
+        <span class="session-score">
+          {% if session.score_percentage is not None %}
+            {% if session.score_percentage >= 70 %}
+              <span class="score-badge score-high">{{ session.score_percentage }}%</span>
+            {% elif session.score_percentage >= 50 %}
+              <span class="score-badge score-mid">{{ session.score_percentage }}%</span>
+            {% else %}
+              <span class="score-badge score-low">{{ session.score_percentage }}%</span>
+            {% endif %}
+          {% else %}
+            <span class="score-badge score-none">—</span>
+          {% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">📊</span>
+      <div class="empty-title">No sessions yet</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── CONTAINER 4: Top Subjects (admin only) ── -->
+  <div class="dash-container">
+    <div class="section-head">
+      <div class="section-head-title">Top Subjects</div>
+    </div>
+
+    {% if top_subjects %}
+    <div class="subject-pills">
+      {% for s in top_subjects %}
+      <div class="subject-pill">
+        <span class="subject-pill-name">{{ s.subject__name|default:"—" }}</span>
+        <span class="subject-pill-count">{{ s.count }} session{{ s.count|pluralize }}</span>
+        {% if s.avg_score %}
+          {% if s.avg_score >= 70 %}
+            <span class="subject-pill-score score-high">{{ s.avg_score|floatformat:0 }}%</span>
+          {% elif s.avg_score >= 50 %}
+            <span class="subject-pill-score score-mid">{{ s.avg_score|floatformat:0 }}%</span>
+          {% else %}
+            <span class="subject-pill-score score-low">{{ s.avg_score|floatformat:0 }}%</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">📚</span>
+      <div class="empty-title">No data yet</div>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
