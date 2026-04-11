@@ -324,10 +324,12 @@ function expandEl(el) {
     el.style.maxHeight = el.scrollHeight + 'px';
     el.style.opacity   = '1';
   });
-  el.addEventListener('transitionend', function onEnd() {
-    el.style.maxHeight = 'none'; // allow dynamic content
+  el.addEventListener('transitionend', function onEnd(e) {
+    if (e.propertyName !== 'max-height') return; // ← ignore opacity firing first
+    el.style.maxHeight = 'none';
+    el.style.overflow  = 'visible';
     el.removeEventListener('transitionend', onEnd);
-  }, { once: true });
+  }, { once: false }); // ← once:false so we can filter manually
 }
 
 function collapseEl(el) {
@@ -338,10 +340,11 @@ function collapseEl(el) {
     el.style.maxHeight = '0';
     el.style.opacity   = '0';
   });
-  el.addEventListener('transitionend', function onEnd() {
+  el.addEventListener('transitionend', function onEnd(e) {
+    if (e.propertyName !== 'max-height') return; // ← wait for height, not opacity
     el.style.display = 'none';
     el.removeEventListener('transitionend', onEnd);
-  }, { once: true });
+  }, { once: false });
 }
 
 function switchMobileTab(tab, paperId) {
