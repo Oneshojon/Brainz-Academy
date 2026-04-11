@@ -159,7 +159,7 @@
                 </div>
 
                 <!-- Questions panel -->
-                {% if paper.question_pdf %}
+                <!-- {% if paper.question_pdf %} -->
                 <div class="ppm-panel active" id="mpanel-q-{{ paper.id }}">
                   <div class="ppm-pdf-actions">
                     <a href="{{ paper.question_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
@@ -169,10 +169,10 @@
                     <iframe src="{{ paper.question_pdf.url }}" class="ppm-pdf-embed" title="Questions"></iframe>
                   </div>
                 </div>
-                {% endif %}
+                <!-- {% endif %} -->
 
                 <!-- Solutions panel -->
-                {% if paper.answer_pdf %}
+                <!-- {% if paper.answer_pdf %} -->
                 <div class="ppm-panel {% if not paper.question_pdf %}active{% endif %}" id="mpanel-s-{{ paper.id }}">
                   <div class="ppm-pdf-actions">
                     <a href="{{ paper.answer_pdf.url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Open</a>
@@ -182,10 +182,10 @@
                     <iframe src="{{ paper.answer_pdf.url }}" class="ppm-pdf-embed" title="Solutions"></iframe>
                   </div>
                 </div>
-                {% endif %}
+                <!-- {% endif %} -->
 
                 <!-- Video panel -->
-                {% if paper.video_url %}
+                <!-- {% if paper.video_url %} -->
                 <div class="ppm-panel {% if not paper.question_pdf and not paper.answer_pdf %}active{% endif %}" id="mpanel-v-{{ paper.id }}">
                   <div class="ppm-video-wrap">
                     <iframe src="{{ paper.video_embed_url }}"
@@ -193,11 +193,12 @@
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
                     allowfullscreen></iframe>
+                  </div>
                   <div class="ppm-pdf-actions" style="margin-top:0.75rem;">
                     <a href="{{ paper.video_url }}" target="_blank" class="pp-btn-secondary" style="flex:1; text-align:center;">↗ Watch on YouTube</a>
                   </div>
                 </div>
-                {% endif %}
+                <!-- {% endif %} -->
 
               </div>
             </div>
