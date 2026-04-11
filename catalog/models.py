@@ -796,7 +796,7 @@ def _seed_plans():
              name='Teacher Pro — Yearly'),
     ]
     for p in plans:
-        SubscriptionPlan.objects.get_or_create(
+        SubscriptionPlan.objects.update_or_create(
             plan_type=p['plan_type'],
             duration=p['duration'],
             defaults={
