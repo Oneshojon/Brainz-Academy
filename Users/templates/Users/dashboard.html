@@ -17,7 +17,7 @@
       </p>
     </div>
 
-    {% if not user.is_admin %} 
+    {% if not user.is_admin %}
       {% with sub=user.active_subscription %}
         {% if not sub %}
         <div class="upgrade-banner">
@@ -109,7 +109,6 @@
           <div class="stat-card-sub">no attempts yet</div>
         {% endif %}
       </div>
-
       <div class="stat-card">
         <div class="stat-card-label">Current Streak</div>
         {% if streak > 0 %}
@@ -155,23 +154,20 @@
         <div class="svc-desc">Go back to any past session and review your answers.</div>
         <span class="svc-tag free">Free</span>
       </a>
-
-       <a href="{% url 'practice:past_papers' %}" class="service-card blue">
-      <span class="svc-icon">📂</span>
-      <div class="svc-title">Past Papers</div>
-      <div class="svc-desc">Download full past exam papers by subject, board and year.</div>
-      <span class="svc-tag free">Free</span>
-    </a>
-
+      <a href="{% url 'practice:past_papers' %}" class="service-card blue">
+        <span class="svc-icon">📂</span>
+        <div class="svc-title">Past Papers</div>
+        <div class="svc-desc">Download full past exam papers by subject, board and year.</div>
+        <span class="svc-tag free">Free</span>
+      </a>
       {% if user.role == 'TEACHER' %}
       <a href="/app/?mode=teacher" class="service-card gold-card">
         <span class="svc-icon">🛠️</span>
         <div class="svc-title">Test Builder</div>
         <div class="svc-desc">Generate custom question sets by topic, year and board.</div>
         <span class="svc-tag teacher-tag">Teachers Only</span>
-      </a> 
+      </a>
       {% endif %}
-      
       <div class="service-card locked">
         <span class="svc-icon">🌍</span>
         <div class="svc-title">IGCSE Prep</div>
@@ -192,7 +188,9 @@
         {% for session in recent_sessions %}
         <div class="session-row">
           <div class="session-main">
-            <div class="session-title">{{ session.subject|default:"General" }}</div>
+            <div class="session-title">
+              {{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
+            </div>
             {% if session.exam_series %}
               <div class="session-series">{{ session.exam_series }}</div>
             {% endif %}
@@ -211,7 +209,7 @@
             {% endif %}
           </div>
           {% if session.completed_at %}
-            <a href="{% url 'practice:results_page' session.id %}" class="session-arrow">→</a>
+            <a href="{% url 'practice:results_page' session.id %}" class="session-arrow">Review →</a>
           {% else %}
             <span class="session-arrow" style="color:var(--muted);">→</span>
           {% endif %}
