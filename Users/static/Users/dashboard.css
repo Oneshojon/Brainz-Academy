@@ -1,9 +1,7 @@
 /* dashboard.css */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
 
-.dash-body {
-  max-width: 1200px;
-}
+.dash-body { max-width: 1200px; }
 
 /* ── Dashboard containers ── */
 .dash-container {
@@ -46,34 +44,46 @@
 }
 .btn-upgrade:hover { background: #9a6e00; }
 
-/* ── Recent Sessions: desktop ── */
+/* ══════════════════════════════════
+   RECENT SESSIONS
+   ══════════════════════════════════ */
 .sessions-list {
   display: flex;
   flex-direction: column;
 }
 
+/* ── DESKTOP: 4-col grid, 2 rows ──
+   Col: [icon] [subject/meta] [score] [btn]
+   Row 1: icon | subject      | score | btn
+   Row 2: icon | date+mode    |       |
+*/
 .session-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "icon  subject  score  btn"
+    "icon  meta     .      .  ";
   align-items: center;
-  gap: 0.75rem;
+  column-gap: 0.75rem;
+  row-gap: 0.1rem;
   padding: 0.85rem 0;
   border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.15s;
 }
 .session-row:last-child { border-bottom: none; }
+.session-row:hover { opacity: 0.85; }
 
-.session-icon {
+.sr-icon {
+  grid-area: icon;
   font-size: 1.25rem;
-  flex-shrink: 0;
-  width: 36px;
   text-align: center;
+  align-self: center;
 }
-
-.session-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.session-title {
+.sr-subject {
+  grid-area: subject;
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
   font-size: 0.88rem;
@@ -82,84 +92,146 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.session-meta {
+.sr-meta {
+  grid-area: meta;
   font-size: 0.75rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 0.15rem;
 }
-
-.session-score {
-  font-size: 0.92rem;
+.sr-score {
+  grid-area: score;
   font-weight: 700;
-  flex-shrink: 0;
-  min-width: 52px;
+  font-size: 0.92rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.sr-btn {
+  grid-area: btn;
   text-align: right;
 }
+.sr-review {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+  padding: 0.3rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
+  background: #ffffff;
+  white-space: nowrap;
+  cursor: pointer;
+}
 
+/* Score colours */
 .score-high { color: var(--green, #15803D); }
 .score-mid  { color: var(--gold, #B8860B); }
 .score-low  { color: var(--red, #DC2626); }
+.score-na   { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
 
-/* ── Mobile: recent sessions ── */
+/* Hide mobile-only elements on desktop */
+.sr-series,
+.sr-badge,
+.sr-date,
+.sr-score-mob,
+.sr-btn-mob { display: none; }
+
+/* ══════════════════════════════════
+   MOBILE
+   ══════════════════════════════════ */
 @media (max-width: 640px) {
-  .sessions-list {
-    gap: 0.5rem;
-  }
 
+  .sessions-list { gap: 0.5rem; }
+
+  /* 2-col grid: [content] [review btn]
+     6 rows: subject / series / badge / date / score / btn */
   .session-row {
-    flex-wrap: wrap;
-    padding: 0.9rem 1rem !important;
-    border-bottom: none !important;
-    border: 1.5px solid var(--border) !important;
-    border-radius: 10px !important;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto auto auto auto;
+    grid-template-areas:
+      "subject  ."
+      "series   ."
+      "badge    ."
+      "date     ."
+      "score    ."
+      ".        btn-mob";
+    align-items: start;
+    column-gap: 0.5rem;
+    row-gap: 0.18rem;
+    padding: 0.9rem 1rem;
+    border-bottom: none;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
     background: var(--card);
-    gap: 0.3rem;
     margin-bottom: 0.1rem;
   }
+  .session-row:last-child { border-bottom: none; }
 
-  .session-row:last-child {
-    border-bottom: none !important;
+  /* Hide desktop-only elements */
+  .sr-icon   { display: none; }
+  .sr-meta   { display: none; }
+  .sr-score  { display: none; }
+  .sr-btn    { display: none; }
+
+  /* Subject — row 0 */
+  .sr-subject {
+    grid-area: subject;
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    color: var(--navy);
   }
 
-  .session-icon {
-    display: none !important;
+  /* Series — row 1 */
+  .sr-series {
+    display: block;
+    grid-area: series;
+    font-size: 0.82rem;
+    color: var(--muted);
   }
 
-  .session-info {
-    width: 100%;
-    min-width: 0;
-    flex: unset;
+  /* Badge — row 2 */
+  .sr-badge {
+    display: inline-block;
+    grid-area: badge;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--blue);
+    background: rgba(9,146,194,0.08);
+    border: 1px solid rgba(9,146,194,0.2);
+    border-radius: 100px;
+    padding: 0.2rem 0.6rem;
+    width: fit-content;
+    margin: 0.1rem 0;
   }
 
-  .session-title {
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
+  /* Date — row 3 */
+  .sr-date {
+    display: block;
+    grid-area: date;
+    font-size: 0.78rem;
+    color: var(--muted);
   }
 
-  .session-meta {
-    font-size: 0.78rem !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    margin-top: 0.2rem;
+  /* Score mob — row 4 */
+  .sr-score-mob {
+    display: block;
+    grid-area: score;
+    font-size: 1rem;
+    font-weight: 700;
   }
 
-  .session-score {
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-    text-align: left !important;
-    min-width: unset !important;
-    width: 100%;
+  /* Review btn mob — row 5, right col */
+  .sr-btn-mob {
+    display: flex;
+    grid-area: btn-mob;
+    align-self: end;
+    justify-content: flex-end;
   }
-
-  /* Hide the inline Review → button */
-  .session-row > a[style] {
-    display: none !important;
+  .sr-btn-mob .sr-review {
+    font-size: 0.72rem;
   }
 }

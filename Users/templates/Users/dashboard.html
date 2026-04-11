@@ -177,67 +177,105 @@
     </div>
   </div>
 
- <!-- ── CONTAINER 4: Recent Sessions ── -->
-<div class="dash-container">
-  <div class="section-header">
-    <div class="section-label">History</div>
-    <div class="section-title">Recent Practice</div>
-  </div>
-  {% if recent_sessions %}
-    <div class="sessions-list">
-      {% for session in recent_sessions %}
-      <div class="session-row">
-        <div class="session-icon">
-          {% if session.session_type == 'EXAM' %}📝
-          {% elif session.session_type == 'TOPIC' %}📖
-          {% else %}🗂️{% endif %}
-        </div>
-        <div class="session-info">
-          <div class="session-title">
+  <!-- ── CONTAINER 4: Recent Sessions ── -->
+  <div class="dash-container">
+    <div class="section-header">
+      <div class="section-label">History</div>
+      <div class="section-title">Recent Practice</div>
+    </div>
+    {% if recent_sessions %}
+      <div class="sessions-list">
+        {% for session in recent_sessions %}
+        <a href="{% if session.completed_at %}{% url 'practice:results_page' session.id %}{% else %}#{% endif %}"
+           class="session-row">
+
+          <!-- icon: spans 2 rows on desktop -->
+          <div class="sr-icon">
+            {% if session.session_type == 'EXAM' %}📝
+            {% elif session.session_type == 'TOPIC' %}📖
+            {% else %}🗂️{% endif %}
+          </div>
+
+          <!-- subject -->
+          <div class="sr-subject">
             {{ session.subject|default:"General" }}{% if session.exam_series %} · {{ session.exam_series }}{% endif %}
           </div>
-          <div class="session-meta">
+
+          <!-- score -->
+          <div class="sr-score">
+            {% if session.score_percentage is not None %}
+              {% if session.score_percentage >= 70 %}
+                <span class="score-high">{{ session.score_percentage }}%</span>
+              {% elif session.score_percentage >= 50 %}
+                <span class="score-mid">{{ session.score_percentage }}%</span>
+              {% else %}
+                <span class="score-low">{{ session.score_percentage }}%</span>
+              {% endif %}
+            {% else %}
+              <span class="score-na">—</span>
+            {% endif %}
+          </div>
+
+          <!-- review button -->
+          <div class="sr-btn">
+            {% if session.completed_at %}
+              <span class="sr-review">Review →</span>
+            {% endif %}
+          </div>
+
+          <!-- date+mode: row 2 on desktop, own row on mobile -->
+          <div class="sr-meta">
             {{ session.started_at|date:"M j, Y · g:i A" }} · {{ session.get_session_type_display }}
           </div>
-        </div>
-        {% if session.score_percentage is not None %}
-          {% if session.score_percentage >= 70 %}
-            <div class="session-score score-high">{{ session.score_percentage }}%</div>
-          {% elif session.score_percentage >= 50 %}
-            <div class="session-score score-mid">{{ session.score_percentage }}%</div>
-          {% else %}
-            <div class="session-score score-low">{{ session.score_percentage }}%</div>
-          {% endif %}
-        {% else %}
-          <div class="session-score" style="color:var(--muted);font-size:0.85rem;">Incomplete</div>
-        {% endif %}
-        {% if session.completed_at %}
-          <a href="{% url 'practice:results_page' session.id %}"
-             style="font-size:0.75rem; font-weight:700; color:var(--navy);
-                    text-decoration:none; padding:0.3rem 0.75rem;
-                    border:1.5px solid var(--border); border-radius:100px;
-                    flex-shrink:0; transition:all 0.15s; white-space:nowrap;
-                    background:#ffffff;">
-            Review →
-          </a>
-        {% endif %}
+
+          <!-- mobile-only: series separate -->
+          <div class="sr-series">{{ session.exam_series|default:"—" }}</div>
+
+          <!-- mobile-only: type badge -->
+          <div class="sr-badge">{{ session.get_session_type_display|upper }}</div>
+
+          <!-- mobile-only: date only -->
+          <div class="sr-date">{{ session.started_at|date:"M j, Y" }}</div>
+
+          <!-- mobile-only: score -->
+          <div class="sr-score-mob">
+            {% if session.score_percentage is not None %}
+              {% if session.score_percentage >= 70 %}
+                <span class="score-high">{{ session.score_percentage }}%</span>
+              {% elif session.score_percentage >= 50 %}
+                <span class="score-mid">{{ session.score_percentage }}%</span>
+              {% else %}
+                <span class="score-low">{{ session.score_percentage }}%</span>
+              {% endif %}
+            {% else %}
+              <span class="score-na">—</span>
+            {% endif %}
+          </div>
+
+          <!-- mobile-only: review button -->
+          <div class="sr-btn-mob">
+            {% if session.completed_at %}
+              <span class="sr-review">Review →</span>
+            {% endif %}
+          </div>
+
+        </a>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-    <div style="margin-top:0.85rem; text-align:right;">
-      <a href="{% url 'practice:history' %}"
-         style="font-size:0.8rem; color:var(--blue); text-decoration:none; font-weight:600;">
-        View all sessions →
-      </a>
-    </div>
-  {% else %}
-    <div class="no-sessions">
-      <span>📋</span>
-      No practice sessions yet.<br>
-      Start your first session to see your history here.
-    </div>
-  {% endif %}
-</div>
+      <div style="margin-top:0.85rem; text-align:right;">
+        <a href="{% url 'practice:history' %}"
+           style="font-size:0.8rem; color:var(--blue); text-decoration:none; font-weight:600;">
+          View all sessions →
+        </a>
+      </div>
+    {% else %}
+      <div class="no-sessions">
+        <span>📋</span>
+        No practice sessions yet.<br>
+        Start your first session to see your history here.
+      </div>
+    {% endif %}
+  </div>
 
   <!-- ── CONTAINER 5: Referrals (students only) ── -->
   {% if user.role == 'STUDENT' %}
