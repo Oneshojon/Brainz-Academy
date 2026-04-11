@@ -363,12 +363,20 @@
   margin-top: 1rem;
 }
 
+/* FIX: overflow:hidden removed — it was clipping sibling subject blocks
+   when one expanded, making them appear trapped inside the open subject.
+   border-radius still applies cleanly without it. */
 .ppm-subject-block {
   border: 1.5px solid var(--border, #C2D4EC);
   border-radius: 14px;
-  overflow: hidden;
   background: var(--card, #fff);
   box-shadow: 0 1px 4px rgba(11, 45, 114, 0.06);
+}
+
+/* Round the bottom corners of the last paper row so the card still
+   looks clean without relying on overflow:hidden for clipping */
+.ppm-papers-inner .ppm-paper-row:last-child {
+  border-radius: 0 0 10px 10px;
 }
 
 .ppm-subject-btn {
@@ -383,6 +391,7 @@
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
+  border-radius: 14px; /* matches parent so tap highlight is rounded */
 }
 .ppm-subject-btn:active { background: rgba(9,146,194,0.04); }
 
@@ -520,6 +529,7 @@ body:has(.pp-page) {
   .ppm-subject-block {
     box-shadow: 0 4px 16px rgba(11, 45, 114, 0.08);
     border-radius: 14px;
+    /* overflow:hidden intentionally omitted — see base rule above */
   }
 
   /* Subject button more breathing room */
