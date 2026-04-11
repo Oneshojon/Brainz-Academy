@@ -787,7 +787,7 @@ def _seed_plans():
         # Student Basic
         dict(plan_type='STUDENT_BASIC', duration='MONTHLY', price=3000,
              name='Student Basic — Monthly'),
-        dict(plan_type='STUDENT_BASIC', duration='YEARLY',  price=30000,
+        dict(plan_type='STUDENT_BASIC', duration='YEARLY',  price=27000,
              name='Student Basic — Yearly'),
         # Teacher Pro
         dict(plan_type='TEACHER_PRO',   duration='MONTHLY', price=5000,
