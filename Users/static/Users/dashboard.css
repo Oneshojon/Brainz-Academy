@@ -176,7 +176,7 @@
   /* Subject — row 0 */
   .sr-subject {
     grid-area: subject;
-    font-size: clamp(0.82rem, 3.5vw, 1rem);
+    font-size: clamp(0.65rem, 4vw, 1rem);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -188,7 +188,7 @@
   .sr-series {
     display: block;
     grid-area: series;
-    font-size: clamp(0.72rem, 3vw, 0.82rem);
+    font-size: clamp(0.58rem, 3.5vw, 0.82rem);
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
@@ -199,7 +199,7 @@
   .sr-badge {
     display: inline-block;
     grid-area: badge;
-    font-size: clamp(0.6rem, 2.5vw, 0.68rem);
+    font-size: clamp(0.5rem, 3vw, 0.68rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--blue);
@@ -215,7 +215,7 @@
   .sr-date {
     display: block;
     grid-area: date;
-    font-size: clamp(0.68rem, 2.8vw, 0.78rem);
+    font-size: clamp(0.55rem, 3vw, 0.78rem);
     color: var(--muted);
   }
 
@@ -223,7 +223,7 @@
   .sr-score-mob {
     display: block;
     grid-area: score;
-    font-size: clamp(0.88rem, 3.5vw, 1rem);
+    font-size: clamp(0.75rem, 4vw, 1rem);
     font-weight: 700;
   }
 
