@@ -38,8 +38,11 @@ export default function Step2Subject({ board, onSelect, selected, onBack }) {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    api.get('subjects/').then(r => setSubjects(r.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  api.get('subjects/')
+    .then(r => setSubjects(r.data.filter(s => (s.question_count ?? 0) > 0)))
+    .catch(() => {})
+    .finally(() => setLoading(false));
+}, []);
 
   if (loading) return <div style={{ color: '#6B7FA3', padding: '2rem' }}>Loading subjects…</div>;
 
