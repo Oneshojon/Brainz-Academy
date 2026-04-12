@@ -48,20 +48,18 @@ def update_streak(user):
 def practice_home(request):
     """Exam/session selection page."""
     from catalog.subscription_access import check_practice_access
- 
-    subjects = Subject.objects.filter(
-            questions__isnull=False
-        ).distinct().order_by('name')
-    exam_boards = ExamBoard.objects.all().order_by('name')
- 
+    from catalog.cache_utils import get_subjects_with_question_counts, get_boards_with_question_counts
+
+    subjects = get_subjects_with_question_counts()
+    exam_boards = get_boards_with_question_counts()
+
     # Recent completed sessions for the "continue" shortcut (last 3)
     recent_sessions = PracticeSession.objects.filter(
         user=request.user, completed_at__isnull=False
     ).select_related('subject', 'exam_series').order_by('-completed_at')[:3]
- 
-    # Access info — drives the free-tier banner and question cap in the template
+
     access = check_practice_access(request.user)
- 
+
     context = {
         'subjects':        subjects,
         'exam_boards':     exam_boards,
