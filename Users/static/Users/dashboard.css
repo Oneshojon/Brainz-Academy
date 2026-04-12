@@ -176,11 +176,11 @@
   /* Subject — row 0 */
   .sr-subject {
     grid-area: subject;
-    font-size: 1rem;
+    font-size: clamp(0.82rem, 3.5vw, 1rem);
     font-weight: 700;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--navy);
   }
 
@@ -188,15 +188,18 @@
   .sr-series {
     display: block;
     grid-area: series;
-    font-size: 0.82rem;
+    font-size: clamp(0.72rem, 3vw, 0.82rem);
     color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Badge — row 2 */
   .sr-badge {
     display: inline-block;
     grid-area: badge;
-    font-size: 0.68rem;
+    font-size: clamp(0.6rem, 2.5vw, 0.68rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--blue);
@@ -212,7 +215,7 @@
   .sr-date {
     display: block;
     grid-area: date;
-    font-size: 0.78rem;
+    font-size: clamp(0.68rem, 2.8vw, 0.78rem);
     color: var(--muted);
   }
 
@@ -220,7 +223,7 @@
   .sr-score-mob {
     display: block;
     grid-area: score;
-    font-size: 1rem;
+    font-size: clamp(0.88rem, 3.5vw, 1rem);
     font-weight: 700;
   }
 
