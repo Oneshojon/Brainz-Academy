@@ -69,6 +69,7 @@ def get_subjects_with_question_counts():
         lambda: list(
             Subject.objects
             .annotate(question_count=Count('questions', distinct=True))
+            .filter(question_count__gt=0)
             .order_by('name')
         ),
         CACHE_1_HOUR    # ← 1 hour, not 24, since counts change on upload
