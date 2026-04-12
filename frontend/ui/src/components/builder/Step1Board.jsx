@@ -73,9 +73,18 @@ const WAEC_NECO_MIX = { id: 'mix', name: 'WAEC & NECO Combined', abbreviation: '
 export default function Step1Board({ onSelect, selected, access }) {
   const [boards, setBoards]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMix, setShowMix] = useState(false);  // ← moved inside
 
   useEffect(() => {
-    api.get('exam-boards/').then(r => setBoards(r.data)).catch(() => {}).finally(() => setLoading(false));
+    api.get('exam-boards/')
+      .then(r => {
+        const data = r.data;
+        setBoards(data);
+        const abbrs = data.map(b => b.abbreviation.toUpperCase());
+        setShowMix(abbrs.includes('WAEC') && abbrs.includes('NECO'));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const isFree    = access?.is_free ?? true;
@@ -134,8 +143,8 @@ export default function Step1Board({ onSelect, selected, access }) {
       )}
 
       {/* Board grid — dimmed and non-interactive when blocked */}
-      <div className={`board-grid ${isBlocked ? 's1-boards-blocked' : ''}`}>
-        {[...boards, WAEC_NECO_MIX].map(b => (
+       <div className={`board-grid ${isBlocked ? 's1-boards-blocked' : ''}`}>
+        {[...boards, ...(showMix ? [WAEC_NECO_MIX] : [])].map(b => (  
           <div key={b.id}
             className={`board-card ${b.id === 'mix' ? 'waec-neco-card' : ''} ${selected?.id === b.id ? 'selected' : ''}`}
             onClick={() => !isBlocked && onSelect(b)}>

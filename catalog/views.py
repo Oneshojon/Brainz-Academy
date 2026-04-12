@@ -33,7 +33,7 @@ from catalog.cache_utils import (
     get_all_subjects, get_all_boards, get_subjects_with_question_counts, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
     get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
-    get_leaderboard,
+    get_leaderboard, get_boards_with_question_counts,
 )
 
 class FeatureFlagsView(APIView):
@@ -114,7 +114,7 @@ class ExamBoardListView(generics.ListAPIView):
     serializer_class   = ExamBoardSerializer
 
     def get_queryset(self):
-        return get_all_boards()
+        return get_boards_with_question_counts()
 
 class TestBuilderAccessView(APIView):
     """

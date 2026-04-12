@@ -23,7 +23,7 @@ KEY_FEATURE_FLAGS  = 'catalog:feature_flags:all'
 KEY_LEADERBOARD    = 'practice:leaderboard:top50'
 KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
 KEY_SUBJECTS_WITH_COUNTS = 'catalog:subjects:with_counts'
-
+KEY_BOARDS_WITH_QUESTION_COUNTS = 'catalog:boards:with_question_counts'
 
 # ── Generic helpers ───────────────────────────────────────────────────────────
 
@@ -190,15 +190,13 @@ def invalidate_subject_caches(subject_id=None):
     If subject_id provided, only invalidates that subject's caches.
     Otherwise invalidates all subject-related caches.
     """
-    keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS, KEY_SUBJECTS_WITH_COUNTS]
+    keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS, KEY_SUBJECTS_WITH_COUNTS, KEY_BOARDS_WITH_QUESTION_COUNTS]
     if subject_id:
         keys += [
             KEY_THEMES.format(subject_id=subject_id),
             KEY_TOPICS.format(subject_id=subject_id),
             KEY_AVAILABLE_YEARS.format(subject_id=subject_id, board_id='all'),
         ]
-    # Invalidate all theme+board count caches — use pattern delete if supported
-    # otherwise they expire naturally after CACHE_1_HOUR
     invalidate(*keys)
 
 
@@ -233,3 +231,18 @@ def get_topics_for_theme_with_counts(theme_id, exam_board_id=None):
         ]
 
     return get_or_set(key, _fetch, CACHE_1_HOUR)
+
+
+def get_boards_with_question_counts():
+    from catalog.models import ExamBoard
+    from django.db.models import Count
+    return get_or_set(
+        KEY_BOARDS_WITH_QUESTION_COUNTS,
+        lambda: list(
+            ExamBoard.objects
+            .annotate(question_count=Count('series__questions', distinct=True))
+            .filter(question_count__gt=0)
+            .order_by('name')
+        ),
+        CACHE_1_HOUR
+    )

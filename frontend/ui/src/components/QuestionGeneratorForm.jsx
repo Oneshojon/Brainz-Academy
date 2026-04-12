@@ -33,7 +33,7 @@ const formStyles = `
     border-bottom: 1px solid var(--border);
   }
   .form-head h2 {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-weight: 700; font-size: 1.1rem; letter-spacing: -0.3px;
     margin-bottom: 0.25rem;
   }
@@ -151,7 +151,7 @@ const formStyles = `
     width: 100%; padding: 0.85rem;
     background: var(--accent); color: var(--black);
     border: none; border-radius: 10px;
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.95rem;
     cursor: pointer; transition: all 0.25s;
     display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   }
@@ -165,7 +165,7 @@ const formStyles = `
     width: 100%; padding: 0.6rem;
     background: transparent; color: var(--muted);
     border: 1px solid var(--border); border-radius: 8px;
-    font-family: 'DM Sans', sans-serif; font-size: 0.825rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;font-size: 0.825rem;
     cursor: pointer; transition: all 0.2s; margin-top: 0.6rem;
   }
   .clear-btn:hover { color: var(--text); border-color: var(--border-hover); }
@@ -210,15 +210,13 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
   const quickNums = isFree ? FREE_QUICK_NUMS : ALL_QUICK_NUMS;
 
   useEffect(() => {
-    api
-      .get("subjects/")
-      .then((res) => setSubjects(res.data))
-      .catch(() => {});
-    api
-      .get("exam-boards/")
-      .then((res) => setExamBoards(res.data))
-      .catch(() => {});
-  }, []);
+  api.get("subjects/")
+    .then((res) => setSubjects(res.data.filter(s => (s.question_count ?? 0) > 0)))
+    .catch(() => {});
+  api.get("exam-boards/")
+    .then((res) => setExamBoards(res.data))
+    .catch(() => {});
+}, []);
 
   useEffect(() => {
     if (form.subject) {
