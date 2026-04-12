@@ -136,27 +136,21 @@
 .sr-score-mob,
 .sr-btn-mob { display: none; }
 
-/* ══════════════════════════════════
-   MOBILE
-   ══════════════════════════════════ */
+
 @media (max-width: 640px) {
 
   .sessions-list { gap: 0.5rem; }
 
-  /* 2-col grid: [content] [review btn]
-     6 rows: subject / series / badge / date / score / btn */
   .session-row {
+    display: grid;
     grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto auto auto auto auto;
+    grid-template-rows: auto auto auto;
     grid-template-areas:
-      "subject  ."
-      "series   ."
-      "badge    ."
-      "date     ."
-      "score    ."
-      ".        btn-mob";
-    align-items: start;
-    column-gap: 0.5rem;
+      "subject  subject"
+      "meta     meta"
+      "score    btn-mob";
+    align-items: center;
+    column-gap: 0.75rem;
     row-gap: 0.18rem;
     padding: 0.9rem 1rem;
     border-bottom: none;
@@ -167,16 +161,16 @@
   }
   .session-row:last-child { border-bottom: none; }
 
-  /* Hide desktop-only elements */
-  .sr-icon   { display: none; }
-  .sr-meta   { display: none; }
-  .sr-score  { display: none; }
-  .sr-btn    { display: none; }
+  /* Hide desktop-only and unused mobile elements */
+  .sr-icon,
+  .sr-btn,
+  .sr-series,
+  .sr-badge,
+  .sr-date   { display: none; }
 
-  /* Subject — row 0 */
   .sr-subject {
     grid-area: subject;
-    font-size: clamp(0.65rem, 4vw, 1rem);
+    font-size: 0.95rem;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -184,55 +178,33 @@
     color: var(--navy);
   }
 
-  /* Series — row 1 */
-  .sr-series {
+  .sr-meta {
+    grid-area: meta;
     display: block;
-    grid-area: series;
-    font-size: clamp(0.58rem, 3.5vw, 0.82rem);
+    font-size: 0.78rem;
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* Badge — row 2 */
-  .sr-badge {
-    display: inline-block;
-    grid-area: badge;
-    font-size: clamp(0.5rem, 3vw, 0.68rem);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--blue);
-    background: rgba(9,146,194,0.08);
-    border: 1px solid rgba(9,146,194,0.2);
-    border-radius: 100px;
-    padding: 0.2rem 0.6rem;
-    width: fit-content;
-    margin: 0.1rem 0;
-  }
-
-  /* Date — row 3 */
-  .sr-date {
-    display: block;
-    grid-area: date;
-    font-size: clamp(0.55rem, 3vw, 0.78rem);
-    color: var(--muted);
-  }
-
-  /* Score mob — row 4 */
-  .sr-score-mob {
-    display: block;
+  .sr-score {
     grid-area: score;
-    font-size: clamp(0.75rem, 4vw, 1rem);
+    display: block;
+    font-size: 1rem;
     font-weight: 700;
+    text-align: left;
+    min-width: unset;
   }
 
-  /* Review btn mob — row 5, right col */
+  .sr-score-mob { display: none; }
+
   .sr-btn-mob {
     display: flex;
     grid-area: btn-mob;
-    align-self: end;
     justify-content: flex-end;
+    align-self: center;
+    padding-right: 15px;
   }
   .sr-btn-mob .sr-review {
     font-size: 0.72rem;
