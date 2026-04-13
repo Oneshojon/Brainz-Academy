@@ -7,20 +7,26 @@
     <title>Brainz Academy</title>
     <script>
       window.USER_ROLE = "{{ request.user.role|default:'' }}";
-      window.MathJax = {
-        tex: {
-          inlineMath: [['\\(', '\\)']],
-          displayMath: [['\\[', '\\]']]
-        },
-        startup: {
-          ready() {
-            MathJax.startup.defaultReady();
-            window.MathJaxReady = true;
-          }
-        }
+    </script>
+
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+
+    <script>
+      window.renderMath = function(el) {
+        renderMathInElement(el || document.body, {
+          delimiters: [
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true  },
+          ],
+          throwOnError: false,
+          strict: false,
+        });
       };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
     <script
       type="module"
       crossorigin

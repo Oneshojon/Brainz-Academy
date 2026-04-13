@@ -1,9 +1,30 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 function getCookie(name) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+// ── MathContent ───────────────────────────────────────────────────────────────
+// Renders HTML content and triggers KaTeX after mount/update.
+// Use this for any field that may contain \(...\) or \[...\] math notation.
+function MathContent({ html, className, as: Tag = 'div' }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (ref.current && window.renderMath) {
+      window.renderMath(ref.current);
+    }
+  }, [html]);
+
+  return (
+    <Tag
+      ref={ref}
+      className={className}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 
 const styles = `
@@ -314,7 +335,8 @@ export default function QuestionList({ questions, filterMeta, access }) {
               <span className="q-marks">{q.marks} mark{q.marks !== 1 ? 's' : ''}</span>
             </div>
 
-            <p className="q-content">{q.content}</p>
+            {/* ── Question content — rendered as HTML with KaTeX ── */}
+            <MathContent html={q.content} className="q-content" />
 
             {q.image && (
               <img src={q.image} alt={`Q${q.question_number}`} className="q-image" />
@@ -326,7 +348,8 @@ export default function QuestionList({ questions, filterMeta, access }) {
                   <li key={c.id} className={`choice-item ${c.is_correct ? 'correct' : ''}`}>
                     <span className="choice-label">{c.label}</span>
                     <div className="choice-body">
-                      <div className="choice-text">{c.choice_text}</div>
+                      {/* ── Choice text — rendered as HTML with KaTeX ── */}
+                      <MathContent html={c.choice_text} className="choice-text" />
                       {c.is_correct && c.explanation && (
                         <div className="choice-explanation">💡 {c.explanation}</div>
                       )}
@@ -345,11 +368,12 @@ export default function QuestionList({ questions, filterMeta, access }) {
             {q.question_type === 'THEORY' && q.theory_answer && (
               <div className="theory-answer">
                 <div className="theory-answer-title">Model Answer</div>
-                <div className="theory-answer-content">{q.theory_answer.content}</div>
+                {/* ── Theory answer — rendered as HTML with KaTeX ── */}
+                <MathContent html={q.theory_answer.content} className="theory-answer-content" />
                 {q.theory_answer.marking_guide && (
                   <details className="marking-guide">
                     <summary>📋 View Marking Guide</summary>
-                    <p>{q.theory_answer.marking_guide}</p>
+                    <MathContent html={q.theory_answer.marking_guide} as="p" />
                   </details>
                 )}
                 {q.theory_answer.video_url && (

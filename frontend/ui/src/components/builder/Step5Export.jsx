@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const styles = `
   /* ══ Row 1: stats + actions ══ */
@@ -215,11 +215,17 @@ export default function Step5Export({
   onBack, onNewTest, qTypeFilter, onQTypeFilter,
   downloading, onDownload, onOpenMyTests,
 }) {
-  const [dragIdx, setDragIdx]           = useState(null);
-  const [overIdx, setOverIdx]           = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
 
+  // Ref for the paper preview scroll container — KaTeX runs on its contents
+  const previewScrollRef = useRef(null);
+
+  // Trigger KaTeX whenever savedQuestions changes (questions added, removed, reordered)
   useEffect(() => {
-    if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise();
+    if (previewScrollRef.current && window.renderMath) {
+      window.renderMath(previewScrollRef.current);
+    }
   }, [savedQuestions]);
 
   const total       = savedQuestions.length;
@@ -345,7 +351,9 @@ export default function Step5Export({
             <span>📄 Paper Preview — {testTitle || 'Untitled Test'}</span>
             <span style={{ fontSize: '0.65rem' }}>{total} question{total !== 1 ? 's' : ''} · {totalMarks} marks</span>
           </div>
-          <div className="s5-preview-scroll">
+
+          {/* ref attached here so KaTeX scans all rendered question content */}
+          <div className="s5-preview-scroll" ref={previewScrollRef}>
             {savedQuestions.length === 0 ? (
               <div style={{ color: '#6B7FA3', padding: '2rem', textAlign: 'center', fontSize: '0.82rem' }}>
                 Add questions to see the paper preview.
@@ -356,7 +364,11 @@ export default function Step5Export({
                   <div key={q.id} className="s5-paper-q">
                     <div className="s5-paper-q-header">
                       <span className="s5-paper-q-num">{i + 1}.</span>
-                      <div className="s5-paper-q-content" dangerouslySetInnerHTML={{ __html: q.content }} />
+                      {/* Question content — rendered as HTML with KaTeX */}
+                      <div
+                        className="s5-paper-q-content"
+                        dangerouslySetInnerHTML={{ __html: q.content }}
+                      />
                     </div>
                     {q.image && <img src={q.image} alt="" className="s5-paper-q-img" />}
                     {q.question_type === 'OBJ' && q.choices?.length > 0 && (
@@ -364,6 +376,7 @@ export default function Step5Export({
                         {q.choices.map(c => (
                           <li key={c.id} className="s5-paper-choice">
                             <span className="s5-paper-choice-label">{c.label}.</span>
+                            {/* Choice text — rendered as HTML with KaTeX */}
                             <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
                           </li>
                         ))}

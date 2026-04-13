@@ -206,10 +206,19 @@ const styles = `
 
 /* ── Shared preview content (used in both desktop panel and mobile accordion) ── */
 function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
+  const ref = useRef(null);
+
+  // Trigger KaTeX after content mounts or question changes
+  useEffect(() => {
+    if (ref.current && window.renderMath) {
+      window.renderMath(ref.current);
+    }
+  }, [q]);
+
   if (!q) return null;
-  const canAdd = isAdded || !atLimit;
+
   return (
-    <>
+    <div ref={ref}>
       <div className="q4-row-tags" style={{ marginBottom: '1rem', flexWrap: 'wrap', display: 'flex', gap: '0.35rem' }}>
         {q.exam_year && (
           <span className="q4-tag year">{q.exam_year} · {q.exam_board}</span>
@@ -222,20 +231,26 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
           <span className={`q4-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>
         )}
       </div>
+
+      {/* Question content — rendered as HTML with KaTeX */}
       <div className="q4-preview-content" dangerouslySetInnerHTML={{ __html: q.content }} />
+
       {q.image && (
         <img src={q.image} alt="Question" className="q4-preview-img" />
       )}
+
       {q.question_type === 'OBJ' && q.choices?.length > 0 && (
         <ul className="q4-preview-choices">
           {q.choices.map(c => (
             <li key={c.id} className={`q4-preview-choice ${c.is_correct ? 'correct' : ''}`}>
               <span className={`q4-choice-label ${c.is_correct ? 'correct' : ''}`}>{c.label}</span>
+              {/* Choice text — rendered as HTML with KaTeX */}
               <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
             </li>
           ))}
         </ul>
       )}
+
       {q.question_type === 'THEORY' && q.theory_answer && (
         <div style={{
           marginTop: '1rem', padding: '0.85rem', background: '#FEF3C7',
@@ -246,9 +261,11 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
             color: '#B8860B', display: 'block', marginBottom: '0.4rem',
             fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em',
           }}>Model Answer</strong>
-          <span style={{ color: '#0D1B3E' }}>{q.theory_answer.content}</span>
+          {/* Theory answer — rendered as HTML with KaTeX */}
+          <span dangerouslySetInnerHTML={{ __html: q.theory_answer.content }} />
         </div>
       )}
+
       <button
         className={`q4-preview-add-btn ${isAdded ? 'added' : ''}`}
         disabled={!isAdded && atLimit}
@@ -261,7 +278,7 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
             ? `Limit reached (${maxQ})`
             : '+ Add to Test'}
       </button>
-    </>
+    </div>
   );
 }
 
@@ -270,16 +287,16 @@ export default function Step4Questions({
   onAdd, onRemove, onBack, onDone, onChangeTheme,
   access,
 }) {
-  const topic   = theme?.selectedTopic;
-  const maxQ    = access?.max_questions ?? Infinity;
-  const atLimit = savedQuestions.length >= maxQ;
+  const topic     = theme?.selectedTopic;
+  const maxQ      = access?.max_questions ?? Infinity;
+  const atLimit   = savedQuestions.length >= maxQ;
   const nearLimit = !atLimit && savedQuestions.length >= maxQ - 2;
 
-  const [questions, setQuestions]       = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [search, setSearch]             = useState('');
-  const [previewQ, setPreviewQ]         = useState(null);
-  const [previewId, setPreviewId]       = useState(null);
+  const [questions, setQuestions]           = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [search, setSearch]                 = useState('');
+  const [previewQ, setPreviewQ]             = useState(null);
+  const [previewId, setPreviewId]           = useState(null);
   const [availableYears, setAvailableYears] = useState([]);
   const [selectedYears, setSelectedYears]   = useState([]);
 
@@ -301,18 +318,6 @@ export default function Step4Questions({
       .finally(() => setLoading(false));
   }, [topic, board]);
 
-  const triggerMathJax = () => {
-    if (window.MathJax?.typesetPromise) {
-      window.MathJax.typesetPromise();
-    } else {
-      setTimeout(triggerMathJax, 200);
-    }
-  };
-
-  useEffect(() => {
-    if (previewQ) setTimeout(triggerMathJax, 100);
-  }, [previewQ]);
-
   const toggleYear = (year) => {
     const y = Number(year);
     setSelectedYears(prev => prev.includes(y) ? prev.filter(n => n !== y) : [...prev, y]);
@@ -330,7 +335,7 @@ export default function Step4Questions({
   };
 
   const handleAdd = (q) => {
-    if (atLimit) return; // hard cap
+    if (atLimit) return;
     const enrich = (fullQ) => ({
       ...fullQ,
       topic_names: fullQ.topic_names?.length > 0 ? fullQ.topic_names : [topic?.name].filter(Boolean),
