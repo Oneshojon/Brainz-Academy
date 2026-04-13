@@ -79,7 +79,10 @@
 
       <p class="q-content">{{ question.content|render_content }}<br /></p>
       {% if question.image %}
-        <img src="{{ question.image.url }}" alt="Question image" class="q-image">
+        <img src="{{ question.image.url }}" 
+            alt="Question image" 
+            class="q-image"
+            style="max-width: min(100%, {{ question.image.width }}px);">
       {% endif %}
 
       {% if question.question_type == 'OBJ' %}
