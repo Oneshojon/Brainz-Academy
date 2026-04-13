@@ -99,12 +99,12 @@ def start_session(request):
  
     # ── Enforce question cap ──────────────────────────────────────────────────
     # Free users: max 15, chosen randomly
-    # Paid users: respect what they selected (default 40)
+    # Paid users: respect what they selected (default 50)
     max_questions = access['max_questions']
     if access['is_free']:
         num_questions = min(int(request.POST.get('num_questions', 15)), max_questions)
     else:
-        num_questions = int(request.POST.get('num_questions', 40))
+        num_questions = int(request.POST.get('num_questions', 50))
  
     # ── Build question queryset ───────────────────────────────────────────────
     qs = Question.objects.all()
