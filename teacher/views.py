@@ -1010,6 +1010,8 @@ def _parse_docx(file_bytes):
             raise ValueError(f'pandoc conversion failed: {result.stderr}')
 
         html = result.stdout
+        # ── Escape currency $ signs before MathJax interprets them ───────────
+        html = re.sub(r'\$(?=\s*\d)', r'&#36;', html)
 
         img_map = {}
         media_path = os.path.join(tmpdir, 'media')
