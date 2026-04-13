@@ -141,7 +141,9 @@
             <p class="review-q-full">{{ question.content|render_content }}</p>
 
             {% if question.image %}
-              <img src="{{ question.image.url }}" style="max-width:min(100%, 480px); height:auto; display:block; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
+              <img src="{{ question.image.url }}" 
+                  alt="Question image" 
+                  class="review-q-image" />
             {% endif %}
 
             {% if question.question_type == 'OBJ' %}
