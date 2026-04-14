@@ -55,14 +55,14 @@ def invalidate(*keys):
 # ── Subject helpers ───────────────────────────────────────────────────────────
 
 def get_available_sittings(subject_id, board_id, year):
-    from catalog.models import ExamSeries, Question
+    from catalog.models import ExamSeries
     key = KEY_AVAILABLE_SITTINGS.format(
         subject_id=subject_id or 'all',
         board_id=board_id or 'all',
         year=year or 'all'
     )
     def _fetch():
-        qs = ExamSeries.objects.filter(question__isnull=False).distinct()
+        qs = ExamSeries.objects.filter(questions__isnull=False).distinct()  # ← questions not question
         if subject_id:
             qs = qs.filter(subject_id=subject_id)
         if board_id:
