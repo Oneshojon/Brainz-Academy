@@ -271,11 +271,12 @@ def get_platform_settings():
     Cache is busted automatically via the post_save signal on PlatformSettings.
     """
     from catalog.models import PlatformSettings
-    return get_or_set(
-        KEY_PLATFORM_SETTINGS,
-        lambda: PlatformSettings.get(),
-        CACHE_5_MIN
-    )
+    # return get_or_set(
+    #     KEY_PLATFORM_SETTINGS,
+    #     lambda: PlatformSettings.get(),
+    #     CACHE_5_MIN
+    # )
+    return PlatformSettings.get()
 
 
 def invalidate_platform_settings():
