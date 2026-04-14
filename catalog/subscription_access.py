@@ -16,10 +16,10 @@ def get_active_subscription(user):
  
  
 def has_subscription(user, plan_type=None):
-    """
-    Check if user has an active subscription.
-    plan_type: 'STUDENT_BASIC' | 'TEACHER_PRO' | None (any active)
-    """
+    # Global free mode — treat everyone as subscribed
+    if not _platform_settings().subscription_required:
+        return True
+
     sub = get_active_subscription(user)
     if not sub:
         return False
@@ -107,7 +107,7 @@ def check_practice_access(user):
             'sessions_left': 0,
             'is_free':       True,
             'reason':        (
-                f"You've used all {FreeUsag_platform_settings().free_daily_sessions} "
+                f"You've used all {_platform_settings().free_daily_sessions} "
                 f"free practice sessions for today. Come back tomorrow or "
                 f"upgrade to practise without limits."
             ),
