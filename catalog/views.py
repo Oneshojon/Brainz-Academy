@@ -23,18 +23,45 @@ import io
 import os
 from datetime import date
 
+from django.http import JsonResponse
+from .models import ExamSeries
+
+SITTING_LABELS = {
+    'MAY_JUNE': 'May/June',
+    'NOV_DEC':  'Nov/Dec',
+    'MOCK':     'Mock',
+    'OTHER':    'Other',
+}
 
 
-# Add these two — missing from your file
+
+
 _FIRST_P_RE   = re.compile(r'^(<p[^>]*>)', re.IGNORECASE)
 _BLOCK_TAG_RE = re.compile(r'^<(table|figure|img|div|ul|ol)', re.IGNORECASE)
 
 from catalog.cache_utils import (
-    get_all_subjects, get_all_boards, get_subjects_with_question_counts, get_themes_for_subject,
+    get_all_subjects, get_all_boards, get_available_sittings, get_subjects_with_question_counts, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
     get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
     get_leaderboard, get_boards_with_question_counts,
 )
+
+
+class AvailableSittingsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        subject_id = request.query_params.get('subject')
+        board_id   = request.query_params.get('board')
+        year       = request.query_params.get('year')
+
+        sittings = get_available_sittings(subject_id, board_id, year)
+        data = [
+            {'value': s, 'label': SITTING_LABELS.get(s, s)}
+            for s in sittings if s
+        ]
+        return Response({'sittings': data})
+
 
 class FeatureFlagsView(APIView):
     """

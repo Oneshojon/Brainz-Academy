@@ -7,6 +7,7 @@
 <div id="practice-data"
   data-topics-url="{% url 'catalog:topic-list' %}"
   data-years-url="{% url 'catalog:available-years' %}"
+  data-sittings-url="{% url 'catalog:available-sittings' %}"
   data-is-free="{{ access.is_free|yesno:'true,false' }}"
   data-max-questions="{{ access.max_questions }}"
   style="display:none"></div>

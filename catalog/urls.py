@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    SubjectListView, ExamBoardListView,
+    AvailableSittingsView, SubjectListView, ExamBoardListView,
     TopicListView, AvailableYearsView, GenerateQuestionsView, QuestionDownloadView,
     ThemeListView, TopicsByThemeView, QuestionsByTopicView, QuestionDetailView, FeatureFlagsView
 )
@@ -28,5 +28,5 @@ urlpatterns = [
      path('saved-tests/',              SavedTestListView.as_view(),    name='saved-test-list'),
     path('saved-tests/<int:pk>/',     SavedTestDetailView.as_view(),  name='saved-test-detail'),
     path('saved-tests/<int:pk>/clone/', SavedTestCloneView.as_view(), name='saved-test-clone'),
-
+    path('available-sittings/', AvailableSittingsView.as_view(), name='available-sittings'),
 ]

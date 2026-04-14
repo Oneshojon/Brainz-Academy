@@ -24,6 +24,7 @@ KEY_LEADERBOARD    = 'practice:leaderboard:top50'
 KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
 KEY_SUBJECTS_WITH_COUNTS = 'catalog:subjects:with_counts'
 KEY_BOARDS_WITH_QUESTION_COUNTS = 'catalog:boards:with_question_counts'
+KEY_AVAILABLE_SITTINGS = 'catalog:sittings:subject:{subject_id}:board:{board_id}:year:{year}'
 
 # ── Generic helpers ───────────────────────────────────────────────────────────
 
@@ -52,6 +53,24 @@ def invalidate(*keys):
 
 
 # ── Subject helpers ───────────────────────────────────────────────────────────
+
+def get_available_sittings(subject_id, board_id, year):
+    from catalog.models import ExamSeries, Question
+    key = KEY_AVAILABLE_SITTINGS.format(
+        subject_id=subject_id or 'all',
+        board_id=board_id or 'all',
+        year=year or 'all'
+    )
+    def _fetch():
+        qs = ExamSeries.objects.filter(question__isnull=False).distinct()
+        if subject_id:
+            qs = qs.filter(subject_id=subject_id)
+        if board_id:
+            qs = qs.filter(exam_board_id=board_id)
+        if year:
+            qs = qs.filter(year=year)
+        return sorted(qs.values_list('sitting', flat=True).distinct())
+    return get_or_set(key, _fetch, CACHE_1_HOUR)
 
 def get_all_subjects():
     from catalog.models import Subject
@@ -186,17 +205,13 @@ def invalidate_leaderboard():
 # ── Invalidation helpers (call on data change) ────────────────────────────────
 
 def invalidate_subject_caches(subject_id=None):
-    """
-    Call after adding/editing a subject, topic, theme, or exam series.
-    If subject_id provided, only invalidates that subject's caches.
-    Otherwise invalidates all subject-related caches.
-    """
     keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS, KEY_SUBJECTS_WITH_COUNTS, KEY_BOARDS_WITH_QUESTION_COUNTS]
     if subject_id:
         keys += [
             KEY_THEMES.format(subject_id=subject_id),
             KEY_TOPICS.format(subject_id=subject_id),
             KEY_AVAILABLE_YEARS.format(subject_id=subject_id, board_id='all'),
+            KEY_AVAILABLE_SITTINGS.format(subject_id=subject_id, board_id='all', year='all'),
         ]
     invalidate(*keys)
 
@@ -247,3 +262,4 @@ def get_boards_with_question_counts():
         ),
         CACHE_1_HOUR
     )
+
