@@ -1,6 +1,7 @@
 const data = document.getElementById('practice-data');
 const TOPICS_URL = data.dataset.topicsUrl;
 const YEARS_URL = data.dataset.yearsUrl;
+const SITTINGS_URL = data.dataset.sittingsUrl;
 
 // ── SESSION TYPE ──
 function setSessionType(type) {
@@ -101,29 +102,99 @@ function loadYears() {
     });
 }
 
+// ── LOAD SITTINGS ──
+let sittingsController = null;
+const sittingsCache = {};
+
+function loadSittings() {
+  const subjectId = document.getElementById('subject').value;
+  const boardId   = document.getElementById('exam_board').value;
+  const year      = document.getElementById('year').value;
+  const sittingEl = document.getElementById('sitting');
+
+  if (!subjectId) {
+    sittingEl.innerHTML = '<option value="">— Any Sitting —</option>';
+    sittingEl.disabled = true;
+    return;
+  }
+
+  const cacheKey = `${subjectId}-${boardId}-${year}`;
+  if (sittingsCache[cacheKey]) {
+    renderSittings(sittingsCache[cacheKey]);
+    return;
+  }
+
+  if (sittingsController) sittingsController.abort();
+  sittingsController = new AbortController();
+
+  const params = new URLSearchParams();
+  if (subjectId) params.set('subject', subjectId);
+  if (boardId)   params.set('board', boardId);
+  if (year)      params.set('year', year);
+
+  fetch(`${SITTINGS_URL}?${params}`, { signal: sittingsController.signal })
+    .then(r => r.json())
+    .then(res => {
+      sittingsCache[cacheKey] = res.sittings || [];
+      renderSittings(sittingsCache[cacheKey]);
+    })
+    .catch(err => {
+      if (err.name !== 'AbortError') {
+        sittingEl.innerHTML = '<option value="">— Any Sitting —</option>';
+        sittingEl.disabled = true;
+      }
+    });
+}
+
+function renderSittings(sittings) {
+  const sittingEl = document.getElementById('sitting');
+  sittingEl.innerHTML = '<option value="">— Any Sitting —</option>';
+  if (!sittings.length) {
+    sittingEl.disabled = true;
+    return;
+  }
+  sittings.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.value;
+    opt.textContent = s.label;
+    sittingEl.appendChild(opt);
+  });
+  sittingEl.disabled = false;
+}
+
 // ── SUBJECT CHANGE ──
 document.getElementById('subject').addEventListener('change', function () {
   loadTopics(this.value);
   loadYears();
+   loadSittings();
   updateSummary();
 });
 
 document.getElementById('exam_board').addEventListener('change', function () {
   loadYears();
+  loadSittings(); 
   updateSummary();
 });
 
-document.getElementById('year').addEventListener('change', updateSummary);
+document.getElementById('year').addEventListener('change', function () {
+  loadSittings();   // ← add
+  updateSummary();
+});
+
+document.getElementById('sitting').addEventListener('change', updateSummary);
 
 // ── SUMMARY ──
 function updateSummary() {
   const subject = document.getElementById('subject').options[document.getElementById('subject').selectedIndex]?.text || '—';
-  const board = document.getElementById('exam_board').options[document.getElementById('exam_board').selectedIndex]?.text || 'Any board';
-  const year = document.getElementById('year').value || 'Any year';
-  const num = document.getElementById('num_questions').value || 40;
+  const board   = document.getElementById('exam_board').options[document.getElementById('exam_board').selectedIndex]?.text || 'Any board';
+  const year    = document.getElementById('year').value || 'Any year';
+  const sitting = document.getElementById('sitting').options[document.getElementById('sitting').selectedIndex]?.text || '';
+  const num     = document.getElementById('num_questions').value || 40;
+
+  const sittingPart = sitting && sitting !== '— Any Sitting —' ? ` · ${sitting}` : '';
 
   document.getElementById('summary-text').innerHTML =
-    `<strong>${num} questions</strong> · ${subject} · ${board} · ${year}`;
+    `<strong>${num} questions</strong> · ${subject} · ${board} · ${year}${sittingPart}`;
 }
 
 // ── TOPIC CHECKBOX STYLE SYNC ──
