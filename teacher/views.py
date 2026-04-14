@@ -583,9 +583,24 @@ def _handle_ai_generate(request, data):
     import anthropic
     topic_id = data.get('topic_id')
     try:
-        topic = Topic.objects.select_related('subject').get(id=topic_id)
+        topic = Topic.objects.select_related('subject', 'lesson_note').get(id=topic_id)
     except Topic.DoesNotExist:
         return JsonResponse({'error': 'Topic not found'}, status=404)
+
+    existing_note = getattr(topic, 'lesson_note', None)
+    if existing_note:
+        if existing_note.pdf_file:
+            return JsonResponse(
+                {'error': 'An uploaded PDF note already exists for this topic. '
+                          'AI generation is disabled when a PDF is present.'},
+                status=409,
+            )
+        if existing_note.ai_content:
+            return JsonResponse({
+                'content':    existing_note.ai_content,
+                'topic_name': topic.name,
+                'cached':     True,
+            })
 
     prompt = f"""You are an expert {topic.subject.name} educator writing a comprehensive lesson note for Nigerian secondary school students (WAEC/NECO level).
 
@@ -602,6 +617,27 @@ Structure your notes with:
 6. **Exam Tips** — common exam questions and how to approach them
 7. **Practice Questions** — 3-5 short questions with answers
 
+DIAGRAMS:
+Where a diagram would genuinely aid understanding, include one using whichever format best fits:
+
+- **Mermaid** (for cycles, flows, sequences, hierarchies, reaction pathways):
+  Use a fenced code block with ```mermaid. Example:
+```mermaid
+  graph TD
+    A[Glucose] --> B[Pyruvate]
+    B --> C[Acetyl-CoA]
+```
+
+- **SVG** (for labelled diagrams, anatomical structures, geometric shapes, apparatus):
+  Write inline SVG markup directly. Keep it simple, clean, and clearly labelled.
+  Example: a labelled cell, a ray diagram, a titration apparatus.
+
+- **ASCII** (for simple linear relationships, basic circuits, quick illustrations):
+  Use Unicode/ASCII characters inline within the text.
+  Example: Zn(s) + H₂SO₄(aq) → ZnSO₄(aq) + H₂↑
+
+Choose the format that best communicates the concept. Do not force a diagram where plain text is clearer. Never include more than 3 diagrams per note.
+
 Write in clear, accessible English. Use examples relevant to Nigerian students where appropriate. Format using markdown."""
 
     try:
@@ -610,7 +646,11 @@ Write in clear, accessible English. Use examples relevant to Nigerian students w
             model='claude-opus-4-6', max_tokens=4096,
             messages=[{"role": "user", "content": prompt}]
         )
-        return JsonResponse({'content': message.content[0].text, 'topic_name': topic.name})
+        return JsonResponse({
+            'content':    message.content[0].text,
+            'topic_name': topic.name,
+            'cached':     False,
+        })
     except Exception as e:
         return JsonResponse({'error': f'AI generation failed: {e}'}, status=500)
 
@@ -621,9 +661,26 @@ def _handle_ai_accept(request, data):
     if not ai_content:
         return JsonResponse({'error': 'No content provided'}, status=400)
     try:
-        topic = Topic.objects.select_related('subject').get(id=topic_id)
+        topic = Topic.objects.select_related('subject', 'lesson_note').get(id=topic_id)
     except Topic.DoesNotExist:
         return JsonResponse({'error': 'Topic not found'}, status=404)
+
+    existing_note = getattr(topic, 'lesson_note', None)
+
+    if existing_note and existing_note.pdf_file:
+        return JsonResponse(
+            {'error': 'An uploaded PDF already exists for this topic. '
+                      'AI content cannot overwrite it.'},
+            status=409,
+        )
+
+    if existing_note and existing_note.ai_content:
+        return JsonResponse({
+            'success':         True,
+            'note_id':         existing_note.id,
+            'message':         'Note already saved.',
+            'already_existed': True,
+        })
 
     note, _ = LessonNote.objects.update_or_create(
         topic=topic,
