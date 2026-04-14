@@ -25,6 +25,7 @@ KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
 KEY_SUBJECTS_WITH_COUNTS = 'catalog:subjects:with_counts'
 KEY_BOARDS_WITH_QUESTION_COUNTS = 'catalog:boards:with_question_counts'
 KEY_AVAILABLE_SITTINGS = 'catalog:sittings:subject:{subject_id}:board:{board_id}:year:{year}'
+KEY_PLATFORM_SETTINGS = 'catalog:platform_settings'
 
 # ── Generic helpers ───────────────────────────────────────────────────────────
 
@@ -263,3 +264,20 @@ def get_boards_with_question_counts():
         CACHE_1_HOUR
     )
 
+def get_platform_settings():
+    """
+    Returns the cached PlatformSettings singleton.
+    Use this everywhere instead of PlatformSettings.get() to avoid DB hits.
+    Cache is busted automatically via the post_save signal on PlatformSettings.
+    """
+    from catalog.models import PlatformSettings
+    return get_or_set(
+        KEY_PLATFORM_SETTINGS,
+        lambda: PlatformSettings.get(),
+        CACHE_5_MIN
+    )
+
+
+def invalidate_platform_settings():
+    """Called by the PlatformSettings post_save signal."""
+    invalidate(KEY_PLATFORM_SETTINGS)

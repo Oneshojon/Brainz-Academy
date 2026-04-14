@@ -2,6 +2,7 @@ from django.contrib import admin
 from catalog.models import Worksheet, LessonNote, FeatureFlag, SubscriptionPlan, UserSubscription
 from .models import Subject, Topic, ExamBoard, ExamSeries, Question, Choice, TheoryAnswer
 from catalog.models import PastPaper
+from catalog.models import PlatformSettings
 
 
 @admin.register(PastPaper)
@@ -101,3 +102,41 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
     list_display = ['user', 'plan', 'status', 'started_at', 'expires_at']
     list_filter  = ['status', 'plan']
     search_fields = ['user__email']
+
+
+@admin.register(PlatformSettings)
+class PlatformSettingsAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ("🔓 Access Control", {
+            "fields": ("subscription_required",),
+            "description": (
+                "⚠️ Turning off subscription_required makes the platform completely "
+                "free — ALL users get unlimited access immediately (cache clears within 5 min)."
+            ),
+        }),
+        ("Free Tier Limits", {
+            "fields": (
+                "free_daily_sessions",
+                "free_question_limit",
+                "free_test_builder_trials",
+                "free_lesson_note_slots",
+            ),
+            "description": "These limits only apply when subscription is required.",
+        }),
+        ("Audit", {
+            "fields": ("updated_at", "updated_by"),
+        }),
+    )
+    readonly_fields = ("updated_at",)
+
+    def has_add_permission(self, request):
+        # Only allow creating the singleton if it doesn't exist yet
+        return not PlatformSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        # Never allow deleting the singleton
+        return False
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
