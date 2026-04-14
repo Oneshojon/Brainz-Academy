@@ -5,6 +5,10 @@ from catalog.models import FreeUsageTracker, SubscriptionPlan
  
  
 # ── Core subscription check ───────────────────────────────────────────────────
+
+def _platform_settings():
+    from catalog.cache_utils import get_platform_settings
+    return get_platform_settings()
  
 def get_active_subscription(user):
     """Returns the user's active UserSubscription or None."""
@@ -99,11 +103,11 @@ def check_practice_access(user):
     if not tracker.can_start_session():
         return {
             'allowed':       False,
-            'max_questions': FreeUsageTracker.FREE_QUESTION_LIMIT,
+            'max_questions': _platform_settings().free_question_limit,
             'sessions_left': 0,
             'is_free':       True,
             'reason':        (
-                f"You've used all {FreeUsageTracker.FREE_DAILY_SESSION_LIMIT} "
+                f"You've used all {FreeUsag_platform_settings().free_daily_sessions} "
                 f"free practice sessions for today. Come back tomorrow or "
                 f"upgrade to practise without limits."
             ),
@@ -111,7 +115,7 @@ def check_practice_access(user):
  
     return {
         'allowed':       True,
-        'max_questions': FreeUsageTracker.FREE_QUESTION_LIMIT,
+        'max_questions': _platform_settings().free_question_limit,
         'sessions_left': tracker.sessions_remaining_today(),
         'is_free':       True,
         'reason':        '',
@@ -159,7 +163,7 @@ def check_test_builder_access(user):
             'allowed':          False,
             'is_free':          True,
             'trials_remaining': 0,
-            'max_questions':    FreeUsageTracker.FREE_QUESTION_LIMIT,
+            'max_questions':    _platform_settings().free_question_limit,
             'pdf_only':         True,
             'reason':           (
                 f"You've used both free test builder trials. "
@@ -171,7 +175,7 @@ def check_test_builder_access(user):
         'allowed':          True,
         'is_free':          True,
         'trials_remaining': tracker.trials_remaining(),
-        'max_questions':    FreeUsageTracker.FREE_QUESTION_LIMIT,
+        'max_questions':    _platform_settings().free_question_limit,
         'pdf_only':         True,
         'reason':           '',
     }
