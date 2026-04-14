@@ -602,48 +602,39 @@ def _handle_ai_generate(request, data):
                 'cached':     True,
             })
 
-    prompt = f"""You are an expert {topic.subject.name} educator writing a comprehensive lesson note for Nigerian secondary school students (WAEC/NECO level).
+    prompt = f"""You are an experienced {topic.subject.name} teacher preparing a focused revision note for Nigerian students writing WAEC, NECO, or JAMB.
 
-Write detailed lesson notes on:
 Subject: {topic.subject.name}
 Topic: {topic.name}
 
-Structure your notes with:
-1. **Learning Objectives** — what the student should know by the end
-2. **Introduction** — brief overview and relevance
-3. **Main Content** — detailed explanation with subheadings, broken into clear sections
-4. **Key Terms** — important vocabulary with definitions
-5. **Summary** — bullet-point recap of key points
-6. **Exam Tips** — common exam questions and how to approach them
-7. **Practice Questions** — 3-5 short questions with answers
+Write a REVISION NOTE — not a textbook chapter. Every line must be something a student could be examined on. Cut anything that cannot appear in an exam question.
 
-DIAGRAMS:
-Where a diagram would genuinely aid understanding, include one using whichever format best fits:
+STRUCTURE:
+1. **Key Definitions** — every term a student must know for this topic. Concise and precise.
+2. **Core Facts & Concepts** — bullet points only. State facts directly. No padding or storytelling.
+3. **Tables & Comparisons** — use tables wherever the topic involves comparing items, structures, functions, processes, or properties. Exams frequently use table-completion questions.
+4. **Worked Examples** — include only if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics.
+5. **Diagrams** — include ONLY if the topic is commonly examined with a diagram. Use the best format:
+   - Mermaid for cycles, flows, processes, hierarchies (e.g. carbon cycle, taxonomic ranks, market structures)
+   - SVG for labelled structural or anatomical diagrams (e.g. nephron, circuit, titration apparatus, geometric construction)
+   - ASCII for simple linear relationships, equations, or quick illustrations
+   Maximum 2 diagrams per note. Omit entirely if diagrams are not examined for this topic.
+6. **Likely Exam Questions** — 4–6 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
+7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
 
-- **Mermaid** (for cycles, flows, sequences, hierarchies, reaction pathways):
-  Use a fenced code block with ```mermaid. Example:
-```mermaid
-  graph TD
-    A[Glucose] --> B[Pyruvate]
-    B --> C[Acetyl-CoA]
-```
-
-- **SVG** (for labelled diagrams, anatomical structures, geometric shapes, apparatus):
-  Write inline SVG markup directly. Keep it simple, clean, and clearly labelled.
-  Example: a labelled cell, a ray diagram, a titration apparatus.
-
-- **ASCII** (for simple linear relationships, basic circuits, quick illustrations):
-  Use Unicode/ASCII characters inline within the text.
-  Example: Zn(s) + H₂SO₄(aq) → ZnSO₄(aq) + H₂↑
-
-Choose the format that best communicates the concept. Do not force a diagram where plain text is clearer. Never include more than 3 diagrams per note.
-
-Write in clear, accessible English. Use examples relevant to Nigerian students where appropriate. Format using markdown."""
+RULES:
+- Write for a student with limited time to revise this topic before an exam
+- Every fact must be accurate and pitched at the correct level for WAEC/NECO/JAMB
+- Use Nigerian examples where relevant (organisms, geography, economy, history, industries, food, diseases)
+- No introductions, no conclusions, no motivational sentences, no "in this note we will..."
+- No repetition — state each fact once
+- Tables must be complete and accurate
+- Format using markdown"""
 
     try:
         client  = anthropic.Anthropic()
         message = client.messages.create(
-            model='claude-opus-4-6', max_tokens=4096,
+            model='claude-opus-4-6', max_tokens=6000,
             messages=[{"role": "user", "content": prompt}]
         )
         return JsonResponse({
