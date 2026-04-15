@@ -318,9 +318,10 @@
                     </div>
                     <iframe src="{{ t.lesson_note.pdf_file.url }}" class="ln-pdf-embed" title="{{ t.name }}"></iframe>
                   {% elif t.lesson_note and t.lesson_note.ai_content %}
-                    {# Mobile AI note — rendered lazily when panel expands #}
-                    <div class="ai-content mobile-ai-note"
-                         data-ai-raw="{{ t.lesson_note.ai_content|escapejs }}"></div>
+                      {% with mob_id=t.id|stringformat:"s"|add:"-mob" %}
+                        {{ t.lesson_note.ai_content|json_script:mob_id }}
+                      {% endwith %}
+                      <div class="ai-content mobile-ai-note" data-topic-id="{{ t.id }}"></div>
                   {% elif t.lesson_note and t.lesson_note.video_url %}
                     <div class="ln-video-wrap">
                       <iframe src="{{ t.lesson_note.video_url }}" frameborder="0"
@@ -637,10 +638,13 @@ function expandTopicContent(topicId, linkEl) {
 
   // Render mobile AI note lazily — only once, only when panel opens
   const aiEl = wrap.querySelector('.mobile-ai-note')
-  if (aiEl && aiEl.dataset.aiRaw && !aiEl.dataset.rendered) {
+if (aiEl && !aiEl.dataset.rendered) {
+  const scriptEl = document.getElementById(aiEl.dataset.topicId + '-mob')
+  if (scriptEl) {
     aiEl.dataset.rendered = '1'
-    renderAll(aiEl, aiEl.dataset.aiRaw)
+    renderAll(aiEl, JSON.parse(scriptEl.textContent))
   }
+}
 
   wrap.style.maxHeight = wrap.scrollHeight + 'px'
   wrap.style.opacity   = '1'
