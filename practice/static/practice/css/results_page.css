@@ -199,6 +199,35 @@ body {
 }
 .video-link:hover { border-color: var(--blue); background: rgba(9,146,194,0.12); }
 
+.q-content table,
+.review-q-full table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.q-content table th,
+.q-content table td,
+.review-q-full table th,
+.review-q-full table td {
+  border: 1.5px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.q-content table th {
+  background: var(--offwhite);
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.q-content table tr:nth-child(even) {
+  background: var(--offwhite);
+}
+
+
 .review-q-image {
   display: block;
   max-width: 100%;

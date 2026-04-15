@@ -185,6 +185,20 @@ const styles = `
   .s5-mobile-dl-btn.docx:hover:not(:disabled) { background: rgba(184,134,11,0.1); border-color: #B8860B; }
   .s5-mobile-dl-divider { grid-column: 1 / -1; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7FA3; margin: 0.35rem 0 0.1rem; }
   .s5-pdf-only-note { grid-column: 1 / -1; font-size: 0.72rem; color: #B8860B; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.35rem; }
+
+/* ── Table styles ── */
+.s5-paper-q-content table {
+  border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
+}
+.s5-paper-q-content table th,
+.s5-paper-q-content table td {
+  border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
+  text-align: left; vertical-align: top;
+}
+.s5-paper-q-content table th {
+  background: #EDF1F8; font-weight: 700; color: #0B2D72;
+}
+.s5-paper-q-content table tr:nth-child(even) { background: #F7FAFD; }
 `;
 
 /* ── Reusable spinner icon ── */

@@ -164,6 +164,27 @@ const styles = `
     font-size: 0.72rem; color: var(--muted); background: var(--deep);
     border: 1px solid var(--border); padding: 0.2rem 0.6rem; border-radius: 100px;
   }
+
+  /* ── Table styles ── */
+.q-content table,
+.choice-text table,
+.theory-answer-content table {
+  border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.9rem;
+}
+.q-content table th,
+.q-content table td,
+.choice-text table th,
+.choice-text table td,
+.theory-answer-content table th,
+.theory-answer-content table td {
+  border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
+  text-align: left; vertical-align: top;
+}
+.q-content table th,
+.theory-answer-content table th {
+  background: #EDF1F8; font-weight: 700; color: #0B2D72;
+}
+.q-content table tr:nth-child(even) { background: #F7FAFD; }
 `;
 
 export default function QuestionList({ questions, filterMeta, access }) {

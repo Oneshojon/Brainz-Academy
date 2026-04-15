@@ -202,6 +202,25 @@ const styles = `
     background: #DCFCE7; color: #15803D; border: 1.5px solid rgba(21,128,61,0.3); box-shadow: none;
   }
   .q4-preview-add-btn.added:hover { background: #FEE2E2; color: #DC2626; border-color: rgba(220,38,38,0.3); }
+
+  /* ── Table styles ── */
+.q4-preview-content table,
+.q4-preview-body table {
+  border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
+}
+.q4-preview-content table th,
+.q4-preview-content table td,
+.q4-preview-body table th,
+.q4-preview-body table td {
+  border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
+  text-align: left; vertical-align: top;
+}
+.q4-preview-content table th,
+.q4-preview-body table th {
+  background: #EDF1F8; font-weight: 700; color: #0B2D72;
+}
+.q4-preview-content table tr:nth-child(even),
+.q4-preview-body table tr:nth-child(even) { background: #F7FAFD; }
 `;
 
 /* ── Shared preview content (used in both desktop panel and mobile accordion) ── */

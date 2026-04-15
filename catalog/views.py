@@ -402,7 +402,13 @@ def _build_question_html(questions, title, include_answers=False):
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
     def _lines(images_dir):
-        yield '<html><head><meta charset="utf-8"></head><body>\n'
+        yield (
+            '<html><head><meta charset="utf-8"><style>\n'
+            'table { border-collapse: collapse; width: 100%; margin: 1em 0; }\n'
+            'td, th { border: 1px solid #999; padding: 6px 10px; vertical-align: top; }\n'
+            'th { background: #f0f0f0; font-weight: bold; }\n'
+            '</style></head><body>\n'
+        )
         yield f'<p>Subject: {hdr["subject"]}</p>\n'
         yield f'<p>Exam: {hdr["exam"]}</p>\n'
         yield f'<p>Year: {hdr["year"]}</p>\n'
@@ -412,6 +418,20 @@ def _build_question_html(questions, title, include_answers=False):
 
         for i, q in enumerate(questions, 1):
             content = q.content.strip()
+
+            # ── Inject inline styles into any HTML tables ──────────────────
+            content = re.sub(
+                r'<table(?![^>]*style=)',
+                '<table style="border-collapse:collapse;width:100%"',
+                content
+            )
+            content = re.sub(
+                r'<(td|th)(\s[^>]*)?(?<!/)>',
+                lambda m: f'<{m.group(1)}{m.group(2) or ""} style="border:1px solid #999;padding:6px 10px;vertical-align:top">',
+                content
+            )
+            # ──────────────────────────────────────────────────────────────
+
             if _FIRST_P_RE.match(content):
                 content = _FIRST_P_RE.sub(
                     rf'\1<strong>{i}.</strong>&nbsp;', content, count=1
@@ -513,6 +533,8 @@ def _generate_pdf(questions, title, include_answers=False):
                 '--from', 'html+tex_math_single_backslash',
                 '--pdf-engine', 'xelatex',
                 '--variable', 'geometry:margin=1in',
+                '--variable', 'tables=true',
+                '--variable', 'colorlinks=true',
                 '--resource-path', tmpdir,
             ],
             capture_output=True, timeout=120,
