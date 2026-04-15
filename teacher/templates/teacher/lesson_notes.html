@@ -237,6 +237,8 @@
   .teacher-nav { overflow-x: auto; flex-wrap: nowrap; padding: 0.5rem; }
   .teacher-nav a { flex-shrink: 0; }
   .ai-content .katex-display { font-size:0.9rem; }
+  /* Mobile AI note inner padding */
+  .ln-topic-content-inner .ai-content { font-size:0.85rem; }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -316,9 +318,9 @@
                     </div>
                     <iframe src="{{ t.lesson_note.pdf_file.url }}" class="ln-pdf-embed" title="{{ t.name }}"></iframe>
                   {% elif t.lesson_note and t.lesson_note.ai_content %}
-                    <div style="font-size:0.83rem; color:var(--muted); padding:0.5rem 0;">
-                      AI-generated note available — open on desktop to view.
-                    </div>
+                    {# Mobile AI note — rendered lazily when panel expands #}
+                    <div class="ai-content mobile-ai-note"
+                         data-ai-raw="{{ t.lesson_note.ai_content|escapejs }}"></div>
                   {% elif t.lesson_note and t.lesson_note.video_url %}
                     <div class="ln-video-wrap">
                       <iframe src="{{ t.lesson_note.video_url }}" frameborder="0"
@@ -534,20 +536,16 @@ function renderMath(containerEl) {
       { left: '$$',  right: '$$',  display: true  },
       { left: '\\[', right: '\\]', display: true  },
       { left: '\\(', right: '\\)', display: false },
-      // $ intentionally excluded — clashes with Naira/Dollar amounts
     ],
     throwOnError: false,
   })
 }
 
-// ── Markdown renderer — allows raw SVG and decodes fenced SVG blocks ──────────
+// ── Markdown renderer — protects LaTeX, allows SVG ───────────────────────────
 function renderMarkdown(raw) {
-  // ── Step 1: protect LaTeX delimiters from marked's backslash processing ──
-  // Replace \( \) and \[ \] with placeholder tokens before marked runs,
-  // then restore them in the HTML output so KaTeX can find them.
   const mathBlocks = []
 
-  // Extract display math \[...\] first (greedy issue if done after inline)
+  // Extract display math \[...\] before marked runs
   raw = raw.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
     mathBlocks.push(match)
     return `%%MATH_DISPLAY_${mathBlocks.length - 1}%%`
@@ -559,14 +557,13 @@ function renderMarkdown(raw) {
     return `%%MATH_INLINE_${mathBlocks.length - 1}%%`
   })
 
-  // ── Step 2: run marked on the protected string ────────────────────────────
   let html = marked.parse(raw)
 
-  // ── Step 3: restore math blocks ───────────────────────────────────────────
+  // Restore math blocks
   html = html.replace(/%%MATH_DISPLAY_(\d+)%%/g, (_, i) => mathBlocks[parseInt(i)])
   html = html.replace(/%%MATH_INLINE_(\d+)%%/g,  (_, i) => mathBlocks[parseInt(i)])
 
-  // ── Step 4: safety net for SVG accidentally fenced ───────────────────────
+  // Safety net: decode SVG accidentally wrapped in a code fence
   html = html.replace(
     /<pre><code[^>]*>(\s*&lt;svg[\s\S]*?&lt;\/svg&gt;\s*)<\/code><\/pre>/gi,
     (match, encoded) => encoded
@@ -598,18 +595,11 @@ function renderMermaid(containerEl) {
   })
 }
 
-// ── Full render pipeline: markdown → SVG fix → mermaid → math ────────────────
+// ── Full render pipeline ──────────────────────────────────────────────────────
 function renderAll(containerEl, raw) {
   containerEl.innerHTML = renderMarkdown(raw)
   renderMermaid(containerEl)
   renderMath(containerEl)
-}
-
-// ── STATE 2: Render AI-only note ──────────────────────────────────────────────
-const noteEl = document.getElementById('ai-note-rendered')
-if (noteEl) {
-  const raw = document.getElementById('_ai_note_raw')
-  if (raw) renderAll(noteEl, JSON.parse(raw.textContent))
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -644,6 +634,14 @@ function handleTopicClick(e, topicId, linkEl) {
 function expandTopicContent(topicId, linkEl) {
   const wrap = document.getElementById('ln-topic-content-' + topicId)
   if (!wrap) return
+
+  // Render mobile AI note lazily — only once, only when panel opens
+  const aiEl = wrap.querySelector('.mobile-ai-note')
+  if (aiEl && aiEl.dataset.aiRaw && !aiEl.dataset.rendered) {
+    aiEl.dataset.rendered = '1'
+    renderAll(aiEl, aiEl.dataset.aiRaw)
+  }
+
   wrap.style.maxHeight = wrap.scrollHeight + 'px'
   wrap.style.opacity   = '1'
   if (linkEl) linkEl.classList.add('active', 'mobile-open')
@@ -689,9 +687,11 @@ function toggleTheme(btn) {
   }
 }
 
-// ── Initialise accordion state on load ───────────────────────────────────────
+// ── DOMContentLoaded — accordion init + STATE 2 render ───────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const isMobile = window.innerWidth <= 768
+
+  // Accordion init
   document.querySelectorAll('.ln-topics-list').forEach(list => {
     const hasActive = list.querySelector('.ln-topic-item.active')
     if (isMobile && !hasActive) {
@@ -709,6 +709,20 @@ document.addEventListener('DOMContentLoaded', () => {
     wrap.style.maxHeight = '0'
     wrap.style.opacity   = '0'
   })
+
+  // STATE 2: render AI-only note — inside DOMContentLoaded so KaTeX/Mermaid
+  // are guaranteed loaded before renderAll fires
+  const noteEl = document.getElementById('ai-note-rendered')
+  if (noteEl) {
+    const raw = document.getElementById('_ai_note_raw')
+    if (raw) renderAll(noteEl, JSON.parse(raw.textContent))
+  }
+
+  // Scroll main content into view on mobile when a topic is selected
+  if (isMobile && {{ selected_topic.id|default:"0" }} > 0) {
+    const main = document.querySelector('.ln-main')
+    if (main) setTimeout(() => main.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+  }
 })
 
 // ── STATE 1: AI toggle (PDF + AI both exist) ──────────────────────────────────

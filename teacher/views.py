@@ -618,7 +618,7 @@ STRUCTURE:
    - Mermaid: use a fenced code block tagged ```mermaid — for cycles, flows, processes, hierarchies
    - SVG: write the raw <svg>...</svg> markup directly inline in the markdown — do NOT wrap it in backticks or a code block — for labelled structural or anatomical diagrams; keep viewBox max 500x350, label only the 5–6 most important parts, under 50 lines total
    - ASCII: inline within text — for simple linear relationships or equations
-   Maximum 1 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
+   Maximum 2 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
 6. **Likely Exam Questions** — 4–6 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
 
