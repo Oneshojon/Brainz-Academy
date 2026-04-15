@@ -615,10 +615,10 @@ STRUCTURE:
 3. **Tables & Comparisons** — use tables wherever the topic involves comparing items, structures, functions, processes, or properties. Exams frequently use table-completion questions.
 4. **Worked Examples** — include only if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics.
 5. **Diagrams** — include ONLY if the topic is commonly examined with a diagram. Use the best format:
-   - Mermaid for cycles, flows, processes, hierarchies (e.g. carbon cycle, taxonomic ranks, market structures)
-   - SVG for labelled structural or anatomical diagrams (e.g. nephron, circuit, titration apparatus, geometric construction)
-   - ASCII for simple linear relationships, equations, or quick illustrations
-   Maximum 2 diagrams per note. Omit entirely if diagrams are not examined for this topic.
+   - Mermaid: use a fenced code block tagged ```mermaid — for cycles, flows, processes, hierarchies
+   - SVG: write the raw <svg>...</svg> markup directly inline in the markdown — do NOT wrap it in backticks or a code block — for labelled structural or anatomical diagrams; keep viewBox max 500x350, label only the 5–6 most important parts, under 50 lines total
+   - ASCII: inline within text — for simple linear relationships or equations
+   Maximum 3 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
 6. **Likely Exam Questions** — 4–6 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
 
@@ -629,12 +629,14 @@ RULES:
 - No introductions, no conclusions, no motivational sentences, no "in this note we will..."
 - No repetition — state each fact once
 - Tables must be complete and accurate
+- MATHEMATICS & EQUATIONS: write all mathematical expressions in LaTeX using \\( ... \\) for inline math and \\[ ... \\] for display equations. Examples: \\(9^{{\\frac{{1}}{{2}}}}\\), \\(\\sqrt{{9}}\\), \\(\\frac{{a}}{{b}}\\). Never use $ as a math delimiter — it conflicts with Naira and Dollar currency symbols in Nigerian context. Never write math in plain text like 9^(1/2) or sqrt(9)
+- CURRENCY: write Naira amounts as e.g. ₦500 or NGN 500, and Dollar amounts as USD 10 — never use bare $ signs
 - Format using markdown"""
 
     try:
         client  = anthropic.Anthropic()
         message = client.messages.create(
-            model='claude-opus-4-6', max_tokens=6000,
+            model='claude-opus-4-6', max_tokens=7000,
             messages=[{"role": "user", "content": prompt}]
         )
         return JsonResponse({

@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{% static 'Users/dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 
 <style>
 /* ── Layout ── */
@@ -217,6 +218,8 @@
   border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0; }
 .ai-content code { font-size:0.85rem; }
 .ai-content svg { max-width:100%; height:auto; margin:1rem 0; display:block; }
+.ai-content .katex-display { margin:1rem 0; overflow-x:auto; overflow-y:hidden; }
+.ai-content .katex { font-size:1rem; }
 
 /* ── Mermaid diagram wrapper ── */
 .ai-content .mermaid { margin:1rem 0; text-align:center; }
@@ -225,39 +228,15 @@
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .ln-body { grid-template-columns: 1fr; }
-
-  .ln-sidebar {
-    position: static;
-    max-height: none;
-    overflow-y: visible;
-    /* Collapse all themes by default on mobile — JS handles this */
-  }
-
-  /* Subject bar — horizontal scroll instead of wrap */
-  .ln-subject-bar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 0.25rem;
-    -webkit-overflow-scrolling: touch;
-  }
+  .ln-sidebar { position: static; max-height: none; overflow-y: visible; }
+  .ln-subject-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.25rem; -webkit-overflow-scrolling: touch; }
   .ln-subject-btn { flex-shrink: 0; }
-
-  /* PDF embed — hide iframe, rely on download buttons */
   .ln-pdf-embed { display: none; }
-
-  /* AI preview — natural height on mobile */
   .ai-preview-box { max-height: none; }
-
-  /* Header — stack title and banner vertically */
   .ln-main-header { flex-direction: column; gap: 0.75rem; }
-
-  /* Nav — horizontal scroll */
-  .teacher-nav {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding: 0.5rem;
-  }
+  .teacher-nav { overflow-x: auto; flex-wrap: nowrap; padding: 0.5rem; }
   .teacher-nav a { flex-shrink: 0; }
+  .ai-content .katex-display { font-size:0.9rem; }
 }
 </style>
 
@@ -534,16 +513,48 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script>
 const CSRF     = '{{ csrf_token }}'
 const TOPIC_ID = {{ selected_topic.id|default:"null" }}
 let _aiRaw = ''
 
-// ── Mermaid init ──────────────────────────────────────────────────────────────
+// ── Mermaid + marked init ─────────────────────────────────────────────────────
 mermaid.initialize({ startOnLoad: false, theme: 'neutral' })
+marked.setOptions({ breaks: true })
 
-// Convert ```mermaid fenced blocks (rendered by marked as <pre><code class="language-mermaid">)
-// into live Mermaid diagrams. Called after any markdown render.
+// ── KaTeX render helper ───────────────────────────────────────────────────────
+function renderMath(containerEl) {
+  if (!containerEl || typeof renderMathInElement === 'undefined') return
+  renderMathInElement(containerEl, {
+    delimiters: [
+      { left: '$$',  right: '$$',  display: true  },
+      { left: '\\[', right: '\\]', display: true  },
+      { left: '\\(', right: '\\)', display: false },
+      // $ intentionally excluded — clashes with Naira/Dollar amounts
+    ],
+    throwOnError: false,
+  })
+}
+
+// ── Markdown renderer — allows raw SVG and decodes fenced SVG blocks ──────────
+function renderMarkdown(raw) {
+  let html = marked.parse(raw)
+  // Safety net: decode SVG accidentally wrapped in a code fence
+  html = html.replace(
+    /<pre><code[^>]*>(\s*&lt;svg[\s\S]*?&lt;\/svg&gt;\s*)<\/code><\/pre>/gi,
+    (match, encoded) => encoded
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+  )
+  return html
+}
+
+// ── Mermaid: convert fenced ```mermaid blocks to live diagrams ────────────────
 function renderMermaid(containerEl) {
   if (!containerEl) return
   containerEl.querySelectorAll('pre code.language-mermaid').forEach((block, i) => {
@@ -561,14 +572,18 @@ function renderMermaid(containerEl) {
   })
 }
 
-// ── STATE 2: Render AI-only note then process diagrams ────────────────────────
+// ── Full render pipeline: markdown → SVG fix → mermaid → math ────────────────
+function renderAll(containerEl, raw) {
+  containerEl.innerHTML = renderMarkdown(raw)
+  renderMermaid(containerEl)
+  renderMath(containerEl)
+}
+
+// ── STATE 2: Render AI-only note ──────────────────────────────────────────────
 const noteEl = document.getElementById('ai-note-rendered')
 if (noteEl) {
   const raw = document.getElementById('_ai_note_raw')
-  if (raw) {
-    noteEl.innerHTML = marked.parse(JSON.parse(raw.textContent))
-    renderMermaid(noteEl)
-  }
+  if (raw) renderAll(noteEl, JSON.parse(raw.textContent))
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -651,9 +666,7 @@ function toggleTheme(btn) {
 // ── Initialise accordion state on load ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const isMobile = window.innerWidth <= 768
-
   document.querySelectorAll('.ln-topics-list').forEach(list => {
-    // On mobile, collapse everything unless it contains the active topic
     const hasActive = list.querySelector('.ln-topic-item.active')
     if (isMobile && !hasActive) {
       list.style.maxHeight = '0'
@@ -666,12 +679,12 @@ document.addEventListener('DOMContentLoaded', () => {
       list.style.opacity   = '0'
     }
   })
-
   document.querySelectorAll('.ln-topic-content-wrap').forEach(wrap => {
     wrap.style.maxHeight = '0'
     wrap.style.opacity   = '0'
   })
 })
+
 // ── STATE 1: AI toggle (PDF + AI both exist) ──────────────────────────────────
 let _aiToggleRendered = false
 function toggleAiNote() {
@@ -685,10 +698,7 @@ function toggleAiNote() {
     _aiToggleRendered = true
     const raw = document.getElementById('_ai_note_secondary_raw')
     const el  = document.getElementById('ai-note-rendered-secondary')
-    if (raw && el) {
-      el.innerHTML = marked.parse(JSON.parse(raw.textContent))
-      renderMermaid(el)
-    }
+    if (raw && el) renderAll(el, JSON.parse(raw.textContent))
   }
 }
 
@@ -712,14 +722,12 @@ async function generateNote(topicId) {
     }
     _aiRaw = data.content
     const previewEl = document.getElementById('ai-preview-body')
-    previewEl.innerHTML = marked.parse(data.content)
-    renderMermaid(previewEl)
+    renderAll(previewEl, data.content)
     document.getElementById('ai-preview-section').style.display = 'block'
     if (data.cached) {
       window.location.reload()
       return
     }
-    // Fresh generation — hide button, no regeneration allowed
     btn.style.display = 'none'
   } catch (err) {
     alert('Network error. Please try again.')
