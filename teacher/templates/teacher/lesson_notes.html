@@ -542,8 +542,31 @@ function renderMath(containerEl) {
 
 // ── Markdown renderer — allows raw SVG and decodes fenced SVG blocks ──────────
 function renderMarkdown(raw) {
+  // ── Step 1: protect LaTeX delimiters from marked's backslash processing ──
+  // Replace \( \) and \[ \] with placeholder tokens before marked runs,
+  // then restore them in the HTML output so KaTeX can find them.
+  const mathBlocks = []
+
+  // Extract display math \[...\] first (greedy issue if done after inline)
+  raw = raw.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+    mathBlocks.push(match)
+    return `%%MATH_DISPLAY_${mathBlocks.length - 1}%%`
+  })
+
+  // Extract inline math \(...\)
+  raw = raw.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+    mathBlocks.push(match)
+    return `%%MATH_INLINE_${mathBlocks.length - 1}%%`
+  })
+
+  // ── Step 2: run marked on the protected string ────────────────────────────
   let html = marked.parse(raw)
-  // Safety net: decode SVG accidentally wrapped in a code fence
+
+  // ── Step 3: restore math blocks ───────────────────────────────────────────
+  html = html.replace(/%%MATH_DISPLAY_(\d+)%%/g, (_, i) => mathBlocks[parseInt(i)])
+  html = html.replace(/%%MATH_INLINE_(\d+)%%/g,  (_, i) => mathBlocks[parseInt(i)])
+
+  // ── Step 4: safety net for SVG accidentally fenced ───────────────────────
   html = html.replace(
     /<pre><code[^>]*>(\s*&lt;svg[\s\S]*?&lt;\/svg&gt;\s*)<\/code><\/pre>/gi,
     (match, encoded) => encoded
@@ -553,6 +576,7 @@ function renderMarkdown(raw) {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
   )
+
   return html
 }
 
