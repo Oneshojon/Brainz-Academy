@@ -238,6 +238,8 @@
   .teacher-nav a { flex-shrink: 0; }
   .ai-content .katex-display { font-size:0.9rem; }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
 <div class="ln-page">
@@ -738,14 +740,29 @@ async function generateNote(topicId) {
 
 async function acceptNote() {
   if (!_aiRaw || !TOPIC_ID) return
-  const res  = await fetch('{% url "teacher:lesson_notes" %}', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ action: 'accept_ai', topic_id: TOPIC_ID, content: _aiRaw }),
-  })
-  const data = await res.json()
-  if (data.success) window.location.reload()
-  else alert('Error saving note: ' + (data.error || 'Unknown error'))
+  const btn = document.querySelector('.btn-accept')
+  if (btn) {
+    btn.disabled = true
+    btn.innerHTML = '<span style="display:inline-block;width:13px;height:13px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:0.4rem;"></span> Saving…'
+  }
+  try {
+    const res  = await fetch('{% url "teacher:lesson_notes" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ action: 'accept_ai', topic_id: TOPIC_ID, content: _aiRaw }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      if (btn) btn.innerHTML = '✅ Saved! Reloading…'
+      window.location.reload()
+    } else {
+      alert('Error saving note: ' + (data.error || 'Unknown error'))
+      if (btn) { btn.disabled = false; btn.innerHTML = '✅ Accept & Save' }
+    }
+  } catch (err) {
+    alert('Network error. Please try again.')
+    if (btn) { btn.disabled = false; btn.innerHTML = '✅ Accept & Save' }
+  }
 }
 
 function discardNote() {

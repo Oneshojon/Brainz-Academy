@@ -618,9 +618,29 @@ STRUCTURE:
    - Mermaid: use a fenced code block tagged ```mermaid — for cycles, flows, processes, hierarchies
    - SVG: write the raw <svg>...</svg> markup directly inline in the markdown — do NOT wrap it in backticks or a code block — for labelled structural or anatomical diagrams; keep viewBox max 500x350, label only the 5–6 most important parts, under 50 lines total
    - ASCII: inline within text — for simple linear relationships or equations
-   Maximum 3 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
+   Maximum 1 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
 6. **Likely Exam Questions** — 4–6 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
+
+MATHEMATICAL NOTATION — CRITICAL:
+Every mathematical expression, variable, equation, or formula MUST be wrapped in LaTeX delimiters.
+Use \\( ... \\) for inline math and \\[ ... \\] for display (standalone) equations.
+
+CORRECT — always do this:
+  Inline:    "If \\(a^x = N\\), then \\(\\log_a N = x\\)"
+  Display:   "\\[\\log_a(MN) = \\log_a M + \\log_a N\\]"
+  Fractions: \\(\\frac{{1}}{{2}}\\), \\(\\frac{{M}}{{N}}\\)
+  Powers:    \\(x^{{2}}\\), \\(a^{{m+n}}\\)
+  Roots:     \\(\\sqrt{{9}}\\), \\(\\sqrt[3]{{8}}\\)
+  Variables: \\(x\\), \\(a\\), \\(N\\) — even single letters must be wrapped
+
+WRONG — never do this:
+  (a^x = N)       ← plain parentheses around math — this is the most common error, never do it
+  a^x = N         ← raw math with no delimiters
+  $a^x = N$       ← dollar sign delimiter — conflicts with currency
+  9^(1/2)         ← plain text math
+  log_a N         ← undelimited expression
+  Let x = 5       ← x must be \\(x\\), not plain text
 
 RULES:
 - Write for a student with limited time to revise this topic before an exam
@@ -629,8 +649,7 @@ RULES:
 - No introductions, no conclusions, no motivational sentences, no "in this note we will..."
 - No repetition — state each fact once
 - Tables must be complete and accurate
-- MATHEMATICS & EQUATIONS: write all mathematical expressions in LaTeX using \\( ... \\) for inline math and \\[ ... \\] for display equations. Examples: \\(9^{{\\frac{{1}}{{2}}}}\\), \\(\\sqrt{{9}}\\), \\(\\frac{{a}}{{b}}\\). Never use $ as a math delimiter — it conflicts with Naira and Dollar currency symbols in Nigerian context. Never write math in plain text like 9^(1/2) or sqrt(9)
-- CURRENCY: write Naira amounts as e.g. ₦500 or NGN 500, and Dollar amounts as USD 10 — never use bare $ signs
+- CURRENCY: write Naira as ₦500 or NGN 500, dollars as USD 10 — never bare $ signs
 - Format using markdown"""
 
     try:
