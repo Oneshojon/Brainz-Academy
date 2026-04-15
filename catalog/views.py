@@ -392,14 +392,34 @@ class QuestionsByTopicView(APIView):
 # ── Shared HTML builder — used by both DOCX and PDF generators ───────────────
 
 def _build_question_html(questions, title, include_answers=False):
-    """
-    Builds the HTML string and writes images to images_dir.
-    Returns (html_generator, images_dir) — caller manages the tmpdir.
-    Called internally by _generate_docx and _generate_pdf.
-    Expects questions to have _prefetch_questions() already applied.
-    """
     hdr       = _header_info(questions, title)
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
+
+    # ── Pre-compiled table style regexes ──────────────────────────────────────
+    _TABLE_RE = re.compile(r'<table([^>]*)>', re.IGNORECASE)
+    _CELL_RE  = re.compile(r'<(td|th)([^>]*)>', re.IGNORECASE)
+
+    def _inject_table_styles(html):
+        """Inject inline styles into HTML tables for pandoc/pdf rendering."""
+        def replace_table(m):
+            attrs = m.group(1)
+            if 'border-collapse' in attrs:
+                return m.group(0)  # already styled
+            return f'<table{attrs} style="border-collapse:collapse;width:100%;margin:0.5em 0">'
+
+        def replace_cell(m):
+            tag   = m.group(1)
+            attrs = m.group(2)
+            if 'border:' in attrs:
+                return m.group(0)  # already styled
+            base = 'border:1px solid #999;padding:6px 10px;vertical-align:top;'
+            if tag.lower() == 'th':
+                base += 'background:#f0f0f0;font-weight:bold;'
+            return f'<{tag}{attrs} style="{base}">'
+
+        html = _TABLE_RE.sub(replace_table, html)
+        html = _CELL_RE.sub(replace_cell, html)
+        return html
 
     def _lines(images_dir):
         yield (
@@ -407,6 +427,8 @@ def _build_question_html(questions, title, include_answers=False):
             'table { border-collapse: collapse; width: 100%; margin: 1em 0; }\n'
             'td, th { border: 1px solid #999; padding: 6px 10px; vertical-align: top; }\n'
             'th { background: #f0f0f0; font-weight: bold; }\n'
+            'tr.odd  { background: #ffffff; }\n'
+            'tr.even { background: #f9f9f9; }\n'
             '</style></head><body>\n'
         )
         yield f'<p>Subject: {hdr["subject"]}</p>\n'
@@ -417,20 +439,7 @@ def _build_question_html(questions, title, include_answers=False):
         yield '<p>&nbsp;</p>\n'
 
         for i, q in enumerate(questions, 1):
-            content = q.content.strip()
-
-            # ── Inject inline styles into any HTML tables ──────────────────
-            content = re.sub(
-                r'<table(?![^>]*style=)',
-                '<table style="border-collapse:collapse;width:100%"',
-                content
-            )
-            content = re.sub(
-                r'<(td|th)(\s[^>]*)?(?<!/)>',
-                lambda m: f'<{m.group(1)}{m.group(2) or ""} style="border:1px solid #999;padding:6px 10px;vertical-align:top">',
-                content
-            )
-            # ──────────────────────────────────────────────────────────────
+            content = _inject_table_styles(q.content.strip())
 
             if _FIRST_P_RE.match(content):
                 content = _FIRST_P_RE.sub(
@@ -453,7 +462,6 @@ def _build_question_html(questions, title, include_answers=False):
                 choices = list(q.choices.all())
                 for c in choices:
                     yield f'<p>{c.label}. {c.choice_text}</p>\n'
-
                 if include_answers:
                     correct = next((c for c in choices if c.is_correct), None)
                     if correct:

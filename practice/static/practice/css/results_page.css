@@ -227,6 +227,15 @@ body {
   background: var(--offwhite);
 }
 
+/* Pandoc-generated table classes */
+.q-content table tr.odd,
+.review-q-full table tr.odd  { background: #ffffff; }
+.q-content table tr.even,
+.review-q-full table tr.even { background: var(--offwhite); }
+
+/* Pandoc outputs <table> with no class — ensure borders always show */
+.q-content table { border: 1.5px solid var(--border); }
+.review-q-full table { border: 1.5px solid var(--border); }
 
 .review-q-image {
   display: block;
