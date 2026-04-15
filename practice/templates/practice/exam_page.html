@@ -77,7 +77,7 @@
         <span class="q-marks">{{ question.marks }} mark{% if question.marks != 1 %}s{% endif %}</span>
       </div>
 
-      <p class="q-content">{{ question.content|render_content }}<br /></p>
+      <div class="q-content">{{ question.content|render_content }}</div>
       {% if question.image %}
         <img src="{{ question.image.url }}" 
             alt="Question image" 

@@ -19,6 +19,9 @@ from catalog.models import SavedTest, SavedTestQuestion, FreeUsageTracker, UserS
 # File
 from django.http import HttpResponse
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx import Document
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 import io
 import os
 from datetime import date
@@ -479,6 +482,37 @@ def _build_question_html(questions, title, include_answers=False):
     return _lines
 
 
+def _add_table_borders(docx_path):
+    """Post-process DOCX to add borders to all tables pandoc generated."""
+    doc = Document(docx_path)
+
+    def set_table_borders(table):
+        tbl   = table._tbl
+        tblPr = tbl.find(qn('w:tblPr'))
+        if tblPr is None:
+            tblPr = OxmlElement('w:tblPr')
+            tbl.insert(0, tblPr)
+
+        tblBorders = OxmlElement('w:tblBorders')
+        for side in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+            border = OxmlElement(f'w:{side}')
+            border.set(qn('w:val'),   'single')
+            border.set(qn('w:sz'),    '4')
+            border.set(qn('w:space'), '0')
+            border.set(qn('w:color'), '999999')
+            tblBorders.append(border)
+
+        existing = tblPr.find(qn('w:tblBorders'))
+        if existing is not None:
+            tblPr.remove(existing)
+        tblPr.append(tblBorders)
+
+    for table in doc.tables:
+        set_table_borders(table)
+
+    doc.save(docx_path)
+
+
 def _generate_docx(questions, title, include_answers=False):
     """
     Generate DOCX. Expects _prefetch_questions() applied by caller.
@@ -513,9 +547,12 @@ def _generate_docx(questions, title, include_answers=False):
                 f'{result.stderr.decode()[:300]}'
             )
 
+        # ── Post-process: add table borders pandoc stripped ───────────────
+        _add_table_borders(docx_path)
+        # ──────────────────────────────────────────────────────────────────
+
         with open(docx_path, 'rb') as f:
             return f.read()
-
 
 def _generate_pdf(questions, title, include_answers=False):
     """
