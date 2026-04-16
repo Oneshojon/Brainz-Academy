@@ -44,47 +44,53 @@
             <a href="{% url 'Users:pricing' %}" class="nav-link">Pricing</a>
           {% endif %}
         </div>
+         {% block body %}
 
         <!-- Right actions -->
         <div class="nav-actions">
-{% if user.is_authenticated %}
-  {% with sub=user.active_subscription %}
-    {% platform_subscription_required as sub_required %}
+        {% if user.is_authenticated %}
+{% with sub=user.active_subscription %}
+  {% platform_subscription_required as sub_required %}
+  
+   {% if sub_required and not sub and not user.is_admin %}
+    <a href="{% url 'Users:pricing' %}" class="dropdown-item upgrade">Get Premium</a>
+  {% endif %}
+  {% endwith %}
 
-    {% if sub_required and not sub and not user.is_admin %}
-      <a href="{% url 'Users:pricing' %}" class="btn-upgrade-nav">Upgrade</a>
-    {% endif %}
-
-    <div class="nav-profile" id="profileToggle">
-      <span class="profile-icon">👤</span>
-      <span class="profile-name">{{ user.first_name|default:user.email }}</span>
-      <span class="profile-chevron">▾</span>
-      <div class="profile-dropdown" id="profileDropdown">
-        <div class="dropdown-plan">
-          <div class="dropdown-plan-label">CURRENT PLAN</div>
-          <div class="dropdown-plan-val">
+  <div class="nav-profile" id="profileToggle">
+    <span class="profile-icon">👤</span>
+    <span class="profile-name">{{ user.first_name|default:user.email }}</span>
+    <span class="profile-chevron">▾</span>
+    <div class="profile-dropdown" id="profileDropdown">
+      <div class="dropdown-plan">
+        <div class="dropdown-plan-label">CURRENT PLAN</div>
+         <div class="dropdown-plan-val">
             {% if not sub_required %}Premium{% elif sub %}{{ sub.plan.name }}{% else %}Free{% endif %}
           </div>
-        </div>
-        <div class="dropdown-divider"></div>
-        {% if sub_required and not sub and not user.is_admin %}
-          <a href="{% url 'Users:pricing' %}" class="dropdown-item upgrade">Get Premium</a>
-        {% endif %}
-        <a href="{% url 'Users:dashboard' %}" class="dropdown-item">Dashboard</a>
-        {% if user.role == 'TEACHER' %}
-          <a href="{% url 'teacher:dashboard' %}" class="dropdown-item">Teacher Portal</a>
-        {% endif %}
-        <a href="{% url 'Users:referrals' %}" class="dropdown-item">Referrals</a>
-        <a href="{% url 'Users:logout' %}" class="dropdown-item">Logout</a>
       </div>
+      <div class="dropdown-divider"></div>
+      {% if not sub and not user.is_admin %}
+        <a href="{% url 'Users:pricing' %}" class="dropdown-item upgrade">Get Premium</a>
+      {% endif %}
+      <a href="{% url 'Users:dashboard' %}" class="dropdown-item">Dashboard</a>
+      {% if user.role == 'TEACHER' %}
+        <a href="{% url 'teacher:dashboard' %}" class="dropdown-item">Teacher Portal</a>
+      {% endif %}
+      <a href="{% url 'Users:referrals' %}" class="dropdown-item">Referrals</a>
+      <a href="{% url 'Users:logout' %}" class="dropdown-item">Logout</a>
     </div>
-  {% endwith %}
+  </div>
+{% endwith %}
 
 {% else %}
   <a href="{% url 'Users:request_otp' %}" class="btn-login-nav">Login / Sign up</a>
 {% endif %}
-</div>
-    {% block body %}{% endblock %}
+        </div>
+
+      </div>
+    </nav>
+
+   {% endblock %}
 
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
