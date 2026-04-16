@@ -46,7 +46,7 @@ from catalog.cache_utils import (
     get_all_subjects, get_all_boards, get_available_sittings, get_subjects_with_question_counts, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
     get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
-    get_leaderboard, get_boards_with_question_counts,
+    get_leaderboard, get_boards_with_question_counts, get_platform_settings
 )
 
 
@@ -378,12 +378,6 @@ class QuestionsByTopicView(APIView):
         if exam_board_id:
             qs = qs.filter(exam_series__exam_board_id=exam_board_id)
 
-        # DEBUG — remove after fixing
-        print(f"topic_id={topic_id} exam_board_id={exam_board_id}")
-        print(f"total questions found: {qs.count()}")
-        for q in qs:
-            print(f"  Q{q.id} year={q.exam_series.year if q.exam_series else 'None'}")
-
         serializer = QuestionSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -642,14 +636,10 @@ class QuestionDownloadView(APIView):
             )
 
         # ── Access / trial check ──────────────────────────────────────────────
+        from catalog.subscription_access import has_subscription
         is_pro = (
             getattr(request.user, 'is_admin', False) or
-            getattr(request.user, 'is_staff', False) or
-            UserSubscription.objects.filter(
-                user=request.user,
-                plan__plan_type='TEACHER_PRO',
-                status='ACTIVE',
-            ).exists()
+            has_subscription(request.user, 'TEACHER_PRO')
         )
 
         tracker = None  # only fetched for free-tier teachers
@@ -683,7 +673,7 @@ class QuestionDownloadView(APIView):
                 return Response(
                     {
                         'error': (
-                            f"You've used all {FreeUsageTracker.FREE_TEST_BUILDER_TRIALS} "
+                            f"You've used all {get_platform_settings().free_test_builder_trials} "
                             f"free trials. Upgrade to Teacher Pro to continue."
                         ),
                         'allowed': False,
