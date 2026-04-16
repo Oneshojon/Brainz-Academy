@@ -44,7 +44,6 @@
             <a href="{% url 'Users:pricing' %}" class="nav-link">Pricing</a>
           {% endif %}
         </div>
-         {% block body %}
 
         <!-- Right actions -->
         <div class="nav-actions">
@@ -90,7 +89,7 @@
       </div>
     </nav>
 
-   {% endblock %}
+    {% block body %}{% endblock %}
 
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
