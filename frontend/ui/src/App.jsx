@@ -116,8 +116,8 @@ export default function App() {
       .then(setAccess)
       .catch(() =>
         setAccess({
-          allowed: false, is_free: true, trials_remaining: 0,
-          max_questions: 15, pdf_only: true, reason: '',
+          allowed: true, is_free: false, trials_remaining: 9999,
+          max_questions: 9999, pdf_only: false, reason: '',
         })
       );
     api.get('/api/catalog/feature-flags/')
