@@ -223,9 +223,11 @@ def referrals(request):
 @login_required
 def dashboard(request):
     from Users.models import Referral
- 
+    from catalog.subscription_access import check_practice_access, check_test_builder_access
+    from catalog.models import FreeTeacherTopicAccess
+
     user = request.user
- 
+
     # Last 3 practice sessions
     recent_sessions = (
         PracticeSession.objects
@@ -234,17 +236,25 @@ def dashboard(request):
         .order_by('-completed_at')[:3]
     )
     last_session = recent_sessions.first()
- 
+
+    # Access checks — drive banner and limit pills
+    practice_access = check_practice_access(user)
+    builder_access  = check_test_builder_access(user)
+    slots_remaining = (
+        FreeTeacherTopicAccess.slots_remaining(user)
+        if user.role == 'TEACHER' else 0
+    )
+
     # Referral data for dashboard widget (students only)
-    referral_count  = 0
+    referral_count   = 0
     recent_referrals = []
-    referral_link   = ''
- 
+    referral_link    = ''
+
     if user.role == 'STUDENT':
         if not user.referral_code:
             user.referral_code = str(uuid.uuid4())[:8].upper()
             user.save(update_fields=['referral_code'])
- 
+
         referral_count = Referral.objects.filter(referrer=user).count()
         recent_referrals = (
             Referral.objects
@@ -253,18 +263,20 @@ def dashboard(request):
             .order_by('-created_at')[:3]
         )
         referral_link = request.build_absolute_uri(f'/join/?ref={user.referral_code}')
- 
+
     context = {
         'user':             user,
         'recent_sessions':  recent_sessions,
         'last_session':     last_session,
+        'practice_access':  practice_access,
+        'builder_access':   builder_access,
+        'slots_remaining':  slots_remaining,
         'referral_count':   referral_count,
         'recent_referrals': recent_referrals,
         'referral_link':    referral_link,
         'streak':           user.streak or 0,
     }
     return render(request, 'Users/dashboard.html', context)
-
 
 def logout_view(request):
     logout(request)

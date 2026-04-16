@@ -18,9 +18,10 @@
     </div>
 
     {% if not user.is_admin %}
-      {% with sub=user.active_subscription %}
-        {% if not sub %}
-        <div class="upgrade-banner">
+  {% with sub=user.active_subscription %}
+    {% platform_subscription_required as sub_required %}
+    {% if sub_required and not sub %}
+      <div class="upgrade-banner">
           <div class="upgrade-banner-left">
             <div class="upgrade-banner-icon">⚡</div>
             <div class="upgrade-banner-text">
@@ -28,16 +29,16 @@
                 <strong>You're on the Free Plan</strong>
                 <span>Unlock unlimited test builder, lesson notes &amp; practice.</span>
                 <div class="upgrade-banner-limits">
-                  <span class="upgrade-limit-pill">2 test builder trials</span>
-                  <span class="upgrade-limit-pill">5 lesson note topics</span>
-                  <span class="upgrade-limit-pill">5 sessions/day</span>
+                  <span class="upgrade-limit-pill">{{ access.trials_remaining }} test builder trials</span>
+                  <span class="upgrade-limit-pill">{{ access.slots_remaining }} lesson note topics</span>
+                  <span class="upgrade-limit-pill">{{ access.sessions_left }} sessions/day</span>
                 </div>
               {% else %}
                 <strong>You're on the Free Plan</strong>
                 <span>Upgrade for unlimited sessions, analytics &amp; lesson notes.</span>
                 <div class="upgrade-banner-limits">
-                  <span class="upgrade-limit-pill">5 sessions/day</span>
-                  <span class="upgrade-limit-pill">15 questions/session</span>
+                  <span class="upgrade-limit-pill">{{ access.sessions_left }} sessions/day</span>
+                  <span class="upgrade-limit-pill">{{ access.max_questions }} questions/session</span>
                   <span class="upgrade-limit-pill">No lesson notes</span>
                 </div>
               {% endif %}
@@ -46,10 +47,10 @@
           <a href="{% url 'Users:pricing' %}{% if user.role == 'TEACHER' %}?tab=teacher{% endif %}" class="btn-upgrade">
             Upgrade Now →
           </a>
-        </div>
-        {% endif %}
-      {% endwith %}
+         </div>
     {% endif %}
+  {% endwith %}
+{% endif %}
 
     <div class="cta-banner" style="margin-bottom:0;">
       <div class="cta-text">
