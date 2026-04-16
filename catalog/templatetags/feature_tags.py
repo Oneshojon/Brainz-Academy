@@ -4,12 +4,14 @@ from catalog.feature_flags import is_feature_enabled
 register = template.Library()
 
 
+@register.simple_tag
+def platform_subscription_required():
+    from catalog.cache_utils import get_platform_settings
+    return get_platform_settings().subscription_required
+
+
 @register.simple_tag(takes_context=True)
 def feature_enabled(context, key):
-    """
-    {% feature_enabled 'lesson_notes' as flag_on %}
-    {% if flag_on %}...{% endif %}
-    """
     user = context.get('user')
     return is_feature_enabled(key, user=user)
 
@@ -30,13 +32,6 @@ class IfFeatureNode(template.Node):
 
 @register.tag('if_feature')
 def if_feature(parser, token):
-    """
-    {% if_feature 'lesson_notes' %}
-        <a href="...">Notes</a>
-    {% else_feature %}
-        <span>Coming soon</span>
-    {% end_if_feature %}
-    """
     try:
         tag_name, key = token.split_contents()
         key = key.strip("\"' ")
