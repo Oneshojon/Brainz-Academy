@@ -138,39 +138,13 @@ def question_sets(request):
 
 @admin_required
 def students(request):
-    from Users.models import CustomUser
-    subject_id = request.GET.get('subject')
-    subjects   = Subject.objects.all().order_by('name')
-    student_qs = CustomUser.objects.filter(role='STUDENT').prefetch_related('practice_sessions')
-
-    student_stats = []
-    for student in student_qs:
-        sessions = student.practice_sessions.filter(completed_at__isnull=False)
-        if subject_id:
-            sessions = sessions.filter(subject_id=subject_id)
-        session_count = sessions.count()
-        avg_score = sessions.filter(total_marks__gt=0).aggregate(
-            avg=Avg(
-                ExpressionWrapper(
-                    F('score') * 100.0 / F('total_marks'),
-                    output_field=FloatField()
-                )
-            )
-        )['avg']
-        last_session = sessions.order_by('-completed_at').first()
-        student_stats.append({
-            'student':       student,
-            'session_count': session_count,
-            'avg_score':     round(avg_score, 1) if avg_score else None,
-            'last_active':   last_session.completed_at if last_session else None,
-            'streak':        student.streak,
-        })
-
-    student_stats.sort(key=lambda x: x['avg_score'] or 0, reverse=True)
+    from catalog.cache_utils import get_student_stats, get_subjects_with_question_counts
+    subject_id    = request.GET.get('subject')
+    student_stats = get_student_stats(subject_id)
 
     context = {
         'student_stats':    student_stats,
-        'subjects':         subjects,
+        'subjects':         get_subjects_with_question_counts(),
         'selected_subject': subject_id,
         'total_students':   len(student_stats),
     }

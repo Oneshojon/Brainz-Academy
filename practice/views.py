@@ -288,8 +288,9 @@ def finish_session(request, session_id):
         session.score = score
         session.completed_at = timezone.now()
         session.save()
-        from catalog.cache_utils import invalidate_leaderboard
+        from catalog.cache_utils import invalidate_leaderboard, invalidate_student_stats
         invalidate_leaderboard()
+        invalidate_student_stats()
 
         # Update streak
         update_streak(request.user)

@@ -104,6 +104,64 @@ def get_all_boards():
     )
 
 
+# ── Student performance ───────────────────────────────────────────────────────
+
+KEY_STUDENT_STATS     = 'teacher:student_stats:subject:{subject_id}'
+KEY_STUDENT_STATS_ALL = 'teacher:student_stats:known_keys'
+
+
+def get_student_stats(subject_id=None):
+    from Users.models import CustomUser
+    from practice.models import PracticeSession
+    from django.db.models import Avg, Count, ExpressionWrapper, F, FloatField, OuterRef, Q, Subquery
+
+    key = KEY_STUDENT_STATS.format(subject_id=subject_id or 'all')
+
+    # Track this key so invalidation can find all subject variants
+    known = cache.get(KEY_STUDENT_STATS_ALL) or []
+    if key not in known:
+        cache.set(KEY_STUDENT_STATS_ALL, known + [key], CACHE_24_HOUR)
+
+    def _fetch():
+        session_filter = {'completed_at__isnull': False}
+        if subject_id:
+            session_filter['subject_id'] = subject_id
+
+        ps_filter = {f'practice_sessions__{k}': v for k, v in session_filter.items()}
+
+        last_active_sq = (
+            PracticeSession.objects
+            .filter(user=OuterRef('pk'), **session_filter)
+            .order_by('-completed_at')
+            .values('completed_at')[:1]
+        )
+
+        return list(
+            CustomUser.objects
+            .filter(role='STUDENT')
+            .annotate(
+                session_count=Count('practice_sessions', filter=Q(**ps_filter)),
+                avg_score=Avg(
+                    ExpressionWrapper(
+                        F('practice_sessions__score') * 100.0 / F('practice_sessions__total_marks'),
+                        output_field=FloatField(),
+                    ),
+                    filter=Q(**ps_filter, practice_sessions__total_marks__gt=0),
+                ),
+                last_active=Subquery(last_active_sq),
+            )
+            .order_by(F('avg_score').desc(nulls_last=True))
+            .only('id', 'first_name', 'last_name', 'streak')
+        )
+
+    return get_or_set(key, _fetch, CACHE_5_MIN)
+
+
+def invalidate_student_stats():
+    """Invalidates all subject-filtered variants. Safe for locmem."""
+    known_keys = cache.get(KEY_STUDENT_STATS_ALL) or []
+    invalidate(*set(known_keys), KEY_STUDENT_STATS_ALL)
+
 def get_themes_for_subject(subject_id):
     from catalog.models import Theme
     from django.db.models import Count

@@ -59,20 +59,19 @@
       {% for stat in student_stats %}
       <tr class="student-row">
         <td>
-          <span class="student-avatar">{{ stat.student.first_name|first|upper }}{{ stat.student.last_name|first|upper }}</span>
-          <strong>{{ stat.student.first_name }} {{ stat.student.last_name }}</strong>
+          <span class="student-avatar">{{ stat.first_name|first|upper }}{{ stat.last_name|first|upper }}</span>
+          <strong>{{ stat.first_name }} {{ stat.last_name }}</strong>
         </td>
         <td style="color:var(--muted-light)">{{ stat.session_count }}</td>
         <td>
           {% if stat.avg_score is not None %}
-            {% if stat.avg_score >= 70 %}<span class="score-high">{{ stat.avg_score }}%</span>
-            {% elif stat.avg_score >= 50 %}<span class="score-mid">{{ stat.avg_score }}%</span>
-            {% else %}<span class="score-low">{{ stat.avg_score }}%</span>{% endif %}
+            {% if stat.avg_score >= 70 %}<span class="score-high">{{ stat.avg_score|floatformat:1 }}%</span>
+            {% elif stat.avg_score >= 50 %}<span class="score-mid">{{ stat.avg_score|floatformat:1 }}%</span>
+            {% else %}<span class="score-low">{{ stat.avg_score|floatformat:1 }}%</span>{% endif %}
           {% else %}<span style="color:var(--muted)">—</span>{% endif %}
         </td>
         <td>
-          {% if stat.streak > 0 %}
-          <span class="streak-badge">🔥 {{ stat.streak }}</span>
+          {% if stat.streak > 0 %}<span class="streak-badge">🔥 {{ stat.streak }}</span>
           {% else %}<span style="color:var(--muted)">—</span>{% endif %}
         </td>
         <td style="color:var(--muted)">{{ stat.last_active|date:"M j, Y"|default:"—" }}</td>
