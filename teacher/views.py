@@ -102,6 +102,35 @@ def dashboard(request):
 # ══════════════════════════════════════════════════════════════════════════════
 # ADMIN-ONLY VIEWS
 # ══════════════════════════════════════════════════════════════════════════════
+@admin_required
+def session_history(request):
+    from catalog.models import Subject
+
+    subject_id = request.GET.get('subject')
+    subjects   = Subject.objects.order_by('name')
+
+    sessions_qs = (
+        PracticeSession.objects
+        .filter(completed_at__isnull=False)
+        .select_related('user', 'subject', 'exam_series')
+        .order_by('-completed_at')
+    )
+    if subject_id:
+        sessions_qs = sessions_qs.filter(subject_id=subject_id)
+
+    # Paginate — 20 per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(sessions_qs, 20)
+    page      = paginator.get_page(request.GET.get('page', 1))
+
+    context = {
+        'page_obj':         page,
+        'subjects':         subjects,
+        'selected_subject': subject_id,
+        'total_sessions':   paginator.count,
+    }
+    return render(request, 'teacher/session_history.html', context)
+
 
 @admin_required
 def question_sets(request):

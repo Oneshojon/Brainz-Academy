@@ -20,6 +20,7 @@
       {% if user.is_admin %}
         <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
         <a href="{% url 'teacher:students' %}">Students</a>
+        <a href="{% url 'teacher:session_history' %}">Session History</a>
         <a href="{% url 'teacher:upload' %}">Upload CSV</a>
         <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
         <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
@@ -98,7 +99,7 @@
   <div class="dash-container">
     <div class="section-head">
       <div class="section-head-title">Recent Sessions</div>
-      <a href="{% url 'teacher:students' %}" class="see-all">See all →</a>
+      <a href="{% url 'teacher:session_history' %}" class="see-all">See all →</a>
     </div>
 
     {% if recent_sessions %}

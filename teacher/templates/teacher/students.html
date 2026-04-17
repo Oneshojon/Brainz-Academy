@@ -23,6 +23,7 @@
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
       <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:session_history' %}">Session History</a>
       <a href="{% url 'teacher:upload' %}">Upload CSV</a>
       <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
       <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>

@@ -1,0 +1,121 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<link rel="stylesheet" href="{% static 'teacher/students.css' %}">
+
+<div class="page-body">
+
+  <div class="page-header-row">
+    <div>
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Session History</h1>
+      <p class="page-sub" style="margin-bottom:0">
+        {{ total_sessions }} session{{ total_sessions|pluralize }} completed.
+      </p>
+    </div>
+  </div>
+
+  <nav class="teacher-nav">
+    <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
+    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'practice:past_papers' %}">Past Papers</a>
+    {% if user.is_admin %}
+      <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+      <a href="{% url 'teacher:students' %}">Students</a>
+      <a href="{% url 'teacher:session_history' %}" class="active">Session History</a>
+      <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
+      <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+    {% endif %}
+    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+  </nav>
+
+  <div class="filter-row">
+    <form method="get" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+      <select class="filter-select" name="subject" onchange="this.form.submit()">
+        <option value="">All Subjects</option>
+        {% for subject in subjects %}
+          <option value="{{ subject.id }}"
+            {% if selected_subject == subject.id|stringformat:'s' %}selected{% endif %}>
+            {{ subject.name }}
+          </option>
+        {% endfor %}
+      </select>
+      {% if selected_subject %}
+        <a href="{% url 'teacher:session_history' %}" class="btn btn-ghost">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if page_obj %}
+  <table class="students-table">
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Subject</th>
+        <th>Exam Series</th>
+        <th>Score</th>
+        <th>Completed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for session in page_obj %}
+      <tr class="student-row">
+        <td>
+          <span class="student-avatar">
+            {{ session.user.first_name|first|upper }}{{ session.user.last_name|first|upper }}
+          </span>
+          <strong>{{ session.user.first_name }} {{ session.user.last_name|first }}.</strong>
+        </td>
+        <td style="color:var(--muted-light)">{{ session.subject|default:"—" }}</td>
+        <td style="color:var(--muted-light)">{{ session.exam_series|default:"—" }}</td>
+        <td>
+          {% if session.score_percentage is not None %}
+            {% if session.score_percentage >= 70 %}
+              <span class="score-high">{{ session.score_percentage }}%</span>
+            {% elif session.score_percentage >= 50 %}
+              <span class="score-mid">{{ session.score_percentage }}%</span>
+            {% else %}
+              <span class="score-low">{{ session.score_percentage }}%</span>
+            {% endif %}
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted)">{{ session.completed_at|date:"M j, Y · g:i A" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1.5rem; flex-wrap:wrap;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}"
+         class="btn btn-ghost">← Previous</a>
+    {% endif %}
+    <span style="padding:0.5rem 0.75rem; color:var(--muted); font-size:0.85rem;">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}"
+         class="btn btn-ghost">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <span class="empty-icon">📋</span>
+    <div class="empty-title">No sessions yet</div>
+    <div class="empty-desc">Completed student sessions will appear here.</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
