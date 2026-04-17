@@ -58,6 +58,7 @@
         <th>Student</th>
         <th>Subject</th>
         <th>Exam Series</th>
+        <th>Questions</th>
         <th>Score</th>
         <th>Completed</th>
       </tr>
@@ -73,6 +74,9 @@
         </td>
         <td style="color:var(--muted-light)">{{ session.subject|default:"—" }}</td>
         <td style="color:var(--muted-light)">{{ session.exam_series|default:"—" }}</td>
+        <td style="color:var(--muted-light); font-variant-numeric: tabular-nums;">
+        {% if session.total_marks %}{{ session.total_marks }} Q{% else %}—{% endif %}
+        </td>
         <td>
           {% if session.score_percentage is not None %}
             {% if session.score_percentage >= 70 %}

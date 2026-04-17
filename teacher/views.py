@@ -113,6 +113,12 @@ def session_history(request):
         PracticeSession.objects
         .filter(completed_at__isnull=False)
         .select_related('user', 'subject', 'exam_series')
+        .only(
+            'id', 'score', 'total_marks', 'completed_at',
+            'user__first_name', 'user__last_name',
+            'subject__name',
+            'exam_series__year', 'exam_series__sitting',
+        )
         .order_by('-completed_at')
     )
     if subject_id:
