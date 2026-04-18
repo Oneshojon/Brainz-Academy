@@ -636,10 +636,14 @@ STRUCTURE:
    - Labelled anatomical or structural diagrams (cells, organs, ecosystems, circuits, maps)
    - Write raw <svg>...</svg> markup directly inline — do NOT wrap in backticks or a code block
    - viewBox max 600×400; use a clean white or light background (#f9f9f9)
-   - Label the 5–7 most examined parts using <text> elements; position labels so they do NOT overlap the structure they label — place labels outside the shape with a short <line> or offset them clearly beside the part
+   - Label the 5–7 most examined parts using <text> elements; position labels so they do NOT overlap
+     the structure they label — place labels outside the shape with a short <line> or offset clearly
    - Use font-size="13" or "14" for labels; use font-weight="bold" for the diagram title
    - Use distinct fill colours for different parts to aid identification
    - Under 60 lines total
+   - DO NOT use SVG for: classifications, lists of types/forms, comparisons between concepts,
+     hierarchies of categories, or any content that is better expressed as a table — use a
+     markdown table instead. If you cannot draw a labelled physical structure, do not use SVG.
 
    ASCII — for simple linear or relational content only (inline within text)
 
