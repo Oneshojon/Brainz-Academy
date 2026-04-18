@@ -168,15 +168,16 @@
 .ln-panel.active { display:block; }
 
 /* ── PDF Viewer ── */
-.ln-pdf-actions { display:flex; gap:0.75rem; margin-bottom:1rem; }
+.ln-pdf-actions { display:flex; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; }
 .ln-pdf-embed   { width:100%; height:70vh; border:1.5px solid var(--border); border-radius:10px; }
 .btn-dl { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
   border-radius:8px; font-size:0.82rem; font-weight:700; text-decoration:none;
   border:1.5px solid var(--border); color:var(--navy); background:#fff; cursor:pointer;
-  font-family:inherit; transition:all 0.15s; }
+  font-family:inherit; transition:all 0.15s; white-space:nowrap; }
 .btn-dl:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
 .btn-dl.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
 .btn-dl.primary:hover { opacity:0.85; }
+.btn-dl:disabled { opacity:0.6; cursor:not-allowed; }
 
 /* ── Video embed ── */
 .ln-video-wrap { position:relative; padding-bottom:56.25%; border-radius:10px; overflow:hidden;
@@ -195,7 +196,7 @@
   padding:0.75rem 2rem; font-family:inherit; font-weight:700; font-size:0.9rem; cursor:pointer; }
 .ai-preview-box { background:var(--offwhite,#F3F6FA); border-radius:10px; padding:1.25rem;
   max-height:400px; overflow-y:auto; font-size:0.875rem; line-height:1.8; margin-top:1rem; }
-.ai-accept-btns { display:flex; gap:0.75rem; margin-top:1rem; }
+.ai-accept-btns { display:flex; gap:0.75rem; margin-top:1rem; flex-wrap:wrap; }
 .btn-accept  { background:#15803D; color:#fff; border:none; border-radius:8px; padding:0.6rem 1.25rem; font-family:inherit; font-weight:700; cursor:pointer; }
 .btn-discard { background:none; border:1.5px solid var(--border); color:var(--muted); border-radius:8px; padding:0.6rem 1.25rem; font-family:inherit; font-weight:600; cursor:pointer; }
 
@@ -225,6 +226,120 @@
 .ai-content .mermaid { margin:1rem 0; text-align:center; }
 .ai-content .mermaid svg { max-width:100%; height:auto; }
 
+/* ── Table styles ── */
+.ai-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.ai-content table th,
+.ai-content table td {
+  border: 1px solid #d1d9e6;
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+.ai-content table thead tr {
+  background-color: #0B2D72;
+  color: #ffffff;
+  font-weight: 600;
+}
+.ai-content table tbody tr:nth-child(even) { background-color: #f0f6ff; }
+.ai-content table tbody tr:hover { background-color: #e3f0ff; transition: background-color 0.15s ease; }
+
+/* ── A4 Note Wrapper ── */
+.ai-note-a4-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #dde3ea;
+  padding: 1.25rem 1rem 2rem;
+  border-radius: 10px;
+  margin-top: 0.5rem;
+}
+.ai-note-a4-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  align-self: flex-start;
+  width: 100%;
+  max-width: 794px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ai-note-a4-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #92400E;
+  background: #FEF9C3;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 200px;
+}
+.ai-note-a4-badge span { font-weight: 400; color: var(--muted); }
+.ai-note-a4-page {
+  width: 100%;
+  max-width: 794px;       /* A4 at 96dpi */
+  min-height: 400px;      /* grows with content */
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
+  padding: 3rem 3.5rem;
+  box-sizing: border-box;
+}
+
+/* ── Print stylesheet ── */
+@media print {
+  body > *:not(.ln-page) { display: none !important; }
+  .ln-page { padding: 0 !important; gap: 0 !important; }
+  .teacher-nav,
+  .ln-subject-bar,
+  .ln-subject-bar + div,
+  .ln-sidebar,
+  .ln-tabs,
+  .ai-note-a4-actions,
+  .ln-main-header,
+  .ln-free-banner,
+  .ln-panel:not(.active) { display: none !important; }
+  .ln-body { display: block !important; }
+  .ln-main { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+  .ln-panel.active { display: block !important; padding: 0 !important; }
+  .ai-note-a4-wrap { background: transparent !important; padding: 0 !important; border-radius: 0 !important; align-items: stretch; }
+  .ai-note-a4-page {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    min-height: unset !important;
+    border-radius: 0 !important;
+  }
+  .ai-content { font-size: 11pt !important; line-height: 1.65 !important; }
+  .ai-content h1 { font-size: 14pt !important; }
+  .ai-content h2 { font-size: 12pt !important; }
+  .ai-content h3 { font-size: 11pt !important; }
+  .ai-content table th,
+  .ai-content table td { border: 1px solid #aaa !important; }
+  .ai-content table thead tr {
+    background-color: #0B2D72 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .ai-content table tbody tr:nth-child(even) {
+    background-color: #f0f6ff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .mermaid svg, .ai-content svg { max-width: 100% !important; page-break-inside: avoid; }
+  @page { margin: 2cm; size: A4; }
+}
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .ln-body { grid-template-columns: 1fr; }
@@ -236,9 +351,24 @@
   .ln-main-header { flex-direction: column; gap: 0.75rem; }
   .teacher-nav { overflow-x: auto; flex-wrap: nowrap; padding: 0.5rem; }
   .teacher-nav a { flex-shrink: 0; }
-  .ai-content .katex-display { font-size:0.9rem; }
-  /* Mobile AI note inner padding */
-  .ln-topic-content-inner .ai-content { font-size:0.85rem; }
+  .ai-content .katex-display { font-size: 0.9rem; }
+  .ln-topic-content-inner .ai-content { font-size: 0.85rem; }
+  /* Collapse A4 paper effect on mobile — just clean content */
+  .ai-note-a4-wrap { background: transparent; padding: 0; border-radius: 0; }
+  .ai-note-a4-page {
+    max-width: 100%;
+    min-height: unset;
+    box-shadow: none;
+    padding: 1rem 0.25rem;
+    border-radius: 0;
+  }
+  .ai-note-a4-actions { max-width: 100%; }
+  .ai-content table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.82rem;
+  }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -411,21 +541,33 @@
                           text-transform:uppercase; margin-bottom:0.75rem;">
                 AI-Generated Note <span style="font-weight:400; letter-spacing:0;">(supplementary)</span>
               </div>
-              <div class="ai-content" id="ai-note-rendered-secondary"></div>
+              <div class="ai-note-a4-wrap">
+                <div class="ai-note-a4-actions">
+                  <button class="btn-dl" onclick="printAiNote()" id="btn-print-secondary">🖨️ Print / Save PDF</button>
+                </div>
+                <div class="ai-note-a4-page">
+                  <div class="ai-content" id="ai-note-rendered-secondary"></div>
+                </div>
+              </div>
             </div>
           </div>
           {% endif %}
 
         {# STATE 2 — AI note exists, no uploaded PDF. Read-only, no regenerate. #}
         {% elif note and note.ai_content %}
-          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;
-                      font-size:0.75rem; color:#92400E; background:#FEF9C3;
-                      border-radius:8px; padding:0.5rem 0.85rem; font-weight:600;">
-            ✨ AI-Generated Note
-            <span style="font-weight:400; color:var(--muted);">— review before sharing with students</span>
-          </div>
           {{ note.ai_content|json_script:"_ai_note_raw" }}
-          <div class="ai-content" id="ai-note-rendered"></div>
+          <div class="ai-note-a4-wrap">
+            <div class="ai-note-a4-actions">
+              <div class="ai-note-a4-badge">
+                ✨ AI-Generated Note
+                <span>— review before sharing with students</span>
+              </div>
+              <button class="btn-dl" onclick="printAiNote()" id="btn-print-main">🖨️ Print / Save PDF</button>
+            </div>
+            <div class="ai-note-a4-page">
+              <div class="ai-content" id="ai-note-rendered"></div>
+            </div>
+          </div>
 
         {# STATE 3 — No note at all. Generate once; after accept this branch never shows again. #}
         {% elif ai_enabled %}
@@ -638,13 +780,13 @@ function expandTopicContent(topicId, linkEl) {
 
   // Render mobile AI note lazily — only once, only when panel opens
   const aiEl = wrap.querySelector('.mobile-ai-note')
-if (aiEl && !aiEl.dataset.rendered) {
-  const scriptEl = document.getElementById(aiEl.dataset.topicId + '-mob')
-  if (scriptEl) {
-    aiEl.dataset.rendered = '1'
-    renderAll(aiEl, JSON.parse(scriptEl.textContent))
+  if (aiEl && !aiEl.dataset.rendered) {
+    const scriptEl = document.getElementById(aiEl.dataset.topicId + '-mob')
+    if (scriptEl) {
+      aiEl.dataset.rendered = '1'
+      renderAll(aiEl, JSON.parse(scriptEl.textContent))
+    }
   }
-}
 
   wrap.style.maxHeight = wrap.scrollHeight + 'px'
   wrap.style.opacity   = '1'
@@ -746,11 +888,23 @@ function toggleAiNote() {
   }
 }
 
+// ── Print / Save as PDF ───────────────────────────────────────────────────────
+// Give mermaid/KaTeX time to finish rendering before the print dialog opens
+function printAiNote() {
+  const btns = document.querySelectorAll('[id^="btn-print"]')
+  const origLabels = []
+  btns.forEach((b, i) => { origLabels[i] = b.innerHTML; b.disabled = true; b.innerHTML = '⏳ Preparing…' })
+  setTimeout(() => {
+    window.print()
+    btns.forEach((b, i) => { b.disabled = false; b.innerHTML = origLabels[i] })
+  }, 400)
+}
+
 // ── STATE 3: AI generation ────────────────────────────────────────────────────
 async function generateNote(topicId) {
   const btn = document.getElementById('btn-generate')
   btn.disabled = true
-  btn.innerHTML = '<span>⏳</span> Generating…'
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:0.4rem;"></span> Generating…'
   try {
     const res  = await fetch('{% url "teacher:lesson_notes" %}', {
       method: 'POST',

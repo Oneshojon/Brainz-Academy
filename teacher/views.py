@@ -623,12 +623,29 @@ STRUCTURE:
 2. **Core Facts & Concepts** — bullet points only. State facts directly. No padding or storytelling.
 3. **Tables & Comparisons** — use tables wherever the topic involves comparing items, structures, functions, processes, or properties. Exams frequently use table-completion questions.
 4. **Worked Examples** — include only if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics.
-5. **Diagrams** — include ONLY if the topic is commonly examined with a diagram. Use the best format:
-   - Mermaid: use a fenced code block tagged ```mermaid — for cycles, flows, processes, hierarchies
-   - SVG: write the raw <svg>...</svg> markup directly inline in the markdown — do NOT wrap it in backticks or a code block — for labelled structural or anatomical diagrams; keep viewBox max 500x350, label only the 5–6 most important parts, under 50 lines total
-   - ASCII: inline within text — for simple linear relationships or equations
-   Maximum 2 diagram per note. Omit entirely if diagrams are not commonly examined for this topic.
-6. **Likely Exam Questions** — 4–6 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
+5. **Diagrams** — include ONLY if the topic is commonly examined with a diagram. Apply strict rules:
+
+   MERMAID (flowcharts/graphs) — use ONLY when the topic is genuinely process-based or algorithmic:
+   - Computer Science: algorithms, sorting, program flow, data structures, network topologies
+   - Biology: only for multi-step biochemical cycles (e.g., nitrogen cycle, Krebs cycle) — NOT for anatomy or organ structures
+   - Other subjects: use mermaid only if the examined content is literally a flow or decision tree
+   - DO NOT use mermaid for: classification hierarchies, lists of features, economic concepts, historical timelines, simple cause-and-effect, or anything better shown as a table or SVG
+   - Use a fenced code block tagged ```mermaid
+
+   SVG — preferred for most visual content:
+   - Labelled anatomical or structural diagrams (cells, organs, ecosystems, circuits, maps)
+   - Write raw <svg>...</svg> markup directly inline — do NOT wrap in backticks or a code block
+   - viewBox max 600×400; use a clean white or light background (#f9f9f9)
+   - Label the 5–7 most examined parts using <text> elements; position labels so they do NOT overlap the structure they label — place labels outside the shape with a short <line> or offset them clearly beside the part
+   - Use font-size="13" or "14" for labels; use font-weight="bold" for the diagram title
+   - Use distinct fill colours for different parts to aid identification
+   - Under 60 lines total
+
+   ASCII — for simple linear or relational content only (inline within text)
+
+   Maximum 3 diagrams per note. Omit entirely if diagrams are not commonly examined for this topic.
+
+6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
 
 MATHEMATICAL NOTATION — CRITICAL:
@@ -664,7 +681,7 @@ RULES:
     try:
         client  = anthropic.Anthropic()
         message = client.messages.create(
-            model='claude-opus-4-6', max_tokens=7000,
+            model='claude-opus-4-6', max_tokens=7500,
             messages=[{"role": "user", "content": prompt}]
         )
         return JsonResponse({
