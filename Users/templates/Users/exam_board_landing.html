@@ -1,0 +1,270 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block title %}
+  {% if is_practice %}
+    {{ board.name }} CBT Practice — Past Questions Online | BrainzAcademy
+  {% else %}
+    {{ board.name }} Past Questions — All Subjects | BrainzAcademy
+  {% endif %}
+{% endblock %}
+
+{% block meta_description %}
+  {% if is_practice %}
+    Practice {{ board.name }} past questions online with timed CBT sessions. {{ subjects|length }} subjects available. Instant scoring and performance analytics for Nigerian students.
+  {% else %}
+    Download and practice {{ board.name }} past questions for all subjects. {{ year_range }} covering {{ subjects|length }} subjects with instant answers and scoring.
+  {% endif %}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .landing-wrap {
+    max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.5rem;
+  }
+
+  .landing-hero {
+    text-align: center; margin-bottom: 3rem;
+  }
+  .landing-board-badge {
+    display: inline-block; background: #0B2D72; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.3rem 1rem; border-radius: 100px; margin-bottom: 1rem;
+  }
+  .landing-hero h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: clamp(1.6rem, 4vw, 2.4rem); color: #0B2D72;
+    line-height: 1.2; margin-bottom: 1rem;
+  }
+  .landing-hero h1 span { color: #0992C2; }
+  .landing-hero p {
+    font-size: 1rem; color: #6B7FA3; max-width: 600px;
+    margin: 0 auto 1.5rem; line-height: 1.7;
+  }
+  .landing-stats {
+    display: flex; justify-content: center; gap: 2rem;
+    flex-wrap: wrap; margin-bottom: 2rem;
+  }
+  .landing-stat {
+    text-align: center;
+  }
+  .landing-stat-num {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.6rem; color: #0B2D72;
+  }
+  .landing-stat-label {
+    font-size: 0.8rem; color: #6B7FA3;
+  }
+  .landing-cta {
+    display: inline-block; background: #0B2D72; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.95rem; padding: 0.75rem 2rem; border-radius: 100px;
+    text-decoration: none; transition: background 0.2s;
+    box-shadow: 0 4px 16px rgba(11,45,114,0.2);
+  }
+  .landing-cta:hover { background: #0a2360; }
+  .landing-cta-sec {
+    display: inline-block; margin-left: 0.75rem;
+    color: #0992C2; font-weight: 600; font-size: 0.9rem;
+    text-decoration: none; font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .landing-cta-sec:hover { text-decoration: underline; }
+
+  .subjects-section h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.2rem; color: #0B2D72; margin-bottom: 0.4rem;
+  }
+  .subjects-section p {
+    font-size: 0.875rem; color: #6B7FA3; margin-bottom: 1.5rem;
+  }
+  .subjects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem; margin-bottom: 3rem;
+  }
+  .subject-card {
+    background: #fff; border: 1.5px solid #C2D4EC; border-radius: 14px;
+    padding: 1.25rem 1rem; text-decoration: none; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(11,45,114,0.06);
+  }
+  .subject-card:hover {
+    border-color: #0B2D72; transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(11,45,114,0.12);
+  }
+  .subject-card-name {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.95rem; color: #0B2D72; margin-bottom: 0.3rem;
+  }
+  .subject-card-meta {
+    font-size: 0.78rem; color: #6B7FA3;
+  }
+  .subject-card-count {
+    display: inline-block; margin-top: 0.5rem;
+    background: rgba(9,146,194,0.1); color: #0992C2;
+    border: 1px solid rgba(9,146,194,0.2);
+    font-size: 0.7rem; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: 0.15rem 0.55rem; border-radius: 100px;
+  }
+
+  .landing-features {
+    background: #F3F6FA; border-radius: 16px;
+    padding: 2rem; margin-bottom: 3rem;
+  }
+  .landing-features h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.1rem; color: #0B2D72; margin-bottom: 1.25rem;
+  }
+  .features-list {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .feature-item {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+  .feature-item-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+  .feature-item-text strong {
+    display: block; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700; font-size: 0.85rem; color: #0D1B3E; margin-bottom: 0.15rem;
+  }
+  .feature-item-text span { font-size: 0.78rem; color: #6B7FA3; line-height: 1.5; }
+
+  .landing-bottom-cta {
+    text-align: center; padding: 2rem 0;
+    border-top: 1px solid #C2D4EC;
+  }
+  .landing-bottom-cta h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.3rem; color: #0B2D72; margin-bottom: 0.5rem;
+  }
+  .landing-bottom-cta p {
+    font-size: 0.9rem; color: #6B7FA3; margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .landing-stats { gap: 1.25rem; }
+    .subjects-grid { grid-template-columns: 1fr 1fr; }
+    .features-list { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="landing-wrap">
+
+  <!-- Hero -->
+  <div class="landing-hero">
+    <div class="landing-board-badge">{{ board.abbreviation }}</div>
+    <h1>
+      {% if is_practice %}
+        {{ board.name }} <span>CBT Practice</span> — Online Past Questions
+      {% else %}
+        {{ board.name }} <span>Past Questions</span> — All Subjects
+      {% endif %}
+    </h1>
+    <p>
+      Practice real {{ board.name }} past questions with timed CBT sessions, instant scoring,
+      and detailed performance analytics. Covering {{ subjects|length }} subject{% if subjects|length != 1 %}s{% endif %}
+      {% if year_range %}from {{ year_range }}{% endif %}.
+    </p>
+
+    <div class="landing-stats">
+      <div class="landing-stat">
+        <div class="landing-stat-num">{{ subjects|length }}</div>
+        <div class="landing-stat-label">Subjects</div>
+      </div>
+      {% if year_range %}
+      <div class="landing-stat">
+        <div class="landing-stat-num">{{ year_range }}</div>
+        <div class="landing-stat-label">Years Covered</div>
+      </div>
+      {% endif %}
+      <div class="landing-stat">
+        <div class="landing-stat-num">CBT</div>
+        <div class="landing-stat-label">Timed Sessions</div>
+      </div>
+    </div>
+
+    <a href="{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}"
+       class="landing-cta">Start Practising Free →</a>
+    <a href="{% url 'Users:pricing' %}" class="landing-cta-sec">View Plans</a>
+  </div>
+
+  <!-- Subjects grid -->
+  <div class="subjects-section">
+    <h2>{{ board.abbreviation }} Past Questions by Subject</h2>
+    <p>Select a subject to start practising {{ board.name }} past questions.</p>
+    <div class="subjects-grid">
+      {% for subject in subjects %}
+      <a href="{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}"
+         class="subject-card">
+        <div class="subject-card-name">{{ subject.name }}</div>
+        <div class="subject-card-meta">{{ board.abbreviation }} · {{ year_range }}</div>
+        <span class="subject-card-count">{{ subject.question_count }} questions</span>
+      </a>
+      {% empty %}
+      <p style="color:#6B7FA3; grid-column: 1/-1;">
+        Questions for {{ board.abbreviation }} are being added. Check back soon.
+      </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="landing-features">
+    <h2>Why Practice on BrainzAcademy?</h2>
+    <div class="features-list">
+      <div class="feature-item">
+        <span class="feature-item-icon">⏱️</span>
+        <div class="feature-item-text">
+          <strong>Timed CBT Sessions</strong>
+          <span>Simulate real exam conditions with countdown timer.</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-item-icon">⚡</span>
+        <div class="feature-item-text">
+          <strong>Instant Scoring</strong>
+          <span>See your score and correct answers immediately after each session.</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-item-icon">📊</span>
+        <div class="feature-item-text">
+          <strong>Performance Analytics</strong>
+          <span>Track your weak topics and improvement over time.</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-item-icon">📚</span>
+        <div class="feature-item-text">
+          <strong>Real Past Questions</strong>
+          <span>Verified questions from official {{ board.name }} exams.</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-item-icon">🏆</span>
+        <div class="feature-item-text">
+          <strong>Leaderboard</strong>
+          <span>Compete with other students and stay motivated.</span>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-item-icon">🔖</span>
+        <div class="feature-item-text">
+          <strong>Bookmarks</strong>
+          <span>Save tricky questions to revisit during revision.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom CTA -->
+  <div class="landing-bottom-cta">
+    <h2>Ready to Ace {{ board.abbreviation }}?</h2>
+    <p>Join thousands of Nigerian students preparing smarter with BrainzAcademy.</p>
+    <a href="{% url 'Users:request_otp' %}" class="landing-cta">Create Free Account →</a>
+  </div>
+
+</div>
+{% endblock %}

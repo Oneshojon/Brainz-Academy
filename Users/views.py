@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.core.mail import send_mail
 from .models import CustomUser
 import uuid
@@ -13,9 +13,45 @@ from datetime import timedelta
 import hashlib
 import secrets
 from practice.models import PracticeSession
+from catalog.cache_utils import get_subjects_for_board
+from catalog.models import ExamBoard, ExamSeries
 
 def index(request):
     return render(request, 'Users/index.html')
+
+BOARD_SLUGS = {
+    'waec-past-questions': 'WAEC',
+    'neco-past-questions': 'NECO',
+    'jamb-past-questions': 'JAMB',
+    'waec-cbt-practice':   'WAEC',
+    'jamb-cbt-practice':   'JAMB',
+}
+
+def exam_board_landing(request, board_slug):
+    from django.http import Http404
+    abbreviation = BOARD_SLUGS.get(board_slug)
+    if not abbreviation:
+        raise Http404
+
+    board    = get_object_or_404(ExamBoard, abbreviation=abbreviation)
+    subjects = get_subjects_for_board(board.id)
+
+    years = (
+        ExamSeries.objects
+        .filter(exam_board=board)
+        .values_list('year', flat=True)
+        .order_by('year')
+        .distinct()
+    )
+    year_range = f"{years.first()}–{years.last()}" if years.exists() else ''
+
+    return render(request, 'Users/exam_board_landing.html', {
+        'board':       board,
+        'board_slug':  board_slug,
+        'subjects':    subjects,
+        'year_range':  year_range,
+        'is_practice': 'practice' in board_slug or 'cbt' in board_slug,
+    })
 
 
 def request_otp(request):

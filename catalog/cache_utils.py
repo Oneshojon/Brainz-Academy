@@ -177,6 +177,23 @@ def get_themes_for_subject(subject_id):
         CACHE_1_HOUR
     )
 
+KEY_SUBJECTS_BY_BOARD = 'catalog:subjects:board:{board_id}'
+
+def get_subjects_for_board(board_id):
+    from catalog.models import Subject
+    from django.db.models import Count
+    key = KEY_SUBJECTS_BY_BOARD.format(board_id=board_id)
+    return get_or_set(
+        key,
+        lambda: list(
+            Subject.objects
+            .filter(exam_series__exam_board_id=board_id, exam_series__questions__isnull=False)
+            .annotate(question_count=Count('exam_series__questions', distinct=True))
+            .filter(question_count__gt=0)
+            .order_by('name')
+        ),
+        CACHE_1_HOUR
+    )
 
 def get_topics_for_subject(subject_id):
     from catalog.models import Topic
