@@ -185,8 +185,8 @@
       </div>
     </div>
 
-    <a href="{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}"
-       class="landing-cta">Start Practising Free →</a>
+    <a href="{% if user.is_authenticated %}{% url 'practice:practice_home' %}{% else %}{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}{% endif %}"
+   class="landing-cta">Start Practising Free →</a>
     <a href="{% url 'Users:pricing' %}" class="landing-cta-sec">View Plans</a>
   </div>
 
@@ -196,7 +196,7 @@
     <p>Select a subject to start practising {{ board.name }} past questions.</p>
     <div class="subjects-grid">
       {% for subject in subjects %}
-      <a href="{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}"
+      <a href="{% if user.is_authenticated %}{% url 'practice:practice_home' %}{% else %}{% url 'Users:request_otp' %}?next={% url 'practice:practice_home' %}{% endif %}"
          class="subject-card">
         <div class="subject-card-name">{{ subject.name }}</div>
         <div class="subject-card-meta">{{ board.abbreviation }} · {{ year_range }}</div>

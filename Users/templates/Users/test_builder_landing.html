@@ -170,8 +170,8 @@
       Export to PDF or Word in seconds — ready to print or share.
     </p>
     <div class="tb-cta-row">
-      <a href="{% url 'Users:request_otp' %}?next={% url 'frontend:frontend-index' %}"
-         class="tb-cta-primary">Start Building Free →</a>
+      <a href="{% if user.is_authenticated %}{% url 'frontend:frontend-index' %}{% else %}{% url 'Users:request_otp' %}?next={% url 'frontend:frontend-index' %}{% endif %}"
+   class="tb-cta-primary">Start Building Free →</a>
       <a href="{% url 'Users:pricing' %}?tab=teacher" class="tb-cta-sec">View Teacher Plans</a>
     </div>
   </div>
