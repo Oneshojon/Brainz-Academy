@@ -15,7 +15,7 @@ urlpatterns = [
     path('referrals/', views.referrals, name='referrals'),
     path('google1234abcd.html',
          TemplateView.as_view(
-             template_name='google1234abcd.html',
+             template_name='googlec64a23d029f9bf57.html',
              content_type='text/html'
          )),
 ]
