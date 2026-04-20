@@ -16,6 +16,7 @@ class StaticViewSitemap(Sitemap):
             ('Users:jamb_landing',             0.9),
             ('Users:waec_practice_landing',    0.9),
             ('Users:jamb_practice_landing',    0.9),
+            ('Users:test_builder_landing',     0.8),
         ]
 
     def location(self, item):

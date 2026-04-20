@@ -20,6 +20,7 @@ urlpatterns = [
     path('jamb-past-questions/',  views.exam_board_landing, {'board_slug': 'jamb-past-questions'},  name='jamb_landing'),
     path('waec-cbt-practice/',    views.exam_board_landing, {'board_slug': 'waec-cbt-practice'},    name='waec_practice_landing'),
     path('jamb-cbt-practice/',    views.exam_board_landing, {'board_slug': 'jamb-cbt-practice'},    name='jamb_practice_landing'),
+    path('test-builder-for-teachers/', views.test_builder_landing, name='test_builder_landing'),
 
     # Google Search Console verification
     path('googlec64a23d029f9bf57.html',

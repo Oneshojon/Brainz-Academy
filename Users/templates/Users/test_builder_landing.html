@@ -1,0 +1,304 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+
+{% block title %}Test Builder for Teachers — Create WAEC, NECO & JAMB Question Papers | BrainzAcademy{% endblock %}
+{% block meta_description %}Build custom WAEC, NECO and JAMB question papers online. Filter by subject, topic, year and difficulty. Export to PDF or Word instantly. Also supports curriculum-aligned standardised tests. Free to try for Nigerian teachers.{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tb-wrap {
+    max-width: 1000px; margin: 0 auto; padding: 2.5rem 1.5rem;
+  }
+
+  /* ── Hero ── */
+  .tb-hero {
+    text-align: center; margin-bottom: 3.5rem;
+  }
+  .tb-badge {
+    display: inline-block; background: #0B2D72; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.3rem 1rem; border-radius: 100px; margin-bottom: 1rem;
+  }
+  .tb-hero h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: clamp(1.6rem, 4vw, 2.4rem); color: #0B2D72;
+    line-height: 1.2; margin-bottom: 1rem;
+  }
+  .tb-hero h1 span { color: #0992C2; }
+  .tb-hero p {
+    font-size: 1rem; color: #6B7FA3; max-width: 620px;
+    margin: 0 auto 1.75rem; line-height: 1.7;
+  }
+  .tb-cta-row {
+    display: flex; justify-content: center; align-items: center;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .tb-cta-primary {
+    display: inline-block; background: #0B2D72; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.95rem; padding: 0.75rem 2rem; border-radius: 100px;
+    text-decoration: none; transition: background 0.2s;
+    box-shadow: 0 4px 16px rgba(11,45,114,0.2);
+  }
+  .tb-cta-primary:hover { background: #0a2360; }
+  .tb-cta-sec {
+    display: inline-block; color: #0992C2; font-weight: 600;
+    font-size: 0.9rem; text-decoration: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .tb-cta-sec:hover { text-decoration: underline; }
+
+  /* ── How it works ── */
+  .tb-steps { margin-bottom: 3.5rem; }
+  .tb-steps h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.2rem; color: #0B2D72; margin-bottom: 0.4rem; text-align: center;
+  }
+  .tb-steps-sub {
+    text-align: center; font-size: 0.875rem; color: #6B7FA3; margin-bottom: 1.75rem;
+  }
+  .tb-steps-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+  .tb-step-card {
+    background: #fff; border: 1.5px solid #C2D4EC; border-radius: 14px;
+    padding: 1.25rem 1rem; text-align: center;
+    box-shadow: 0 2px 8px rgba(11,45,114,0.06);
+  }
+  .tb-step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #0B2D72; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 0.85rem; margin-bottom: 0.75rem;
+  }
+  .tb-step-title {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.9rem; color: #0B2D72; margin-bottom: 0.35rem;
+  }
+  .tb-step-desc { font-size: 0.78rem; color: #6B7FA3; line-height: 1.5; }
+
+  /* ── Features ── */
+  .tb-features {
+    background: #F3F6FA; border-radius: 16px;
+    padding: 2rem; margin-bottom: 3rem;
+  }
+  .tb-features h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.1rem; color: #0B2D72; margin-bottom: 1.25rem;
+  }
+  .tb-features-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .tb-feature-item {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+  .tb-feature-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+  .tb-feature-text strong {
+    display: block; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700; font-size: 0.85rem; color: #0D1B3E; margin-bottom: 0.15rem;
+  }
+  .tb-feature-text span { font-size: 0.78rem; color: #6B7FA3; line-height: 1.5; }
+
+  /* ── Boards ── */
+  .tb-boards { margin-bottom: 3rem; }
+  .tb-boards h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.2rem; color: #0B2D72; margin-bottom: 0.4rem;
+  }
+  .tb-boards p { font-size: 0.875rem; color: #6B7FA3; margin-bottom: 1.25rem; }
+  .tb-boards-grid {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+  }
+  .tb-board-pill {
+    background: #fff; border: 1.5px solid #C2D4EC; border-radius: 100px;
+    padding: 0.5rem 1.25rem;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 0.9rem; color: #0B2D72;
+    box-shadow: 0 2px 8px rgba(11,45,114,0.06);
+  }
+
+  /* ── Export formats ── */
+  .tb-export {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 3rem;
+  }
+  .tb-export-card {
+    background: #fff; border: 1.5px solid #C2D4EC; border-radius: 14px;
+    padding: 1.5rem; box-shadow: 0 2px 8px rgba(11,45,114,0.06);
+  }
+  .tb-export-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .tb-export-title {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;
+    font-size: 1rem; color: #0B2D72; margin-bottom: 0.35rem;
+  }
+  .tb-export-desc { font-size: 0.82rem; color: #6B7FA3; line-height: 1.5; }
+
+  /* ── Bottom CTA ── */
+  .tb-bottom-cta {
+    text-align: center; padding: 2rem 0;
+    border-top: 1px solid #C2D4EC;
+  }
+  .tb-bottom-cta h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.3rem; color: #0B2D72; margin-bottom: 0.5rem;
+  }
+  .tb-bottom-cta p {
+    font-size: 0.9rem; color: #6B7FA3; margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .tb-steps-grid { grid-template-columns: 1fr 1fr; }
+    .tb-export { grid-template-columns: 1fr; }
+    .tb-features-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="tb-wrap">
+
+  <!-- Hero -->
+  <div class="tb-hero">
+    <div class="tb-badge">For Teachers</div>
+    <h1>Build Custom <span>WAEC, NECO & JAMB</span><br>Question Papers Online</h1>
+    <p>
+      Select questions by exam board, subject, topic, year and difficulty.
+      Hand-pick every question or let the system generate a set automatically.
+      Export to PDF or Word in seconds — ready to print or share.
+    </p>
+    <div class="tb-cta-row">
+      <a href="{% url 'Users:request_otp' %}?next={% url 'frontend:frontend-index' %}"
+         class="tb-cta-primary">Start Building Free →</a>
+      <a href="{% url 'Users:pricing' %}?tab=teacher" class="tb-cta-sec">View Teacher Plans</a>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="tb-steps">
+    <h2>How It Works</h2>
+    <p class="tb-steps-sub">Build a complete question paper in five simple steps.</p>
+    <div class="tb-steps-grid">
+      <div class="tb-step-card">
+        <div class="tb-step-num">1</div>
+        <div class="tb-step-title">Choose Exam Board</div>
+        <div class="tb-step-desc">Select WAEC, NECO, JAMB or any supported board.</div>
+      </div>
+      <div class="tb-step-card">
+        <div class="tb-step-num">2</div>
+        <div class="tb-step-title">Pick a Subject</div>
+        <div class="tb-step-desc">Browse all subjects available for that board.</div>
+      </div>
+      <div class="tb-step-card">
+        <div class="tb-step-num">3</div>
+        <div class="tb-step-title">Select Theme & Topic</div>
+        <div class="tb-step-desc">Drill down to the exact topic you want to test.</div>
+      </div>
+      <div class="tb-step-card">
+        <div class="tb-step-num">4</div>
+        <div class="tb-step-title">Pick Questions</div>
+        <div class="tb-step-desc">Preview and hand-pick questions or generate a set by filter.</div>
+      </div>
+      <div class="tb-step-card">
+        <div class="tb-step-num">5</div>
+        <div class="tb-step-title">Export</div>
+        <div class="tb-step-desc">Download as PDF or Word — student copy and mark scheme.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supported boards -->
+  <div class="tb-boards">
+    <h2>Supported Exam Boards</h2>
+    <p>Questions available across all major Nigerian exam bodies.</p>
+    <div class="tb-boards-grid">
+      {% for board in boards %}
+        <div class="tb-board-pill">{{ board.abbreviation }} — {{ board.name }}</div>
+      {% empty %}
+        <div class="tb-board-pill">WAEC</div>
+        <div class="tb-board-pill">NECO</div>
+        <div class="tb-board-pill">JAMB</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="tb-features">
+    <h2>Everything a Nigerian Teacher Needs</h2>
+    <div class="tb-features-grid">
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">✋</span>
+        <div class="tb-feature-text">
+          <strong>Manual Selection</strong>
+          <span>Preview every question before adding it to your paper.</span>
+        </div>
+      </div>
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">🎲</span>
+        <div class="tb-feature-text">
+          <strong>Random Generator</strong>
+          <span>Set filters and auto-generate a balanced question set instantly.</span>
+        </div>
+      </div>
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">🗂️</span>
+        <div class="tb-feature-text">
+          <strong>Filter by Topic & Year</strong>
+          <span>Target specific WAEC or NECO topics and exam years.</span>
+        </div>
+      </div>
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">⚖️</span>
+        <div class="tb-feature-text">
+          <strong>Custom Mark Allocation</strong>
+          <span>Set marks per question. Total marks calculated automatically.</span>
+        </div>
+      </div>
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">📂</span>
+        <div class="tb-feature-text">
+          <strong>Saved Tests</strong>
+          <span>All your tests are saved. Re-download or continue editing anytime.</span>
+        </div>
+      </div>
+      <div class="tb-feature-item">
+        <span class="tb-feature-icon">🎓</span>
+        <div class="tb-feature-text">
+          <strong>Student & Teacher Copies</strong>
+          <span>Export questions-only for students, full mark scheme for teachers.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export formats -->
+  <div class="tb-export">
+    <div class="tb-export-card">
+      <div class="tb-export-icon">📄</div>
+      <div class="tb-export-title">PDF Export</div>
+      <div class="tb-export-desc">
+        Clean, print-ready PDF. Perfect for printing and distributing to students in class.
+        Separate student and teacher copies generated automatically.
+      </div>
+    </div>
+    <div class="tb-export-card">
+      <div class="tb-export-icon">📝</div>
+      <div class="tb-export-title">Word Export</div>
+      <div class="tb-export-desc">
+        Fully editable Word document (.docx). Customise the layout, add your school
+        header, or modify questions before printing.
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom CTA -->
+  <div class="tb-bottom-cta">
+    <h2>Ready to Build Your First Test?</h2>
+    <p>Free to try. No credit card required. Sign up as a teacher in under a minute.</p>
+    <a href="{% url 'Users:request_otp' %}" class="tb-cta-primary">Create Free Teacher Account →</a>
+  </div>
+
+</div>
+{% endblock %}

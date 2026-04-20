@@ -53,6 +53,10 @@ def exam_board_landing(request, board_slug):
         'is_practice': 'practice' in board_slug or 'cbt' in board_slug,
     })
 
+def test_builder_landing(request):
+    from catalog.cache_utils import get_boards_with_question_counts
+    boards = get_boards_with_question_counts()
+    return render(request, 'Users/test_builder_landing.html', {'boards': boards})
 
 def request_otp(request):
     if request.method == 'POST':
