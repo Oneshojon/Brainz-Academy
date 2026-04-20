@@ -20,7 +20,7 @@
   <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
     <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
-    <a href="{% url 'practice:past_papers' %}">Past Papers</a>
+    <a href="{% url 'past_papers:past_papers' %}">Past Papers</a>
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
       <a href="{% url 'teacher:students' %}">Students</a>

@@ -5,8 +5,8 @@ from . import past_paper_views
 app_name = 'practice'
 
 urlpatterns = [
-    path('past-papers/', past_paper_views.past_papers_boards, name='past_papers_boards'),
-    path('past-papers/papers/', past_paper_views.past_papers, name='past_papers'),
+    # path('past-papers/', past_paper_views.past_papers_boards, name='past_papers_boards'),
+    # path('past-papers/papers/', past_paper_views.past_papers, name='past_papers'),
     path('', views.practice_home, name='practice_home'),
     path('start/', views.start_session, name='start_session'),
     path('exam/<int:session_id>/', views.exam_page, name='exam_page'),

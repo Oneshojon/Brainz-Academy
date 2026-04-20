@@ -27,6 +27,7 @@ urlpatterns = [
     path('test-builder/', include('frontend.urls')),
     path('cbt-practice/', include('practice.urls')),
     path('lesson-notes/', include('teacher.lesson_note_urls')),  # see step 3
+    path('past-papers/', include('practice.past_paper_urls')),
 
     # ── API (internal, never changes) ─────────────────────────────
     path('api/catalog/', include('catalog.urls')),
@@ -38,6 +39,9 @@ urlpatterns = [
     re_path(r'^app/(?P<rest>.*)$',            redirect_with_rest('test-builder')),
     re_path(r'^student/(?P<rest>.*)$',        redirect_with_rest('cbt-practice')),
     re_path(r'^teacher/lesson-notes/(?P<rest>.*)$', redirect_with_rest('lesson-notes')),
+    re_path(r'^practice/past-papers/(?P<rest>.*)$',   redirect_with_rest('past-papers')),
+    re_path(r'^student/past-papers/(?P<rest>.*)$', redirect_with_rest('past-papers')),
+    re_path(r'^cbt-practice/past-papers/(?P<rest>.*)$', redirect_with_rest('past-papers')),
 ]
 
 if settings.DEBUG:

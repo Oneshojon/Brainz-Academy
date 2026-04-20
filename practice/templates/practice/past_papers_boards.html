@@ -18,7 +18,7 @@
   <div class="ppb-grid">
     {% for board in boards %}
     <a
-      href="{% if board.has_data %}{% url 'practice:past_papers' %}?board={{ board.id }}{% else %}#{% endif %}"
+      href="{% if board.has_data %}{% url 'past_papers:past_papers' %}?board={{ board.id }}{% else %}#{% endif %}"
       class="ppb-card {% if not board.has_data %}ppb-card--muted{% endif %}"
       {% if not board.has_data %}aria-disabled="true" title="No papers available yet"{% endif %}
     >
