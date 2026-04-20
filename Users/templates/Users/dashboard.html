@@ -64,7 +64,7 @@
         {% endif %}
       </div>
       {% if user.role == 'TEACHER' %}
-        <a href="/app/" class="btn-cta">Open Test Builder</a>
+        <a href="{% url 'frontend:frontend-index' %}" class="btn-cta">Open Test Builder</a>
       {% else %}
         <a href="{% url 'practice:practice_home' %}" class="btn-cta">Start Practicing</a>
       {% endif %}
@@ -137,7 +137,7 @@
         <div class="svc-desc">Work through past questions in timed exam conditions.</div>
         <span class="svc-tag free">Free</span>
       </a>
-      <a href="{% url 'teacher:lesson_notes' %}" class="service-card blue">
+      <a href="{% url 'lessonnotes:lesson_notes' %}" class="service-card blue">
         <span class="svc-icon">📝</span>
         <div>
           <div class="svc-title">Revision Notes</div>
@@ -164,7 +164,7 @@
         <span class="svc-tag free">Free</span>
       </a>
       {% if user.role == 'TEACHER' %}
-      <a href="/app/?mode=teacher" class="service-card gold-card">
+      <a href="{% url 'frontend:frontend-index' %}" class="service-card gold-card">
         <span class="svc-icon">🛠️</span>
         <div class="svc-title">Test Builder</div>
         <div class="svc-desc">Generate custom question sets by topic, year and board.</div>

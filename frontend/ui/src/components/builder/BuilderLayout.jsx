@@ -274,21 +274,18 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
 
         {/* Title bar */}
         <div className="builder-title-bar">
-          {onChangeMode && (
-            <button onClick={onChangeMode}
-              style={{
-                background: '#ffffff', border: '1.5px solid #C2D4EC', color: '#0B2D72',
-                borderRadius: '100px', padding: '0.4rem 1rem',
-                fontFamily: 'Plus Jakarta Sans, sans-serif',
-                fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', marginLeft: 'auto',
-              }}>
-              ← Change Mode
-            </button>
-          )}
+
+          {/* Logo */}
+          <a href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, textDecoration: 'none' }}>
+            <img src={window.LOGO_URL} alt="BrainzAcademy" style={{ height: '36px', width: 'auto' }} />
+          </a>
+
+          {/* Test title input */}
           <input className="builder-title-input" value={testTitle}
             onChange={e => setTestTitle(e.target.value)}
             placeholder="Name your test..." />
 
+          {/* OBJ / Theory toggle — only from step 4 */}
           {step >= 4 && (
             <div className="builder-type-toggle">
               {[['', 'All'], ['OBJ', 'OBJ'], ['THEORY', 'Theory']].map(([val, label]) => (
@@ -301,11 +298,24 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
             </div>
           )}
 
+          {/* Selection pills + Change Mode pushed to the right */}
           <div className="builder-meta" style={{ marginLeft: 'auto' }}>
             {board   && <span className="builder-meta-pill">📋 {board.abbreviation}</span>}
             {subject && <span className="builder-meta-pill">📚 {subject.name}</span>}
             {theme   && <span className="builder-meta-pill">🗂️ {theme.name}</span>}
           </div>
+
+          {onChangeMode && (
+            <button onClick={onChangeMode} style={{
+              background: '#ffffff', border: '1.5px solid #C2D4EC', color: '#0B2D72',
+              borderRadius: '100px', padding: '0.4rem 1rem',
+              fontFamily: 'Plus Jakarta Sans, sans-serif',
+              fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', flexShrink: 0,
+            }}>
+              ← Change Mode
+            </button>
+          )}
+
         </div>
 
         {/* Step nav + export */}

@@ -732,9 +732,9 @@
       <span>Where would you like to go today?</span>
     </div>
     <div class="role-banner-actions">
-      <a href="/app/?mode=student" class="btn-ghost">Student Mode</a>
+      <a href="/cbt-practice/" class="btn-ghost">Student Mode</a>
       {% if user.role == 'TEACHER' %}
-      <a href="/app/?mode=teacher" class="btn-primary-sm">Teacher Mode ✦</a>
+      <a href="/test-builder/" class="btn-primary-sm">Teacher Mode ✦</a>
       {% endif %}
     </div>
   </div>
@@ -772,7 +772,7 @@
 
   <div class="portals">
     <a
-      href="{% if user.is_authenticated %}/app/?mode=student{% else %}{% url 'Users:request_otp' %}{% endif %}"
+      href="{% if user.is_authenticated %}{% url 'practice:practice_home' %}{% else %}{% url 'Users:request_otp' %}{% endif %}"
       class="portal-card student"
       onclick="handlePortalClick(event, 'student')"
     >
@@ -786,7 +786,7 @@
     </a>
 
     <a
-      href="{% if user.role == 'TEACHER' %}/app/?mode=teacher{% else %}#{% endif %}"
+      href="{% if user.role == 'TEACHER' %}{% url 'frontend:frontend-index' %}{% else %}#{% endif %}"
       class="portal-card teacher"
       onclick="handlePortalClick(event, 'teacher')"
     >
@@ -813,7 +813,7 @@
     <!-- Practice — for everyone -->
     <div
       class="service-card featured"
-      onclick="requireAuth('/app/?mode=student&tab=practice')"
+      onclick="requireAuth('/cbt-practice/')"
     >
       <span class="svc-tag free">Free</span>
       <span class="svc-icon">⚡</span>
@@ -828,7 +828,7 @@
     <!-- Test Builder — teacher only -->
     <div
       class="service-card"
-      onclick="requireTeacher('/app/?mode=teacher&tab=builder')"
+      onclick="requireTeacher('/test-builder/')"
     >
       <span class="svc-tag teacher-only">Teachers Only</span>
       <span class="svc-icon">🛠️</span>
@@ -843,7 +843,7 @@
     <!-- Video lessons — for everyone -->
     <div
       class="service-card"
-      onclick="requireAuth('/app/?mode=student&tab=videos')"
+      onclick="requireAuth('/cbt-practice/revision/')"
     >
       <span class="svc-tag free">Free</span>
       <span class="svc-icon">🎬</span>
@@ -987,9 +987,9 @@
   function handlePortalClick(event, type) {
     event.preventDefault();
     if (type === 'student') {
-      requireAuth('/app/?mode=student');
+      requireAuth('/cbt-practice/');
     } else {
-      requireTeacher('/app/?mode=teacher');
+      requireTeacher('/test-builder/');
     }
   }
 

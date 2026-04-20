@@ -15,7 +15,7 @@
     </div>
     <nav class="teacher-nav">
       <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
-      <a href="/app/">Test Builder ↗</a>
+      <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
       <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
       {% if user.is_admin %}
         <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
@@ -28,7 +28,7 @@
         <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
         <a href="{% url 'teacher:referral_analytics' %}">📊 Referral Analytics</a>
       {% endif %}
-      <a href="{% url 'teacher:lesson_notes' %}">Revision Notes</a>
+      <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
     </nav>
   </div>
 
@@ -54,7 +54,7 @@
     <div class="dash-divider"></div>
 
     <div class="quick-actions">
-      <a href="/app/" class="quick-action">
+      <a href="{% url 'frontend:frontend-index' %}" class="quick-action">
         <span class="quick-action-icon">🛠️</span>
         <div>
           <div class="quick-action-label">Test Builder</div>
@@ -77,7 +77,7 @@
         </div>
       </a>
       {% endif %}
-      <a href="{% url 'teacher:lesson_notes' %}" class="quick-action">
+      <a href="{% url 'lessonnotes:lesson_notes' %}" class="quick-action">
         <span class="quick-action-icon">📝</span>
         <div>
           <div class="quick-action-label">Revision Notes</div>

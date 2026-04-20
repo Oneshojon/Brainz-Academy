@@ -378,7 +378,7 @@
 
   <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
-    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
     <a href="{% url 'practice:past_papers_boards' %}">Past Papers</a>
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
@@ -389,7 +389,7 @@
       <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
       <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
-    <a href="{% url 'teacher:lesson_notes' %}" class="active">Lesson Notes</a>
+    <a href="{% url 'lessonnotes:lesson_notes' %}" class="active">Lesson Notes</a>
   </nav>
 
   <!-- Subject selector -->
@@ -906,7 +906,7 @@ async function generateNote(topicId) {
   btn.disabled = true
   btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:0.4rem;"></span> Generating…'
   try {
-    const res  = await fetch('{% url "teacher:lesson_notes" %}', {
+    const res  = await fetch('{% url "lessonnotes:lesson_notes" %}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
       body: JSON.stringify({ action: 'generate_ai', topic_id: topicId }),
@@ -942,7 +942,7 @@ async function acceptNote() {
     btn.innerHTML = '<span style="display:inline-block;width:13px;height:13px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:0.4rem;"></span> Saving…'
   }
   try {
-    const res  = await fetch('{% url "teacher:lesson_notes" %}', {
+    const res  = await fetch('{% url "lessonnotes:lesson_notes" %}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
       body: JSON.stringify({ action: 'accept_ai', topic_id: TOPIC_ID, content: _aiRaw }),

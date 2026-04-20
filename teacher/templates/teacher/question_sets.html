@@ -13,12 +13,12 @@
       <h1 class="page-title">Question Sets</h1>
       <p class="page-sub" style="margin-bottom:0">Browse the question bank — {{ total_questions }} question{{ total_questions|pluralize }} total.</p>
     </div>
-    <a href="/app/" class="btn btn-primary">+ Build Test</a>
+    <a href="{% url 'frontend:frontend-index' %}" class="btn btn-primary">+ Build Test</a>
   </div>
 
      <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
-    <a href="/app/">Test Builder ↗</a>
+    <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
     <a href="{% url 'practice:past_papers' %}" class="nav-link">Past Papers</a>
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
@@ -29,7 +29,7 @@
       <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
       <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
-    <a href="{% url 'teacher:lesson_notes' %}">Lesson Notes</a>
+    <a href="{% url 'lessonnotes:lesson_notes' %}">Lesson Notes</a>
   </nav>
 
   <form method="get" class="filter-row">

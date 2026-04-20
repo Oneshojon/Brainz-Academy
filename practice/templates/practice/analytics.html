@@ -97,7 +97,7 @@
     <div style="display: flex; flex-direction: column; gap: 0.5rem">
       {% for note in recommended_notes %}
       <a
-        href="{% url 'teacher:lesson_notes' %}?subject={{ note.topic.subject.id }}&topic={{ note.topic.id }}"
+        href="{% url 'lessonnotes:lesson_notes' %}?subject={{ note.topic.subject.id }}&topic={{ note.topic.id }}"
         style="
           background: var(--card);
           border: 1px solid var(--border);

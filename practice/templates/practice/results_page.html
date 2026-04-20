@@ -65,7 +65,7 @@
     <div class="section-title" style="margin-bottom:1rem;">Study These Topics</div>
     <div style="display:flex; flex-direction:column; gap:0.5rem;">
       {% for note in recommended_notes %}
-      <a href="/teacher/lesson-notes/?subject={{ note.subject.id }}&topic={{ note.topic.id }}"
+      <a href="{% url 'lessonnotes:lesson_notes' %}?subject={{ note.subject.id }}&topic={{ note.topic.id }}"
          class="rec-note-link">
         <span style="font-size:1.2rem;">📄</span>
         <div>

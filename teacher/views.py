@@ -647,7 +647,7 @@ STRUCTURE:
 
    ASCII — for simple linear or relational content only (inline within text)
 
-   Maximum 3 diagrams per note. Omit entirely if diagrams are not commonly examined for this topic.
+   Maximum 7 diagrams per note. Omit entirely if diagrams are not commonly examined for this topic.
 
 6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.

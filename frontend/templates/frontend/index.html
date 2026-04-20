@@ -4,9 +4,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brainz Academy</title>
+    <title>BrainzAcademy — Test Builder</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'Users/images/favicon.ico' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'Users/images/favicon-32.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'Users/images/apple-touch-icon.png' %}">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
     <script>
       window.USER_ROLE = "{{ request.user.role|default:'' }}";
+      window.LOGO_URL  = "{% static 'Users/images/brainz_logo.png' %}";
     </script>
 
     <!-- KaTeX -->

@@ -109,7 +109,7 @@
         <div class="svc-desc">Work through real past questions from WAEC, NECO, and JAMB in timed sessions.</div>
         <span class="svc-arrow">→</span>
       </div>
-      <div class="service-card" onclick="requireTeacher('/app/')">
+      <div class="service-card" onclick="requireTeacher('/test-builder/')">
         <span class="svc-tag teacher-only">Teachers Only</span>
         <span class="svc-icon">🛠️</span>
         <div class="svc-title">Test Builder</div>
@@ -213,7 +213,7 @@
         <div class="footer-col-title">Explore</div>
         <a href="{% url 'practice:practice_home' %}">Past Questions</a>
         <a href="#">Revision Notes</a>
-        <a href="/app/">Test Builder</a>
+        <a href="{% url 'frontend:frontend-index' %}">Test Builder</a>
         <a href="{% url 'Users:pricing' %}">Plans &amp; Pricing</a>
       </div>
       <div class="footer-col">
