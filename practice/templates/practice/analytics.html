@@ -1,4 +1,7 @@
-{% extends 'Users/layout.html' %} {% load static %} {% block body %}
+{% extends 'Users/layout.html' %} {% load static %}
+{% block title %}My Analytics — BrainzAcademy{% endblock %}
+{% block meta_description %}Track your WAEC, NECO and JAMB practice performance over time with detailed score analytics and subject breakdowns.{% endblock %}
+{% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}" />
 <link rel="stylesheet" href="{% static 'practice/css/analytics.css' %}" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>

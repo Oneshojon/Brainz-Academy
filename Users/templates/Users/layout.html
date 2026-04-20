@@ -5,12 +5,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brainz</title>
+
+    <title>{% block title %}BrainzAcademy — WAEC, NECO & JAMB Practice for Nigerian Students and Teachers{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Practice past questions for WAEC, NECO and JAMB with timed CBT sessions, instant scoring and performance analytics. Test builder for teachers, Revision notes and more. Built for Nigerian secondary school students and teachers.{% endblock %}">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://brainzacademy.com{% block canonical_path %}{{ request.path }}{% endblock %}">
+
+    <!-- Open Graph (WhatsApp/Facebook previews) -->
+    <meta property="og:site_name" content="BrainzAcademy">
+    <meta property="og:title" content="{% block og_title %}BrainzAcademy — WAEC, NECO & JAMB Practice{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Practice past questions for WAEC, NECO and JAMB with timed CBT sessions and instant scoring. Teacher tools for creating and managing tests/exams and revision notes.{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://brainzacademy.com{{ request.path }}">
+    <meta property="og:image" content="{% static 'Users/images/brainz_logo.png' %}">
+
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'Users/images/favicon.ico' %}">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'Users/images/favicon-32.png' %}">
     <link rel="apple-touch-icon" href="{% static 'Users/images/apple-touch-icon.png' %}">
+
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'Users/layout.css' %}" />
+
+    {% block extra_head %}{% endblock %}
   </head>
   <body>
 
@@ -34,7 +53,7 @@
           {% if user.is_authenticated %}
             <a href="{% url 'Users:dashboard' %}" class="nav-link">Dashboard</a>
             <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
-            <a href="{% url 'past_papers:past_papers' %}" class="nav-link">Past Papers</a>
+            <a href="{% url 'past_papers:past_papers_boards' %}" class="nav-link">Past Papers</a>
             {% if user.role == 'TEACHER' %}
               <a href="{% url 'teacher:dashboard' %}" class="nav-link">Teacher Portal</a>
             {% endif %}

@@ -1,8 +1,11 @@
 {% extends 'Users/layout.html' %}
 {% load static %}
-{% block body %}
-
+{% block title %}BrainzAcademy — WAEC, NECO & JAMB Past Questions & CBT Practice{% endblock %}
+{% block meta_description %}Nigeria's smartest exam prep platform. Practice WAEC, NECO and JAMB past questions with timed CBT sessions, Structured Revisions notes, AI lesson notes and detailed score analytics. Teacher tools for creating and managing tests/exams.{% endblock %}
+{% block extra_head %}
 <link rel="stylesheet" href="{% static 'Users/index.css' %}">
+{% endblock %}
+{% block body %}
 
 <!-- HERO -->
 <section class="hero">
@@ -206,13 +209,13 @@
   <div class="footer-inner">
     <div class="footer-top">
       <div class="footer-brand">
-        <div class="footer-logo">Brainz<span>Academy</span></div>
+        <div class="footer-logo">Brainz <span>Academy</span></div>
         <p class="footer-tagline">Nigeria's exam preparation platform for WAEC, NECO, and JAMB students.</p>
       </div>
       <div class="footer-col">
         <div class="footer-col-title">Explore</div>
         <a href="{% url 'practice:practice_home' %}">Past Questions</a>
-        <a href="#">Revision Notes</a>
+        <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
         <a href="{% url 'frontend:frontend-index' %}">Test Builder</a>
         <a href="{% url 'Users:pricing' %}">Plans &amp; Pricing</a>
       </div>
