@@ -120,7 +120,7 @@ export default function App() {
           max_questions: 9999, pdf_only: false, reason: '',
         })
       );
-    api.get('/api/catalog/feature-flags/')
+    api.get('feature-flags/') 
       .then(r => {
         const f = r.data;
         setFlags({

@@ -42,7 +42,7 @@ def past_papers_boards(request):
 def past_papers(request):
     board_id = request.GET.get('board')
     if not board_id:
-        return redirect('practice:past_papers_boards')
+        return redirect('past_papers:past_papers_boards')
  
     selected_board = get_or_set(
         f'pp:board_{board_id}',
@@ -50,7 +50,7 @@ def past_papers(request):
         CACHE_1_HOUR,
     )
     if not selected_board:
-        return redirect('practice:past_papers_boards')
+        return redirect('past_papers:past_papers_boards')
  
     def _fetch_papers():
         return list(
