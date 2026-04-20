@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /pricing/
+Allow: /past-papers/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /cbt-practice/
+Disallow: /test-builder/
+Disallow: /lesson-notes/
+Disallow: /teacher/
+Disallow: /dashboard/
+Disallow: /verify/
+Disallow: /get-otp/
+
+Sitemap: https://brainzacademy.com/sitemap.xml
