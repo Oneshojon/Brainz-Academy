@@ -1726,7 +1726,7 @@ def upload_docx(request):
                 # Image — both types
                 if q_data.get('image_bytes'):
                     ext      = q_data['image_ext'] or 'png'
-                    filename = f"q_{subject.name.lower()}_{year}_{q_data['number']}.{ext}"
+                    filename = f"q_{subject.name.lower()}_{year}_{paper_type.lower()}_{q_data['number']}.{ext}"
                     question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
 
                 # Fix batching #1: bulk_create choices instead of one INSERT per choice
