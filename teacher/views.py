@@ -1236,8 +1236,8 @@ def _parse_docx(file_bytes):
 
     # ── Branch to correct parser ──────────────────────────────────────────────
     if header['paper_type'] == 'THEORY':
-        questions = _parse_theory_blocks_numbered(
-            raw_blocks, img_map, topic_re,
+        questions = _parse_theory_blocks(
+            soup, img_map, q_num_re, q_inline_re, topic_re,
             theory_answer_start_re, marking_guide_re
         )
     else:
@@ -1247,105 +1247,367 @@ def _parse_docx(file_bytes):
 
     return header, questions
 
+import os
+from bs4 import Tag
+ 
+_TH_Q_TYPED_RE = re.compile(r'^\s*(\d+)[.)]\s*(.*)', re.DOTALL)
+_TH_ANSWER_RE  = re.compile(r'^(answer|solution)\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
+_TH_MARKING_RE = re.compile(r'^marking\s*guide\s*:\s*(.*)',   re.IGNORECASE | re.DOTALL)
+_TH_VIDEO_RE   = re.compile(r'^video\s*:\s*(\S+)',            re.IGNORECASE)
+_TH_TOPIC_RE   = re.compile(r'^topic\s*:\s*(.+)',             re.IGNORECASE | re.DOTALL)
+_TH_SUBPART_RE = re.compile(
+    r'^\s*[\(\[]?([a-zA-Z]{1,3}|i{1,4}v?|vi{0,3}|ix|x{1,3})[\)\].]\s*\S',
+    re.IGNORECASE
+)
+_TH_IMG_W_RE   = re.compile(r'width\s*:\s*([\d.]+)in',  re.IGNORECASE)
+_TH_IMG_H_RE   = re.compile(r'height\s*:\s*([\d.]+)in', re.IGNORECASE)
+ 
+ 
+def _th_text(elem) -> str:
+    return elem.get_text(separator=' ', strip=True).replace('\n', ' ')
+ 
+ 
+def _th_is_topic(elem) -> bool:
+    return bool(_TH_TOPIC_RE.match(_th_text(elem)))
+ 
+ 
+def _th_topic_name(elem) -> str:
+    m = _TH_TOPIC_RE.match(_th_text(elem))
+    return m.group(1).strip() if m else ''
+ 
+ 
+def _th_img_info(img_tag, img_map: dict):
+    """
+    Return (bytes, ext, width_px, height_px) or (None, None, None, None).
+    pandoc writes full temp paths as src; img_map is keyed by basename only.
+    96 dpi: px = inches × 96.
+    """
+    src   = img_tag.get('src', '')
+    fname = os.path.basename(src)
+    data  = img_map.get(fname)
+    if not data:
+        return None, None, None, None
+    ext   = fname.rsplit('.', 1)[-1].lower() if '.' in fname else 'png'
+    style = img_tag.get('style', '')
+    wm    = _TH_IMG_W_RE.search(style)
+    hm    = _TH_IMG_H_RE.search(style)
+    w_px  = round(float(wm.group(1)) * 96) if wm else None
+    h_px  = round(float(hm.group(1)) * 96) if hm else None
+    return data, ext, w_px, h_px
+ 
+ 
+def _th_ol_to_html(ol_elem, lv: int) -> str:
+    """
+    Render <ol type="a"|"i"> into sq-lv{N} indent blocks.
+    Uses li.decode_contents() directly — pandoc already wraps li text in <p>.
+    Nested <ol> recurse one level deeper (capped at lv3).
+    """
+    parts = []
+    for li in ol_elem.find_all('li', recursive=False):
+        nested_ols = li.find_all('ol', recursive=False)
+        for nol in nested_ols:
+            nol.extract()
+        inner = li.decode_contents().strip()
+        if inner:
+            parts.append('<div class="sq-lv%d">%s</div>' % (lv, inner))
+        for nol in nested_ols:
+            parts.append(_th_ol_to_html(nol, min(lv + 1, 3)))
+    return '\n'.join(parts)
+ 
+ 
+def _th_blockquote_html(bq_elem, img_map: dict, set_img_fn) -> list:
+    """
+    Walk a <blockquote> and return list of HTML strings.
+    Skips Topic: paragraphs. Calls set_img_fn for any images found.
+    """
+    parts = []
+    for child in bq_elem.find_all(
+        ['p', 'ol', 'table', 'img', 'blockquote'], recursive=False
+    ):
+        if _th_is_topic(child):
+            continue
+        if child.name == 'ol':
+            lv = 2 if child.get('type', 'a').lower() == 'a' else 3
+            parts.append(_th_ol_to_html(child, lv))
+        elif child.name == 'table':
+            parts.append(str(child))
+        elif child.name == 'img':
+            b, ext, w, h = _th_img_info(child, img_map)
+            set_img_fn(b, ext, w, h)
+        elif child.name == 'blockquote':
+            for html in _th_blockquote_html(child, img_map, set_img_fn):
+                parts.append('<div class="sq-lv2">%s</div>' % html)
+        else:
+            img_t = child.find('img')
+            if img_t:
+                b, ext, w, h = _th_img_info(img_t, img_map)
+                set_img_fn(b, ext, w, h)
+            inner = child.decode_contents().strip()
+            if inner:
+                parts.append('<div class="sq-lv1"><p>%s</p></div>' % inner)
+    return parts
+ 
+ 
 def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                           theory_answer_start_re, marking_guide_re):
-    """Parse theory (essay) question blocks."""
-    questions = []
-
-    for block in blocks:
-        q = {
-            'number':         None,
-            'content':        '',
-            'image_bytes':    None,
-            'image_ext':      None,
-            'topics':         [],
-            'theory_answer':  '',
-            'marking_guide':  '',
+    """
+    Parse theory/essay questions from pandoc HTML.
+ 
+    Args:
+        blocks   — Pass the BeautifulSoup `soup` object (repurposed arg).
+        img_map  — {filename: bytes} from pandoc --extract-media.
+        Remaining args kept for signature compatibility; unused internally.
+ 
+    Returns list of question dicts:
+        number, content (HTML), image_bytes, image_ext,
+        image_width_px, image_height_px,
+        topics (list[str]),
+        theory_answer (HTML), marking_guide (HTML), video_url (str|None)
+ 
+    DOCX section markers (place after question content, before Topic:):
+        Answer:        or  Solution:      → theory_answer
+        Marking Guide:                    → marking_guide
+        Video:  https://...               → video_url (single URL, first wins)
+        Topic:                            → closes the question record
+    """
+    soup = blocks
+ 
+    def _new_q(number):
+        return {
+            'number':           number,
+            'content':          '',
+            'image_bytes':      None,
+            'image_ext':        None,
+            'image_width_px':   None,
+            'image_height_px':  None,
+            'topics':           [],
+            'theory_answer':    '',
+            'marking_guide':    '',
+            'video_url':        None,   # from "Video: https://..." line in DOCX
         }
-        content_parts       = []
-        theory_answer_parts = []
-        marking_guide_parts = []
-        in_theory_answer    = False
-        in_marking_guide    = False
-
-        for elem in block:
-            tag  = elem.name
-            text = elem.get_text(separator='\n', strip=True)
-
-            # Question number
-            if tag == 'p' and q['number'] is None:
-                standalone = q_num_re.match(text)
-                inline     = q_inline_re.match(text)
-                if standalone:
-                    q['number'] = int(standalone.group(1))
+ 
+    questions      = []
+    current_q      = None
+    content_parts  = []
+    answer_parts   = []
+    marking_parts  = []
+    section        = 'content'
+    last_q_number  = 0
+    used_numbers   = set()
+ 
+    def _flush():
+        nonlocal current_q, content_parts, answer_parts
+        nonlocal marking_parts, section, last_q_number
+        if current_q is None:
+            return
+        current_q['content']       = '\n'.join(content_parts).strip()
+        current_q['theory_answer'] = '\n'.join(answer_parts).strip()
+        current_q['marking_guide'] = '\n'.join(marking_parts).strip()
+        if current_q['content']:
+            questions.append(current_q)
+            last_q_number = current_q['number']
+            used_numbers.add(current_q['number'])
+        current_q     = None
+        content_parts = []
+        answer_parts  = []
+        marking_parts = []
+        section       = 'content'
+ 
+    def _open(number):
+        nonlocal current_q, section
+        _flush()
+        current_q = _new_q(number)
+        section   = 'content'
+ 
+    def _append(html):
+        if not html:
+            return
+        if   section == 'content': content_parts.append(html)
+        elif section == 'answer':  answer_parts.append(html)
+        elif section == 'marking': marking_parts.append(html)
+ 
+    def _set_image(b, ext, w, h):
+        if current_q and current_q['image_bytes'] is None and b:
+            current_q['image_bytes']     = b
+            current_q['image_ext']       = ext
+            current_q['image_width_px']  = w
+            current_q['image_height_px'] = h
+ 
+    def _try_section_switch(text) -> bool:
+        """
+        Check for Answer:, Marking Guide:, or Video: headers.
+        Switches active section and returns True if matched.
+        Video: is extracted once and does not change the section.
+        """
+        nonlocal section
+ 
+        # Video: — extract URL, don't change section
+        mv = _TH_VIDEO_RE.match(text)
+        if mv and current_q is not None:
+            if current_q['video_url'] is None:          # first wins
+                current_q['video_url'] = mv.group(1).strip()
+            return True
+ 
+        mg = _TH_MARKING_RE.match(text)
+        if mg:
+            section = 'marking'
+            inline  = mg.group(1).strip()
+            if inline:
+                _append('<p>%s</p>' % inline)
+            return True
+ 
+        ans = _TH_ANSWER_RE.match(text)
+        if ans:
+            section = 'answer'
+            inline  = ans.group(2).strip()
+            if inline:
+                _append('<p>%s</p>' % inline)
+            return True
+ 
+        return False
+ 
+    # ── Walk top-level soup children ──────────────────────────────────────────
+    top_elems = [e for e in soup.children if isinstance(e, Tag)]
+ 
+    for elem in top_elems:
+        tag  = elem.name
+        text = _th_text(elem)
+ 
+        # ── Topic → close question ────────────────────────────────────────────
+        if _th_is_topic(elem):
+            tn = _th_topic_name(elem)
+            if tn and current_q is not None:
+                current_q['topics'].append(tn)
+            _flush()
+            continue
+ 
+        # Topic wrapped in <blockquote>
+        if tag == 'blockquote':
+            topic_p = next(
+                (c for c in elem.find_all('p', recursive=True) if _th_is_topic(c)),
+                None
+            )
+            if topic_p:
+                tn = _th_topic_name(topic_p)
+                if tn and current_q is not None:
+                    current_q['topics'].append(tn)
+                _flush()
+                continue
+ 
+        # ── Section switches at top level ─────────────────────────────────────
+        if current_q is not None and _try_section_switch(text):
+            continue
+ 
+        # ── <ol type="1"> — list-based questions ─────────────────────────────
+        if tag == 'ol' and elem.get('type') == '1':
+            start_attr = elem.get('start')
+            q_num      = int(start_attr) if start_attr else (last_q_number + 1)
+ 
+            for li in elem.find_all('li', recursive=False):
+                _open(q_num)
+                q_num += 1
+ 
+                for child in li.children:
+                    if not isinstance(child, Tag):
+                        continue
+                    child_text = _th_text(child)
+ 
+                    if _try_section_switch(child_text):
+                        continue
+ 
+                    if child.name == 'p':
+                        img_t = child.find('img')
+                        if img_t:
+                            b, ext, w, h = _th_img_info(img_t, img_map)
+                            _set_image(b, ext, w, h)
+                        inner = child.decode_contents().strip()
+                        if inner:
+                            _append('<p>%s</p>' % inner)
+                    elif child.name == 'ol':
+                        lv = 2 if child.get('type', 'a').lower() == 'a' else 3
+                        _append(_th_ol_to_html(child, lv))
+                    elif child.name == 'blockquote':
+                        for html in _th_blockquote_html(child, img_map, _set_image):
+                            _append(html)
+                    elif child.name == 'table':
+                        _append(str(child))
+            continue
+ 
+        # ── <p>N. text — typed-number question ───────────────────────────────
+        if tag == 'p':
+            m_typed = _TH_Q_TYPED_RE.match(text)
+            if m_typed:
+                q_num = int(m_typed.group(1))
+                _open(q_num)
+                raw_inner = elem.decode_contents().strip()
+                stripped  = re.sub(r'^\s*\d+[.)]\s*', '', raw_inner, count=1)
+                if stripped:
+                    _append('<p>%s</p>' % stripped)
+                img_t = elem.find('img')
+                if img_t:
+                    b, ext, w, h = _th_img_info(img_t, img_map)
+                    _set_image(b, ext, w, h)
+                continue
+ 
+            # Orphan sub-part after a topic flush
+            if current_q is None and _TH_SUBPART_RE.match(text):
+                synthetic = last_q_number + 1
+                while synthetic in used_numbers:
+                    synthetic += 1
+                _open(synthetic)
+ 
+            if current_q is None:
+                continue
+ 
+            if _try_section_switch(text):
+                continue
+ 
+            img_t = elem.find('img')
+            if img_t:
+                b, ext, w, h = _th_img_info(img_t, img_map)
+                _set_image(b, ext, w, h)
+                if not text.strip():
                     continue
-                if inline:
-                    q['number'] = int(inline.group(1))
-                    elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
-                    content_parts.append(elem_html)
-                    continue
-
-            # Image
-            if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
-                img_tag = elem.find('img') if tag != 'img' else elem
-                if img_tag:
-                    src   = img_tag.get('src', '')
-                    fname = os.path.basename(src)
-                    if fname in img_map:
-                        q['image_bytes'] = img_map[fname]
-                        q['image_ext']   = fname.split('.')[-1].lower()
+ 
+            inner = elem.decode_contents().strip()
+            if inner:
+                _append('<p>%s</p>' % inner)
+            continue
+ 
+        # ── <blockquote> — lv1 indented continuation ─────────────────────────
+        if tag == 'blockquote':
+            if current_q is None:
                 continue
-
-            # Topic — ends any active collection
-            mt = topic_re.match(text)
-            if mt:
-                in_theory_answer = False
-                in_marking_guide = False
-                q['topics'].append(' '.join(mt.group(1).split()))
+            for html in _th_blockquote_html(elem, img_map, _set_image):
+                _append(html)
+            continue
+ 
+        # ── <ol type="a"|"i"> at top level ───────────────────────────────────
+        if tag == 'ol' and elem.get('type', '').lower() in ('a', 'i'):
+            if current_q is None:
                 continue
-
-            # Marking guide start — must check before answer start
-            mmg = marking_guide_re.match(text)
-            if mmg:
-                in_theory_answer = False
-                in_marking_guide = True
-                inline_text = mmg.group(1).strip()
-                if inline_text:
-                    marking_guide_parts.append(inline_text)
+            lv = 2 if elem.get('type', 'a').lower() == 'a' else 3
+            _append(_th_ol_to_html(elem, lv))
+            continue
+ 
+        # ── <table> ───────────────────────────────────────────────────────────
+        if tag == 'table':
+            if current_q is None:
                 continue
-
-            # Theory answer start
-            mta = theory_answer_start_re.match(text)
-            if mta:
-                in_theory_answer = True
-                in_marking_guide = False
-                inline_text = mta.group(1).strip()
-                if inline_text:
-                    theory_answer_parts.append(inline_text)
+            _append(str(elem))
+            continue
+ 
+        # ── Bare <figure> or <img> ────────────────────────────────────────────
+        if tag in ('figure', 'img'):
+            if current_q is None:
                 continue
-
-            # Accumulate into active collection
-            if in_marking_guide:
-                if tag in ('p', 'table'):
-                    marking_guide_parts.append(str(elem))
-                continue
-
-            if in_theory_answer:
-                if tag in ('p', 'table'):
-                    theory_answer_parts.append(str(elem))
-                continue
-
-            # Regular question content
-            if tag in ('p', 'table'):
-                content_parts.append(str(elem))
-
-        q['content']       = '\n'.join(content_parts).strip()
-        q['theory_answer'] = '\n'.join(theory_answer_parts).strip()
-        q['marking_guide'] = '\n'.join(marking_guide_parts).strip()
-
-        if q['number'] and q['content']:
-            questions.append(q)
-
+            img_t = elem if tag == 'img' else elem.find('img')
+            if img_t:
+                b, ext, w, h = _th_img_info(img_t, img_map)
+                _set_image(b, ext, w, h)
+            continue
+ 
+    _flush()
     return questions
 
 @admin_required
@@ -1479,6 +1741,7 @@ def upload_docx(request):
                         defaults={
                             'content':       q_data['theory_answer'],
                             'marking_guide': q_data.get('marking_guide') or '',
+                            'video_url':     q_data.get('video_url') or None,
                         }
                     )
 

@@ -5,10 +5,84 @@
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
 <link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
 
+<style>
+  /* ── Format table ──────────────────────────────────────────────────────── */
+  .fmt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .fmt-grid { grid-template-columns: 1fr; }
+  }
+
+  .fmt-col {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 2;
+    font-family: 'Courier New', monospace;
+  }
+  .fmt-col-header {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .fmt-col-header.obj  { color: var(--accent); }
+  .fmt-col-header.theory { color: #a78bfa; }
+
+  .fmt-shared {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 2;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 1rem;
+  }
+  .fmt-shared-label {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+
+  .fmt-key   { color: var(--text); font-weight: 600; }
+  .fmt-opt   { color: var(--muted); font-style: italic; }
+  .fmt-badge {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+  }
+  .badge-opt { background: rgba(156,213,255,0.1); color: var(--accent); }
+</style>
+
 <div class="dash-body">
 
   <!-- Nav -->
-    <nav class="teacher-nav">
+  <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
     <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
     <a href="{% url 'past_papers:past_papers' %}" class="nav-link">Past Papers</a>
@@ -16,9 +90,9 @@
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
       <a href="{% url 'teacher:students' %}">Students</a>
       <a href="{% url 'teacher:upload' %}">Upload CSV</a>
-      <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+      <a href="{% url 'teacher:upload_docx' %}" class="active">Upload DOCX</a>
       <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
-      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+      <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
       <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
     <a href="{% url 'lessonnotes:lesson_notes' %}">Lesson Notes</a>
@@ -32,10 +106,10 @@
   <p style="color:var(--muted); font-size:0.9rem; margin-bottom:2rem; max-width:640px;">
     Upload a <strong>.docx</strong> file formatted in the standard ExamPrep question format.
     Duplicate questions (same exam series + question number) are automatically skipped.
-    New topics found in the file are created automatically.
+    Topics found in the file are matched against existing topics in the database.
   </p>
 
-  <!-- ── Result banner ─────────────────────────────────────────────────── -->
+  <!-- ── Result banner ──────────────────────────────────────────────────── -->
   {% if success %}
   <div style="
     background: rgba(0,232,122,0.08); border: 1px solid rgba(0,232,122,0.25);
@@ -48,6 +122,7 @@
       <strong style="color:var(--text);">Subject:</strong> {{ subject }}<br>
       <strong style="color:var(--text);">Exam Board:</strong> {{ exam_board }}<br>
       <strong style="color:var(--text);">Year / Sitting:</strong> {{ year }} · {{ sitting }}<br>
+      <strong style="color:var(--text);">Paper Type:</strong> {{ paper_type }}<br>
       <strong style="color:var(--text);">Questions parsed:</strong> {{ total_parsed }}<br>
       <strong style="color:#00e87a;">Created:</strong> {{ created_count }}<br>
       {% if skipped_count %}
@@ -74,10 +149,10 @@
   </div>
   {% endif %}
 
-  <!-- ── Upload form ──────────────────────────────────────────────────── -->
+  <!-- ── Upload form ─────────────────────────────────────────────────────── -->
   <div style="
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 16px; padding: 2rem; max-width: 640px;
+    border-radius: 16px; padding: 2rem; max-width: 740px;
   ">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
@@ -103,34 +178,63 @@
         "></div>
       </div>
 
-      <!-- Format reminder -->
+      <!-- ── Format reference ─────────────────────────────────────────── -->
       <div style="
-        background: var(--deep); border: 1px solid var(--border);
-        border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
-        font-size: 0.82rem; color: var(--muted); line-height: 1.9;
-        font-family: 'Courier New', monospace;
-      ">
-        <div style="font-family:'DM Sans',sans-serif; font-weight:700; color:var(--text); margin-bottom:0.5rem;">
-          Expected format:
-        </div>
-        Subject: Biology<br>
-        Exam: WAEC<br>
-        Year: 2024<br>
-        Paper Type: CBT<br>
-        <br>
-        1. Question text here<br>
-        A. First choice<br>
-        B. Second choice<br>
-        C. Third choice<br>
-        D. Fourth choice<br>
-        Answer: C<br>
-        <strong style="color:var(--text);">Topic: Topic Name (Sub-topic)</strong>
+        font-family:'DM Sans',sans-serif; font-weight:700; font-size:0.8rem;
+        letter-spacing:0.06em; text-transform:uppercase; color:var(--text);
+        margin-bottom:0.75rem;
+      ">Expected file format</div>
+
+      <!-- Shared header (same for both types) -->
+      <div class="fmt-shared">
+        <div class="fmt-shared-label">Header — every file</div>
+        <span class="fmt-key">Subject:</span> Biology<br>
+        <span class="fmt-key">Exam:</span> WAEC<br>
+        <span class="fmt-key">Year:</span> 2024<br>
+        <span class="fmt-key">Sitting:</span> May/June<br>
+        <span class="fmt-key">Paper Type:</span> CBT &nbsp;<em style="font-size:0.78rem; color:var(--muted);">(CBT / Theory / Essay)</em>
       </div>
 
-      <label>
-      <input type="checkbox" name="overwrite"> 
-      Overwrite existing questions
-    </label>
+      <!-- Two-column question format -->
+      <div class="fmt-grid">
+
+        <!-- OBJ column -->
+        <div class="fmt-col">
+          <div class="fmt-col-header obj">🔵 Objective (CBT)</div>
+          1. Question text here<br>
+          A. First choice<br>
+          B. Second choice<br>
+          C. Third choice<br>
+          D. Fourth choice<br>
+          <span class="fmt-key">Answer:</span> C<br>
+          <span class="fmt-key">Topic:</span> Topic Name
+        </div>
+
+        <!-- Theory column -->
+        <div class="fmt-col">
+          <div class="fmt-col-header theory">🟣 Theory / Essay</div>
+          1. Question text here<br>
+          &nbsp;&nbsp;(a) Sub-part one<br>
+          &nbsp;&nbsp;(b) Sub-part two<br>
+          <span class="fmt-key">Answer:</span> Model answer here<br>
+          <span class="fmt-opt">Marking Guide:</span> 1 mark for…
+          <span class="fmt-badge badge-opt">optional</span><br>
+          <span class="fmt-opt">Video:</span> https://youtu.be/…
+          <span class="fmt-badge badge-opt">optional</span><br>
+          <span class="fmt-key">Topic:</span> Topic Name
+        </div>
+
+      </div>
+      <!-- end fmt-grid -->
+
+      <!-- Overwrite + submit -->
+      <label style="
+        display:flex; align-items:center; gap:0.5rem;
+        font-size:0.88rem; color:var(--muted); margin-bottom:1.25rem; cursor:pointer;
+      ">
+        <input type="checkbox" name="overwrite">
+        Overwrite existing questions with the same number
+      </label>
 
       <button type="submit" class="btn-cta" style="width:100%; justify-content:center;">
         Import Questions →
@@ -149,30 +253,30 @@
 
   input.addEventListener('change', () => {
     if (input.files[0]) {
-      label.textContent = '📄 ' + input.files[0].name
-      label.style.display = 'block'
+      label.textContent    = '📄 ' + input.files[0].name
+      label.style.display  = 'block'
       zone.style.borderColor = 'var(--accent)'
     }
   })
 
   zone.addEventListener('dragover', e => {
     e.preventDefault()
-    zone.style.background = 'rgba(156,213,255,0.04)'
+    zone.style.background  = 'rgba(156,213,255,0.04)'
     zone.style.borderColor = 'rgba(156,213,255,0.4)'
   })
   zone.addEventListener('dragleave', () => {
-    zone.style.background = ''
+    zone.style.background  = ''
     zone.style.borderColor = 'var(--border)'
   })
   zone.addEventListener('drop', e => {
     e.preventDefault()
-    zone.style.background = ''
+    zone.style.background  = ''
     zone.style.borderColor = 'var(--accent)'
     const file = e.dataTransfer.files[0]
     if (file && file.name.endsWith('.docx')) {
-      const dt   = new DataTransfer()
+      const dt = new DataTransfer()
       dt.items.add(file)
-      input.files = dt.files
+      input.files          = dt.files
       label.textContent    = '📄 ' + file.name
       label.style.display  = 'block'
     }
