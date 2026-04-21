@@ -413,6 +413,10 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
                 base += 'background:#f0f0f0;font-weight:bold;'
             return f'<{tag}{attrs} style="{base}">'
 
+        html = _TABLE_RE.sub(replace_table, html)   # ← these two lines were missing
+        html = _CELL_RE.sub(replace_cell, html)
+        return html
+
     def _lines(images_dir):
         yield (
             '<html><head><meta charset="utf-8"><style>\n'
