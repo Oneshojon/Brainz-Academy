@@ -1677,9 +1677,9 @@ def upload_docx(request):
 
     # Fix N+1 #1: all existing question numbers for this series in one query
     existing_questions = {
-        q.question_number: q
-        for q in Question.objects.filter(exam_series=exam_series)
-                                  .only('id', 'question_number', 'content', 'question_type')
+        (q.question_number, q.question_type): q
+        for q in Question.objects.filter(exam_series=exam_series, question_type=paper_type)
+                                .only('id', 'question_number', 'content', 'question_type')
     }
 
     # Fix N+1 #2: all topics for this subject in one query, keyed by lowercase name
@@ -1696,7 +1696,7 @@ def upload_docx(request):
     overwrite     = request.POST.get('overwrite') == 'on'
 
     for q_data in questions:
-        existing = existing_questions.get(q_data['number'])
+        existing = existing_questions.get((q_data['number'], paper_type))
 
         if existing and not overwrite:
             skipped_count += 1
