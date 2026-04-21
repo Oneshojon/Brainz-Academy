@@ -387,7 +387,7 @@ class QuestionsByTopicView(APIView):
 
 # ── Shared HTML builder — used by both DOCX and PDF generators ───────────────
 
-def _build_question_html(questions, title, include_answers=False, marks_map=None):
+def _build_question_html(questions, title, include_answers=False, marks_map=None, total_marks=0, fmt='pdf'):
     hdr       = _header_info(questions, title)
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
@@ -399,23 +399,19 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
         """Inject inline styles into HTML tables for pandoc/pdf rendering."""
         def replace_table(m):
             attrs = m.group(1)
-            if 'border-collapse' in attrs:
-                return m.group(0)  # already styled
+            if 'border-collapse' in attrs or 'marks-row' in attrs:
+                return m.group(0)
             return f'<table{attrs} style="border-collapse:collapse;width:100%;margin:0.5em 0">'
 
         def replace_cell(m):
             tag   = m.group(1)
             attrs = m.group(2)
             if 'border:' in attrs:
-                return m.group(0)  # already styled
+                return m.group(0)
             base = 'border:1px solid #999;padding:6px 10px;vertical-align:top;'
             if tag.lower() == 'th':
                 base += 'background:#f0f0f0;font-weight:bold;'
             return f'<{tag}{attrs} style="{base}">'
-
-        html = _TABLE_RE.sub(replace_table, html)
-        html = _CELL_RE.sub(replace_cell, html)
-        return html
 
     def _lines(images_dir):
         yield (
@@ -453,8 +449,17 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
 
             # Append marks label right-aligned after question content
             if q.question_type == 'THEORY':
-                # Forces a new line and pushes to the far right
-                content += f'\n<div style="display: block; padding-right:10px; width: 100%; text-align: right; clear: both;"><em>{marks_label}</em></div>'
+                if fmt == 'pdf':
+                    content = (
+                        f'<table class="marks-row" style="width:100%;border:none;border-collapse:collapse;margin:0.2em 0">'
+                        f'<tr>'
+                        f'<td style="border:none;padding:0;width:85%">{content}</td>'
+                        f'<td style="border:none;padding:0;width:15%" align="right"><em>{marks_label}</em></td>'
+                        f'</tr></table>'
+                    )
+                else:  # docx — plain paragraph, post-processed for right-alignment
+                    content += f'\n<p><em>{marks_label}</em></p>'
+
             yield content + '\n'
 
             img_bytes, img_ext = _get_image_bytes(q)
@@ -480,7 +485,11 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
 
             yield '<p>&nbsp;</p>\n'
 
-        yield '</body></html>\n'
+        if total_marks:
+            yield f'<p>&nbsp;</p>\n'
+            yield f'<p style="text-align:right"><strong>Total: {total_marks} marks</strong></p>\n'
+
+        yield '</body></html>\n'    
 
     return _lines
 
@@ -515,8 +524,17 @@ def _add_table_borders(docx_path):
 
     doc.save(docx_path)
 
+def _fix_marks_alignment(docx_path):
+    """Right-align paragraphs containing only [N mark(s)] — post-process after pandoc."""
+    import re
+    marks_re = re.compile(r'^\[(\d+)\s*marks?\]$', re.IGNORECASE)
+    doc = Document(docx_path)
+    for para in doc.paragraphs:
+        if marks_re.match(para.text.strip()):
+            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    doc.save(docx_path)
 
-def _generate_docx(questions, title, include_answers=False, marks_map=None):
+def _generate_docx(questions, title, include_answers=False, marks_map=None, total_marks=0):
     """
     Generate DOCX. Expects _prefetch_questions() applied by caller.
     Returns bytes.
@@ -527,7 +545,7 @@ def _generate_docx(questions, title, include_answers=False, marks_map=None):
         images_dir = os.path.join(tmpdir, 'images')
         os.makedirs(images_dir, exist_ok=True)
 
-        html_lines = _build_question_html(questions, title, include_answers, marks_map)
+        html_lines = _build_question_html(questions, title, include_answers, marks_map, total_marks, fmt='docx')
         with open(html_path, 'w', encoding='utf-8') as f:
             f.writelines(html_lines(images_dir))
 
@@ -552,12 +570,13 @@ def _generate_docx(questions, title, include_answers=False, marks_map=None):
 
         # ── Post-process: add table borders pandoc stripped ───────────────
         _add_table_borders(docx_path)
+        _fix_marks_alignment(docx_path)
         # ──────────────────────────────────────────────────────────────────
 
         with open(docx_path, 'rb') as f:
             return f.read()
 
-def _generate_pdf(questions, title, include_answers=False, marks_map=None):
+def _generate_pdf(questions, title, include_answers=False, marks_map=None, total_marks=0):
     """
     Generate PDF directly from HTML via xelatex — single pandoc call.
     No DOCX intermediate. Expects _prefetch_questions() applied by caller.
@@ -570,7 +589,7 @@ def _generate_pdf(questions, title, include_answers=False, marks_map=None):
         os.makedirs(images_dir, exist_ok=True)
 
         # Same HTML builder — no second pandoc run for DOCX
-        html_lines = _build_question_html(questions, title, include_answers, marks_map)
+        html_lines = _build_question_html(questions, title, include_answers, marks_map, total_marks, fmt='pdf')
         with open(html_path, 'w', encoding='utf-8') as f:
             f.writelines(html_lines(images_dir))
 
@@ -726,13 +745,15 @@ class QuestionDownloadView(APIView):
             if fmt == 'docx':
                 content  = _generate_docx(qs_list, title,
                                         include_answers=include_answers,
-                                        marks_map=marks_map)
+                                        marks_map=marks_map,
+                                        total_marks=total_marks)
                 ct       = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 response = HttpResponse(content, content_type=ct)
             else:
                 content  = _generate_pdf(qs_list, title,
                                         include_answers=include_answers,
-                                        marks_map=marks_map)
+                                        marks_map=marks_map,
+                                        total_marks=total_marks)
                 response = HttpResponse(content, content_type='application/pdf')
 
             response['Content-Disposition'] = f'attachment; filename="{filename}.{fmt}"'
