@@ -1254,6 +1254,7 @@ _TH_Q_TYPED_RE = re.compile(r'^\s*(\d+)[.)]\s*(.*)', re.DOTALL)
 _TH_ANSWER_RE  = re.compile(r'^(answer|solution)\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
 _TH_MARKING_RE = re.compile(r'^marking\s*guide\s*:\s*(.*)',   re.IGNORECASE | re.DOTALL)
 _TH_VIDEO_RE   = re.compile(r'^video\s*:\s*(\S+)',            re.IGNORECASE)
+_TH_MARKS_RE   = re.compile(r'^\[(\d+)\s*marks?\]$', re.IGNORECASE)
 _TH_TOPIC_RE   = re.compile(r'^topic\s*:\s*(.+)',             re.IGNORECASE | re.DOTALL)
 _TH_SUBPART_RE = re.compile(
     r'^\s*[\(\[]?([a-zA-Z]{1,3}|i{1,4}v?|vi{0,3}|ix|x{1,3})[\)\].]\s*\S',
@@ -1383,7 +1384,8 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             'topics':           [],
             'theory_answer':    '',
             'marking_guide':    '',
-            'video_url':        None,   # from "Video: https://..." line in DOCX
+            'video_url':        None,
+            'marks':            1,
         }
  
     questions      = []
@@ -1440,6 +1442,12 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
         Video: is extracted once and does not change the section.
         """
         nonlocal section
+
+        # Marks allocation — e.g. [3 marks]
+        mm = _TH_MARKS_RE.match(text.strip())
+        if mm and current_q is not None:
+            current_q['marks'] = int(mm.group(1))
+            return True
  
         # Video: — extract URL, don't change section
         mv = _TH_VIDEO_RE.match(text)
@@ -1700,7 +1708,8 @@ def upload_docx(request):
                 if existing and overwrite:
                     existing.content       = q_data['content']
                     existing.question_type = paper_type
-                    existing.save(update_fields=['content', 'question_type'])
+                    existing.marks         = q_data.get('marks') or existing.marks
+                    existing.save(update_fields=['content', 'question_type', 'marks'])
                     question = existing
                     question.choices.all().delete()
                     question.topics.clear()
@@ -1711,7 +1720,7 @@ def upload_docx(request):
                         question_number=q_data['number'],
                         question_type=paper_type,
                         content=q_data['content'],
-                        marks=1,
+                        marks=q_data.get('marks') or 1,
                     )
 
                 # Image — both types
