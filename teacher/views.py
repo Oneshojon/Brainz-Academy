@@ -1723,11 +1723,17 @@ def upload_docx(request):
                         marks=q_data.get('marks') or 1,
                     )
 
-                # Image — both types
+                # Image — both create and overwrite paths
                 if q_data.get('image_bytes'):
                     ext      = q_data['image_ext'] or 'png'
                     filename = f"q_{subject.name.lower()}_{year}_{paper_type.lower()}_{q_data['number']}.{ext}"
                     question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
+                elif existing and overwrite:
+                    # Overwriting but no image in new file — clear the old one
+                    if question.image:
+                        question.image.delete(save=False)
+                        question.image = None
+                        question.save(update_fields=['image'])
 
                 # Fix batching #1: bulk_create choices instead of one INSERT per choice
                 if paper_type == 'OBJ' and q_data['choices']:
