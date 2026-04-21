@@ -453,7 +453,13 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
 
             # Append marks label right-aligned after question content
             if q.question_type == 'THEORY':
-                content += f'\n<p style="text-align:right"><em>{marks_label}</em></p>'
+                content = (
+                    f'<table style="width:100%;border:none;border-collapse:collapse;margin:0"><tr>'
+                    f'<td style="border:none;padding:0;width:85%;vertical-align:top">{content}</td>'
+                    f'<td style="border:none;padding:0;width:15%;text-align:right;vertical-align:top" align="right">'
+                    f'<em>{marks_label}</em></td>'
+                    f'</tr></table>'
+                )
             yield content + '\n'
 
             img_bytes, img_ext = _get_image_bytes(q)
