@@ -1,4 +1,3 @@
-from urllib import request
 import re
 
 from rest_framework.views import APIView
@@ -724,20 +723,22 @@ class QuestionDownloadView(APIView):
 
         try:
             if fmt == 'docx':
-                content = _generate_docx(qs_list, title,
+                content  = _generate_docx(qs_list, title,
                                         include_answers=include_answers,
                                         marks_map=marks_map)
+                ct       = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                response = HttpResponse(content, content_type=ct)
             else:
-                content = _generate_pdf(qs_list, title,
+                content  = _generate_pdf(qs_list, title,
                                         include_answers=include_answers,
                                         marks_map=marks_map)
+                response = HttpResponse(content, content_type='application/pdf')
+
+            response['Content-Disposition'] = f'attachment; filename="{filename}.{fmt}"'
 
         except Exception as e:
             logger.exception(f'File generation failed for title="{title}" fmt={fmt}')
-            return Response(
-                {'error': f'File generation failed: {e}'},
-                status=500
-            )
+            return Response({'error': f'File generation failed: {e}'}, status=500)
 
         # ── Persist SavedTest record (after successful file generation) ────────
         try:
