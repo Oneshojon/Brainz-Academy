@@ -454,14 +454,9 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
             # Append marks label right-aligned after question content
             if q.question_type == 'THEORY':
                 if fmt == 'pdf':
-                    content = (
-                        f'<table class="marks-row" style="width:100%;border:none;border-collapse:collapse;margin:0.2em 0">'
-                        f'<tr>'
-                        f'<td style="border:none;padding:0;width:85%">{content}</td>'
-                        f'<td style="border:none;padding:0;width:15%" align="right"><em>{marks_label}</em></td>'
-                        f'</tr></table>'
-                    )
-                else:  # docx — plain paragraph, post-processed for right-alignment
+                    # Use raw LaTeX hfill for reliable right-alignment in xelatex
+                    content += '\n<p>\\hfill\\textit{' + marks_label + '}</p>'
+                else:
                     content += f'\n<p><em>{marks_label}</em></p>'
 
             yield content + '\n'
@@ -490,8 +485,11 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
             yield '<p>&nbsp;</p>\n'
 
         if total_marks:
-            yield f'<p>&nbsp;</p>\n'
-            yield f'<p style="text-align:right"><strong>Total: {total_marks} marks</strong></p>\n'
+            yield '<p>&nbsp;</p>\n'
+            if fmt == 'pdf':
+                yield f'<p>\\hfill\\textbf{{Total: {total_marks} marks}}</p>\n'
+            else:
+                yield f'<p style="text-align:right"><strong>Total: {total_marks} marks</strong></p>\n'
 
         yield '</body></html>\n'    
 
@@ -529,12 +527,13 @@ def _add_table_borders(docx_path):
     doc.save(docx_path)
 
 def _fix_marks_alignment(docx_path):
-    """Right-align paragraphs containing only [N mark(s)] — post-process after pandoc."""
-    import re
+    """Right-align marks and total marks paragraphs — post-process after pandoc."""
     marks_re = re.compile(r'^\[(\d+)\s*marks?\]$', re.IGNORECASE)
+    total_re = re.compile(r'^Total:\s*\d+\s*marks?$', re.IGNORECASE)
     doc = Document(docx_path)
     for para in doc.paragraphs:
-        if marks_re.match(para.text.strip()):
+        text = para.text.strip()
+        if marks_re.match(text) or total_re.match(text):
             para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     doc.save(docx_path)
 
@@ -592,7 +591,6 @@ def _generate_pdf(questions, title, include_answers=False, marks_map=None, total
         images_dir = os.path.join(tmpdir, 'images')
         os.makedirs(images_dir, exist_ok=True)
 
-        # Same HTML builder — no second pandoc run for DOCX
         html_lines = _build_question_html(questions, title, include_answers, marks_map, total_marks, fmt='pdf')
         with open(html_path, 'w', encoding='utf-8') as f:
             f.writelines(html_lines(images_dir))
