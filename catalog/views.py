@@ -453,11 +453,7 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
 
             # Append marks label right-aligned after question content
             if q.question_type == 'THEORY':
-                if fmt == 'pdf':
-                    # Use raw LaTeX hfill for reliable right-alignment in xelatex
-                    content += '\n<p>\\hfill\\textit{' + marks_label + '}</p>'
-                else:
-                    content += f'\n<p><em>{marks_label}</em></p>'
+                content += f'\n<p><em>{marks_label}</em></p>'
 
             yield content + '\n'
 
@@ -486,10 +482,7 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
 
         if total_marks:
             yield '<p>&nbsp;</p>\n'
-            if fmt == 'pdf':
-                yield f'<p>\\hfill\\textbf{{Total: {total_marks} marks}}</p>\n'
-            else:
-                yield f'<p style="text-align:right"><strong>Total: {total_marks} marks</strong></p>\n'
+            yield f'<p><strong>Total: {total_marks} marks</strong></p>\n'
 
         yield '</body></html>\n'    
 
