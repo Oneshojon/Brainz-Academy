@@ -388,7 +388,7 @@ class QuestionsByTopicView(APIView):
 
 # ── Shared HTML builder — used by both DOCX and PDF generators ───────────────
 
-def _build_question_html(questions, title, include_answers=False):
+def _build_question_html(questions, title, include_answers=False, marks_map=None):
     hdr       = _header_info(questions, title)
     copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
 
@@ -431,11 +431,16 @@ def _build_question_html(questions, title, include_answers=False):
         yield f'<p>Subject: {hdr["subject"]}</p>\n'
         yield f'<p>Exam: {hdr["exam"]}</p>\n'
         yield f'<p>Year: {hdr["year"]}</p>\n'
-        yield '<p>Paper Type: CBT</p>\n'
+        paper_type = 'Theory' if any(q.question_type == 'THEORY' for q in questions) else 'CBT'
+        yield f'<p>Paper Type: {paper_type}</p>\n'
         yield f'<p>{copy_line}</p>\n'
         yield '<p>&nbsp;</p>\n'
 
         for i, q in enumerate(questions, 1):
+            # Resolve marks: custom from Step5 > parsed from file > default 1
+            q_marks = (marks_map or {}).get(q.id) or q.marks or 1
+            marks_label = f'[{q_marks} mark{"s" if q_marks != 1 else ""}]'
+
             content = _inject_table_styles(q.content.strip())
 
             if _FIRST_P_RE.match(content):
@@ -446,6 +451,10 @@ def _build_question_html(questions, title, include_answers=False):
                 content = f'<p><strong>{i}.</strong></p>\n{content}'
             else:
                 content = f'<p><strong>{i}.</strong>&nbsp;{content}</p>'
+
+            # Append marks label right-aligned after question content
+            if q.question_type == 'THEORY':
+                content += f'\n<p style="text-align:right"><em>{marks_label}</em></p>'
             yield content + '\n'
 
             img_bytes, img_ext = _get_image_bytes(q)
@@ -507,7 +516,7 @@ def _add_table_borders(docx_path):
     doc.save(docx_path)
 
 
-def _generate_docx(questions, title, include_answers=False):
+def _generate_docx(questions, title, include_answers=False, marks_map=None):
     """
     Generate DOCX. Expects _prefetch_questions() applied by caller.
     Returns bytes.
@@ -518,7 +527,7 @@ def _generate_docx(questions, title, include_answers=False):
         images_dir = os.path.join(tmpdir, 'images')
         os.makedirs(images_dir, exist_ok=True)
 
-        html_lines = _build_question_html(questions, title, include_answers)
+        html_lines = _build_question_html(questions, title, include_answers, marks_map)
         with open(html_path, 'w', encoding='utf-8') as f:
             f.writelines(html_lines(images_dir))
 
@@ -548,7 +557,7 @@ def _generate_docx(questions, title, include_answers=False):
         with open(docx_path, 'rb') as f:
             return f.read()
 
-def _generate_pdf(questions, title, include_answers=False):
+def _generate_pdf(questions, title, include_answers=False, marks_map=None):
     """
     Generate PDF directly from HTML via xelatex — single pandoc call.
     No DOCX intermediate. Expects _prefetch_questions() applied by caller.
@@ -561,7 +570,7 @@ def _generate_pdf(questions, title, include_answers=False):
         os.makedirs(images_dir, exist_ok=True)
 
         # Same HTML builder — no second pandoc run for DOCX
-        html_lines = _build_question_html(questions, title, include_answers)
+        html_lines = _build_question_html(questions, title, include_answers, marks_map)
         with open(html_path, 'w', encoding='utf-8') as f:
             f.writelines(html_lines(images_dir))
 
@@ -698,6 +707,11 @@ class QuestionDownloadView(APIView):
             .prefetch_related('choices', 'topics', 'theory_answer')
         )
         qs_list.sort(key=lambda q: id_to_pos.get(q.id, 9999))
+        
+        marks_map = {
+            q.id: int(custom_marks.get(str(q.id), q.marks or 1))
+            for q in qs_list
+        }
 
         if not qs_list:
             return Response({'error': 'No questions found.'}, status=400)
@@ -710,14 +724,13 @@ class QuestionDownloadView(APIView):
 
         try:
             if fmt == 'docx':
-                content  = _generate_docx(qs_list, title, include_answers=include_answers)
-                ct       = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                response = HttpResponse(content, content_type=ct)
+                content = _generate_docx(qs_list, title,
+                                        include_answers=include_answers,
+                                        marks_map=marks_map)
             else:
-                content  = _generate_pdf(qs_list, title, include_answers=include_answers)
-                response = HttpResponse(content, content_type='application/pdf')
-
-            response['Content-Disposition'] = f'attachment; filename="{filename}.{fmt}"'
+                content = _generate_pdf(qs_list, title,
+                                        include_answers=include_answers,
+                                        marks_map=marks_map)
 
         except Exception as e:
             logger.exception(f'File generation failed for title="{title}" fmt={fmt}')
