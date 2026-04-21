@@ -107,7 +107,7 @@ WSGI_APPLICATION = 'examproject.wsgi.application'
 
 DATABASES = {
  'default': dj_database_url.config(
- default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+ default='postgresql://postgres:ImOaWnrJICMABGasaterRoVUNztWzzIh@crossover.proxy.rlwy.net:27261/railway',
  conn_max_age=600,
  conn_health_checks=True,
  )

@@ -297,7 +297,7 @@ class Question(models.Model):
     difficulty      = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, null=True, blank=True)
 
     class Meta:
-        unique_together = ('exam_series', 'question_number')
+        unique_together = ('exam_series', 'question_number', 'question_type')
         ordering        = ['question_number']
         indexes         = [
             models.Index(fields=['subject', 'question_type']),
