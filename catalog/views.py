@@ -389,7 +389,7 @@ class QuestionsByTopicView(APIView):
 
 def _build_question_html(questions, title, include_answers=False, marks_map=None, total_marks=0, fmt='pdf'):
     hdr       = _header_info(questions, title)
-    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers & Topics)"
+    copy_line = "Copy: Student" if not include_answers else "Copy: Teacher (With Answers)"
 
     # ── Pre-compiled table style regexes ──────────────────────────────────────
     _TABLE_RE = re.compile(r'<table([^>]*)>', re.IGNORECASE)
@@ -473,11 +473,15 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
                     if correct:
                         yield f'<p><strong>Answer: {correct.label}</strong></p>\n'
 
-            if include_answers:
-                topic_names = [t.name for t in q.topics.all()]
-                if topic_names:
-                    yield f'<p><strong>Topic: {", ".join(topic_names)}</strong></p>\n'
-
+            if include_answers and q.question_type == 'THEORY':
+                ta = getattr(q, 'theory_answer', None)
+                if ta:
+                    yield '<p><strong>Model Answer:</strong></p>\n'
+                    yield _inject_table_styles(ta.content.strip()) + '\n'
+                    if ta.marking_guide:
+                        yield '<p><strong>Marking Guide:</strong></p>\n'
+                        yield f'<p>{ta.marking_guide.strip()}</p>\n'
+                        
             yield '<p>&nbsp;</p>\n'
 
         if total_marks:
@@ -717,8 +721,8 @@ class QuestionDownloadView(APIView):
         qs_list = list(
             Question.objects
             .filter(id__in=question_ids)
-            .select_related('subject', 'exam_series', 'exam_series__exam_board')
-            .prefetch_related('choices', 'topics', 'theory_answer')
+            .select_related('subject', 'exam_series', 'exam_series__exam_board', 'theory_answer')
+            .prefetch_related('choices', 'topics')
         )
         qs_list.sort(key=lambda q: id_to_pos.get(q.id, 9999))
         
