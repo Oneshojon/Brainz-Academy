@@ -460,7 +460,6 @@ class UserSubscription(models.Model):
         self.status = 'CANCELLED'
         self.save(update_fields=['status', 'updated_at'])
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. PLATFORM SETTINGS  (singleton — admin controls subscription gate & limits)
 # ══════════════════════════════════════════════════════════════════════════════

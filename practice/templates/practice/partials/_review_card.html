@@ -1,0 +1,152 @@
+{# practice/templates/practice/partials/_review_card.html #}
+{# Context: item, answer, question, video_url (may be empty) #}
+{% load question_filters %}
+
+{% if answer.is_correct %}
+  <div class="review-card correct expanded" id="review-card-{{ question.id }}">
+{% elif answer.is_correct == False %}
+  <div class="review-card incorrect expanded" id="review-card-{{ question.id }}">
+{% else %}
+  <div class="review-card unanswered expanded" id="review-card-{{ question.id }}">
+{% endif %}
+
+  <!-- Card Header -->
+  <div class="review-card-header" onclick="toggleCard({{ question.id }})">
+    <span class="result-icon">
+      {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
+    </span>
+    <span class="review-q-num">Q{{ forloop.counter }}</span>
+    <span class="review-q-preview">{{ question.content|truncatechars:80 }}</span>
+    <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
+      {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
+    </span>
+    <button class="bookmark-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
+      onclick="event.stopPropagation(); toggleBookmark({{ question.id }}, this)"
+      title="{% if item.is_bookmarked %}Remove bookmark{% else %}Bookmark{% endif %}">
+      {% if item.is_bookmarked %}🔖{% else %}🏷️{% endif %}
+    </button>
+    <span class="chevron">▼</span>
+  </div>
+
+  <!-- Card Body -->
+  <div class="review-card-body">
+
+    <div class="review-q-full">{{ question.content|render_content }}</div>
+    <br>
+
+    {% if question.image %}
+      <img src="{{ question.image.url }}"
+           alt="Question image"
+           class="review-q-image" />
+    {% endif %}
+
+    {% if question.question_type == 'OBJ' %}
+      <ul class="review-choices">
+        {% for choice in question.choices.all %}
+        <li class="review-choice
+              {% if choice.is_correct %}correct-answer
+              {% elif answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick
+              {% endif %}">
+          <span class="review-choice-label">{{ choice.label }}</span>
+          <span>{{ choice.choice_text }}</span>
+          {% if choice.is_correct %}
+            <span style="margin-left:auto; font-size:0.75rem; color:var(--green); font-weight:700;">✓ Correct</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+
+    {% else %}
+      {# Theory question — show student's response + model answer #}
+      <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">Your Answer:</div>
+      {% if answer.theory_response %}
+        <div class="theory-response-box">{{ answer.theory_response }}</div>
+      {% else %}
+        <div class="theory-response-box" style="color:var(--muted); font-style:italic;">No answer provided.</div>
+      {% endif %}
+
+      {% if question.theory_answer %}
+        <div class="theory-model-answer">
+          <div class="theory-model-title">Model Answer</div>
+          <div class="theory-model-content">{{ question.theory_answer.content }}</div>
+          {% if question.theory_answer.marking_guide %}
+            <details style="margin-top:0.75rem;">
+              <summary style="font-size:0.78rem; color:var(--green); cursor:pointer; font-weight:600;">📋 Marking Guide</summary>
+              <p style="font-size:0.85rem; color:var(--text); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide }}</p>
+            </details>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <!-- Topic tags -->
+    {% if question.topics.all %}
+      <div class="topic-tags">
+        {% for topic in question.topics.all %}
+          <span class="topic-tag">{{ topic.name }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- ── Action Buttons Row ──────────────────────────────────────────────── -->
+    <div class="card-actions">
+
+      {# Video button — only if URL exists #}
+      {% if video_url %}
+        <a href="{{ video_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="card-action-btn video-btn"
+           title="Watch video solution on YouTube">
+          <span class="card-action-icon">▶</span>
+          <span>Video Solution</span>
+        </a>
+      {% endif %}
+
+      {# Revision Note button — only if a note exists for one of this question's topics #}
+      {% if item.note_topic_id %}
+        <a href="{% url 'lessonnotes:lesson_notes' %}?subject={{ item.note_subject_id }}&topic={{ item.note_topic_id }}"
+           class="card-action-btn note-btn"
+           title="Open revision note for this topic">
+          <span class="card-action-icon">📝</span>
+          <span>Revision Note</span>
+        </a>
+      {% endif %}
+
+      {# Discussion button — always shown #}
+      <button class="card-action-btn discussion-btn"
+              id="disc-btn-{{ question.id }}"
+              onclick="openDiscussion({{ question.id }}, this)"
+              title="View discussion for this question">
+        <span class="card-action-icon">💬</span>
+        <span>Discussion</span>
+        <span class="comment-count-badge" id="comment-count-{{ question.id }}">
+          {% if item.comment_count > 0 %}{{ item.comment_count }}{% endif %}
+        </span>
+      </button>
+
+    </div>
+    <!-- ── End Action Buttons ──────────────────────────────────────────────── -->
+
+    <!-- ── Discussion Panel (hidden until button clicked) ─────────────────── -->
+    <div class="discussion-panel" id="discussion-{{ question.id }}" hidden>
+
+      <div class="discussion-inner">
+
+        <!-- Loading state -->
+        <div class="disc-loading" id="disc-loading-{{ question.id }}">
+          <span class="disc-spinner"></span>
+          <span>Loading discussion…</span>
+        </div>
+
+        <!-- Content (injected by JS) -->
+        <div class="disc-content" id="disc-content-{{ question.id }}" hidden></div>
+
+      </div>
+
+    </div>
+    <!-- ── End Discussion Panel ────────────────────────────────────────────── -->
+
+  </div>{# end review-card-body #}
+
+</div>{# end review-card #}

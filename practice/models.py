@@ -2,6 +2,7 @@ from django.db import models
 from catalog.models import Subject, ExamSeries, Question, Choice
 # Create your models here.
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
 
@@ -90,3 +91,47 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.question}"
+    
+# ── QUESTION COMMENTS ─────────────────────────────────────────────────────────
+
+class QuestionComment(models.Model):
+    """
+    Student discussion comment on a specific question.
+
+    Access rules (enforced in views, not here):
+      - All logged-in users can READ comments
+      - Only subscribed users can POST comments
+      - Authors can soft-delete their own comments (is_hidden=True)
+
+    The choice explanation (Choice.explanation) is NOT stored here —
+    it is fetched from the Choice table and rendered client-side as a
+    pinned first entry whenever the discussion panel opens.
+    """
+
+    question   = models.ForeignKey(
+                     'catalog.Question',
+                     on_delete=models.CASCADE,
+                     related_name='comments',
+                 )
+    author     = models.ForeignKey(
+                     settings.AUTH_USER_MODEL,
+                     on_delete=models.CASCADE,
+                     related_name='question_comments',
+                 )
+    body       = models.TextField(max_length=1200)
+    is_pinned  = models.BooleanField(default=False,
+                     help_text="Reserved for teacher/admin-pinned comments.")
+    is_hidden  = models.BooleanField(default=False,
+                     help_text="Soft-delete: hides comment without removing from DB.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes  = [
+            # The only query pattern: fetch visible comments for a question
+            models.Index(fields=['question', 'is_hidden']),
+        ]
+
+    def __str__(self):
+        return f"Comment by {self.author.get_full_name() or self.author.email} on Q{self.question_id}"

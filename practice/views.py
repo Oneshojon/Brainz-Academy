@@ -9,8 +9,9 @@ import json
 import random
 import string
 
+from django.views.decorators.http import require_http_methods
 from catalog.models import Subject, ExamBoard, ExamSeries, Question, Topic, LessonNote
-from .models import PracticeSession, UserAnswer, Bookmark
+from .models import PracticeSession, UserAnswer, Bookmark, QuestionComment
 from catalog.feature_flags import is_feature_enabled, feature_required
 
 
@@ -306,54 +307,265 @@ def finish_session(request, session_id):
 @student_required
 def results_page(request, session_id):
     """Show results and answer review after a session."""
+    from django.db.models import Prefetch
+    from catalog.models import Choice, LessonNote
+    from .models import QuestionComment
+ 
     session = get_object_or_404(PracticeSession, id=session_id, user=request.user)
-
-    answers = UserAnswer.objects.filter(session=session).select_related(
-        'question', 'selected_choice', 'question__theory_answer'
-    ).prefetch_related('question__choices', 'question__topics')
-
-    # Get user's bookmarks for these questions
+ 
+    # ── 1. Fetch all answers with related data — NO N+1 ──────────────────────
+    #
+    # select_related:  question → theory_answer (reverse O2O — must be select_related)
+    #                  selected_choice (FK on UserAnswer)
+    # prefetch_related:
+    #   choices — ordered by label so template renders A B C D in order
+    #   topics  — for topic tags and revision note lookup
+    #
+    answers = (
+        UserAnswer.objects
+        .filter(session=session)
+        .select_related(
+            'question',
+            'question__theory_answer',
+            'selected_choice',
+        )
+        .prefetch_related(
+            Prefetch(
+                'question__choices',
+                queryset=Choice.objects.order_by('label'),
+            ),
+            'question__topics',
+        )
+        .order_by('question__question_number')
+    )
+ 
+    # Evaluate once — we iterate multiple times below
+    answers = list(answers)
+ 
+    # ── 2. Bookmark lookup — 1 query ─────────────────────────────────────────
     question_ids = [a.question_id for a in answers]
     bookmarked_ids = set(
-        Bookmark.objects.filter(user=request.user, question_id__in=question_ids)
+        Bookmark.objects
+        .filter(user=request.user, question_id__in=question_ids)
         .values_list('question_id', flat=True)
     )
-
-    # Build answer review data
+ 
+    # ── 3. Comment count per question — 1 query ───────────────────────────────
+    #
+    # Returns {question_id: count} for all questions in this session.
+    # Used to pre-populate the "💬 Discussion (n)" badge without a JS fetch.
+    #
+    from django.db.models import Count as _Count
+    comment_counts = dict(
+        QuestionComment.objects
+        .filter(question_id__in=question_ids, is_hidden=False)
+        .values('question_id')
+        .annotate(n=_Count('id'))
+        .values_list('question_id', 'n')
+    )
+ 
+    # ── 4. Lesson note lookup — 1 query ──────────────────────────────────────
+    #
+    # Collect every topic ID that appears across all questions in this session.
+    # Then find which of those topics actually have a LessonNote with content.
+    # Result: {topic_id: True} — used in template to decide whether to show
+    # the "📝 Revision Note" button.  We don't need the URL here; the template
+    # builds it from the topic id directly via the lessonnotes URL.
+    #
+    all_topic_ids = set(
+        topic.id
+        for a in answers
+        for topic in a.question.topics.all()   # already prefetched — no extra query
+    )
+ 
+    topics_with_notes = set()
+    if all_topic_ids and is_feature_enabled('lesson_notes', user=request.user):
+        topics_with_notes = set(
+            LessonNote.objects
+            .filter(topic_id__in=all_topic_ids)
+            .exclude(pdf_file='', ai_content='')   # must have actual content
+            .values_list('topic_id', flat=True)
+        )
+ 
+    # ── 5. Build answer review list ───────────────────────────────────────────
     answer_review = []
     for answer in answers:
+        q         = answer.question
+        topics    = list(q.topics.all())   # already prefetched
+        choices   = list(q.choices.all())  # already prefetched
+ 
+        correct_choice = next((c for c in choices if c.is_correct), None) \
+                         if q.question_type == 'OBJ' else None
+ 
+        # First topic that has a lesson note → used to build the note link
+        note_topic_id = next(
+            (t.id for t in topics if t.id in topics_with_notes),
+            None
+        )
+        # Subject id for the note link (from first topic's subject_id)
+        note_subject_id = topics[0].subject_id if topics else None
+ 
         answer_review.append({
-            'answer': answer,
-            'question': answer.question,
-            'is_bookmarked': answer.question_id in bookmarked_ids,
-            'correct_choice': answer.question.choices.filter(is_correct=True).first() if answer.question.question_type == 'OBJ' else None,
+            'answer':          answer,
+            'question':        q,
+            'is_bookmarked':   q.id in bookmarked_ids,
+            'correct_choice':  correct_choice,
+            'comment_count':   comment_counts.get(q.id, 0),
+            'note_topic_id':   note_topic_id,      # None → no button shown
+            'note_subject_id': note_subject_id,
         })
-
-    # Recommend lesson notes for topics answered incorrectly
-    flat_ids = set(
-        tid
+ 
+    # ── 6. Recommended notes for incorrect answers ────────────────────────────
+    incorrect_topic_ids = set(
+        t.id
         for a in answers if a.is_correct is False
-        for tid in a.question.topics.values_list('id', flat=True)
+        for t in a.question.topics.all()   # already prefetched
     )
     recommended_notes = []
-    if flat_ids and is_feature_enabled('lesson_notes', user=request.user):
-        recommended_notes = LessonNote.objects.filter(
-            topic__id__in=flat_ids
-        ).select_related('topic', 'topic__subject')
-
-    answered_count = sum(1 for a in answers if a.is_correct is not None or a.theory_response)
-
+    if incorrect_topic_ids and is_feature_enabled('lesson_notes', user=request.user):
+        recommended_notes = list(
+            LessonNote.objects
+            .filter(topic_id__in=incorrect_topic_ids)
+            .select_related('topic', 'topic__subject')
+        )
+ 
+    # ── 7. Counts ─────────────────────────────────────────────────────────────
+    answered_count  = sum(1 for a in answers if a.is_correct is not None or a.theory_response)
+    correct_count   = sum(1 for a in answers if a.is_correct)
+    incorrect_count = sum(1 for a in answers if a.is_correct is False)
+ 
     context = {
         'session':           session,
         'answer_review':     answer_review,
-        'correct_count':     sum(1 for a in answers if a.is_correct),
-        'incorrect_count':   sum(1 for a in answers if a.is_correct is False),
+        'correct_count':     correct_count,
+        'incorrect_count':   incorrect_count,
         'unanswered_count':  session.total_questions - answered_count,
         'recommended_notes': recommended_notes,
     }
-    
+ 
     return render(request, 'practice/results_page.html', context)
 
+@login_required
+def question_comments(request, question_id):
+    """
+    GET  → returns visible comments + explanation pin + can_post flag
+    POST → creates a new comment (subscribers only)
+    """
+    from catalog.models import Question, Choice
+    from catalog.subscription_access import has_subscription
+    from .models import QuestionComment
+ 
+    question = get_object_or_404(Question, id=question_id)
+ 
+    # ── GET ───────────────────────────────────────────────────────────────────
+    if request.method == 'GET':
+        comments_qs = (
+            QuestionComment.objects
+            .filter(question=question, is_hidden=False)
+            .select_related('author')
+            .order_by('created_at')
+        )
+ 
+        comments_data = [
+            {
+                'id':         c.id,
+                'author':     c.author.get_full_name() or c.author.email.split('@')[0],
+                'body':       c.body,
+                'is_mine':    c.author_id == request.user.id,
+                'is_pinned':  c.is_pinned,
+                'created_at': c.created_at.strftime('%b %d, %Y · %I:%M %p'),
+            }
+            for c in comments_qs
+        ]
+ 
+        # Fetch explanation from the correct choice (pinned system entry)
+        # Only for OBJ questions
+        explanation = None
+        if question.question_type == 'OBJ':
+            correct = (
+                Choice.objects
+                .filter(question=question, is_correct=True)
+                .values('explanation')
+                .first()
+            )
+            if correct:
+                explanation = correct['explanation'] or None
+ 
+        can_post = (
+            has_subscription(request.user) or
+            getattr(request.user, 'is_admin', False)
+        )
+ 
+        return JsonResponse({
+            'ok':          True,
+            'explanation': explanation,
+            'comments':    comments_data,
+            'can_post':    can_post,
+        })
+ 
+    # ── POST ──────────────────────────────────────────────────────────────────
+    if request.method == 'POST':
+        from catalog.subscription_access import has_subscription
+ 
+        if not (has_subscription(request.user) or getattr(request.user, 'is_admin', False)):
+            return JsonResponse(
+                {'ok': False, 'error': 'upgrade_required'},
+                status=403,
+            )
+ 
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'Invalid JSON'}, status=400)
+ 
+        body = (data.get('body') or '').strip()
+        if not body:
+            return JsonResponse({'ok': False, 'error': 'Comment cannot be empty.'}, status=400)
+        if len(body) > 1200:
+            return JsonResponse({'ok': False, 'error': 'Comment must be 1200 characters or fewer.'}, status=400)
+ 
+        comment = QuestionComment.objects.create(
+            question=question,
+            author=request.user,
+            body=body,
+        )
+ 
+        return JsonResponse({
+            'ok': True,
+            'comment': {
+                'id':         comment.id,
+                'author':     request.user.get_full_name() or request.user.email.split('@')[0],
+                'body':       comment.body,
+                'is_mine':    True,
+                'is_pinned':  False,
+                'created_at': comment.created_at.strftime('%b %d, %Y · %I:%M %p'),
+            },
+        }, status=201)
+ 
+    return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+ 
+ 
+# ── QUESTION COMMENTS — DELETE ────────────────────────────────────────────────
+ 
+@login_required
+def delete_comment(request, question_id, comment_id):
+    """DELETE → soft-hides a comment. Only the author can delete their own."""
+    from .models import QuestionComment
+ 
+    if request.method != 'DELETE':
+        return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+ 
+    comment = get_object_or_404(
+        QuestionComment,
+        id=comment_id,
+        question_id=question_id,
+        author=request.user,      # ownership enforced at DB level
+        is_hidden=False,
+    )
+    comment.is_hidden = True
+    comment.save(update_fields=['is_hidden', 'updated_at'])
+ 
+    return JsonResponse({'ok': True})
 
 # ── HISTORY ───────────────────────────────────────────────────────────────────
 

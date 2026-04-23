@@ -9,6 +9,7 @@
 <div id="results-data"
   data-csrf="{{ csrf_token }}"
   data-bookmark-url="{% url 'practice:toggle_bookmark' %}"
+  data-comments-base-url="{% url 'practice:question_comments' question_id=0 %}"
   data-score-pct="{{ session.score_percentage|default:0 }}"
   style="display:none"></div>
 
@@ -66,7 +67,7 @@
     <div class="section-title" style="margin-bottom:1rem;">Study These Topics</div>
     <div style="display:flex; flex-direction:column; gap:0.5rem;">
       {% for note in recommended_notes %}
-      <a href="{% url 'lessonnotes:lesson_notes' %}?subject={{ note.subject.id }}&topic={{ note.topic.id }}"
+      <a href="{% url 'lessonnotes:lesson_notes' %}?subject={{ note.topic.subject.id }}&topic={{ note.topic.id }}"
          class="rec-note-link">
         <span style="font-size:1.2rem;">📄</span>
         <div>
@@ -113,93 +114,17 @@
     {% for item in answer_review %}
       {% with answer=item.answer question=item.question %}
 
-        {% if answer.is_correct %}
-          <div class="review-card correct expanded" id="review-card-{{ question.id }}">
-        {% elif answer.is_correct == False %}
-          <div class="review-card incorrect expanded" id="review-card-{{ question.id }}">
+        {# Resolve video URL: OBJ uses correct_choice.video_url, THEORY uses theory_answer.video_url #}
+        {% if question.question_type == 'OBJ' %}
+          {% with video_url=item.correct_choice.video_url %}
+            {% include "practice/partials/_review_card.html" with item=item answer=answer question=question video_url=video_url %}
+          {% endwith %}
         {% else %}
-          <div class="review-card unanswered expanded" id="review-card-{{ question.id }}">
+          {% with video_url=question.theory_answer.video_url %}
+            {% include "practice/partials/_review_card.html" with item=item answer=answer question=question video_url=video_url %}
+          {% endwith %}
         {% endif %}
 
-          <div class="review-card-header" onclick="toggleCard({{ question.id }})">
-            <span class="result-icon">
-              {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
-            </span>
-            <span class="review-q-num">Q{{ forloop.counter }}</span>
-            <span class="review-q-preview">{{ question.content|truncatechars:80 }}</span>
-            <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
-              {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
-            </span>
-            <button class="bookmark-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
-              onclick="event.stopPropagation(); toggleBookmark({{ question.id }}, this)"
-              title="{% if item.is_bookmarked %}Remove bookmark{% else %}Bookmark{% endif %}">
-              {% if item.is_bookmarked %}🔖{% else %}🏷️{% endif %}
-            </button>
-            <span class="chevron">▼</span>
-          </div>
-
-          <div class="review-card-body">
-          <div class="review-q-full">{{ question.content|render_content }}</div> <br>
-            {% if question.image %}
-              <img src="{{ question.image.url }}" 
-                  alt="Question image" 
-                  class="review-q-image" />
-            {% endif %}
-
-            {% if question.question_type == 'OBJ' %}
-              <ul class="review-choices">
-                {% for choice in question.choices.all %}
-                <li class="review-choice {% if choice.is_correct %}correct-answer{% elif answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick{% endif %}">
-                  <span class="review-choice-label">{{ choice.label }}</span>
-                  <span>{{ choice.choice_text }}</span>
-                  {% if choice.is_correct %}
-                    <span style="margin-left:auto; font-size:0.75rem; color:var(--green); font-weight:700;">✓ Correct</span>
-                  {% endif %}
-                </li>
-                {% endfor %}
-              </ul>
-              {% if item.correct_choice and item.correct_choice.explanation %}
-                <p class="choice-explanation" style="margin-top:0.85rem;">💡 {{ item.correct_choice.explanation }}</p>
-              {% endif %}
-              {% if item.correct_choice and item.correct_choice.video_url %}
-                <a href="{{ item.correct_choice.video_url }}" target="_blank" rel="noreferrer" class="video-link">▶ Watch explanation</a>
-              {% endif %}
-
-            {% else %}
-              <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">Your Answer:</div>
-              {% if answer.theory_response %}
-                <div class="theory-response-box">{{ answer.theory_response }}</div>
-              {% else %}
-                <div class="theory-response-box" style="color:var(--muted); font-style:italic;">No answer provided.</div>
-              {% endif %}
-
-              {% if question.theory_answer %}
-                <div class="theory-model-answer">
-                  <div class="theory-model-title">Model Answer</div>
-                  <div class="theory-model-content">{{ question.theory_answer.content }}</div>
-                  {% if question.theory_answer.marking_guide %}
-                    <details style="margin-top:0.75rem;">
-                      <summary style="font-size:0.78rem; color:var(--green); cursor:pointer; font-weight:600;">📋 Marking Guide</summary>
-                      <p style="font-size:0.85rem; color:var(--text); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide }}</p>
-                    </details>
-                  {% endif %}
-                  {% if question.theory_answer.video_url %}
-                    <a href="{{ question.theory_answer.video_url }}" target="_blank" rel="noreferrer" class="video-link" style="margin-top:0.75rem;">▶ Watch walkthrough</a>
-                  {% endif %}
-                </div>
-              {% endif %}
-            {% endif %}
-
-            {% if question.topics.all %}
-              <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:1rem;">
-                {% for topic in question.topics.all %}
-                  <span style="font-size:0.72rem; color:var(--muted); background:var(--offwhite); border:1px solid var(--border); padding:0.2rem 0.6rem; border-radius:100px;">{{ topic.name }}</span>
-                {% endfor %}
-              </div>
-            {% endif %}
-          </div>
-
-        </div>
       {% endwith %}
     {% endfor %}
   </div>

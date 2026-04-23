@@ -304,3 +304,420 @@ body {
   .action-row { flex-direction: column; }
   .btn-action { justify-content: center; }
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPEND TO: practice/static/practice/css/results_page.css
+   ─────────────────────────────────────────────────────────────────────────── */
+
+
+/* ── Topic tags ─────────────────────────────────────────────────────────── */
+
+.topic-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.topic-tag {
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--offwhite);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+}
+
+
+/* ── Card action buttons row ─────────────────────────────────────────────── */
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.card-action-btn:hover {
+  opacity: 0.85;
+}
+
+.card-action-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Video button */
+.video-btn {
+  background: rgba(239, 68, 68, 0.10);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.video-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.45);
+  opacity: 1;
+}
+
+/* Revision note button */
+.note-btn {
+  background: rgba(34, 197, 94, 0.10);
+  color: var(--green, #22c55e);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.note-btn:hover {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.45);
+  opacity: 1;
+}
+
+/* Discussion button */
+.discussion-btn {
+  background: rgba(9, 146, 194, 0.10);
+  color: var(--blue, #0992C2);
+  border-color: rgba(9, 146, 194, 0.25);
+  position: relative;
+}
+
+.discussion-btn:hover,
+.discussion-btn.active {
+  background: rgba(9, 146, 194, 0.18);
+  border-color: rgba(9, 146, 194, 0.45);
+  opacity: 1;
+}
+
+/* Comment count badge on the discussion button */
+.comment-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  background: var(--blue, #0992C2);
+  color: #fff;
+  border-radius: 100px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0 0.3rem;
+  line-height: 1;
+}
+
+.comment-count-badge:empty {
+  display: none;
+}
+
+
+/* ── Discussion panel ────────────────────────────────────────────────────── */
+
+.discussion-panel {
+  margin-top: 0.85rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface, #f8f9fb);
+}
+
+.discussion-panel[hidden] {
+  display: none;
+}
+
+.discussion-inner {
+  padding: 1rem;
+}
+
+/* Loading state */
+.disc-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 0.5rem 0;
+}
+
+.disc-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue, #0992C2);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Explanation pin */
+.disc-explanation {
+  display: flex;
+  gap: 0.65rem;
+  background: rgba(34, 197, 94, 0.07);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.disc-explanation-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.disc-explanation-body {
+  flex: 1;
+}
+
+.disc-explanation-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--green, #22c55e);
+  margin-bottom: 0.25rem;
+}
+
+.disc-explanation-text {
+  font-size: 0.83rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+/* Section heading inside panel */
+.disc-section-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+/* Empty state */
+.disc-empty {
+  font-size: 0.83rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 0.75rem;
+}
+
+/* Comment list */
+.disc-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.disc-comment {
+  background: var(--card, #fff);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+}
+
+.disc-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.disc-comment-author {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.disc-comment-time {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.disc-comment-body {
+  font-size: 0.83rem;
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.disc-delete-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.35rem;
+  opacity: 0.7;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.disc-delete-btn:hover {
+  color: #ef4444;
+  opacity: 1;
+}
+
+/* Upgrade nudge */
+.disc-upgrade-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(9, 146, 194, 0.07);
+  border: 1px solid rgba(9, 146, 194, 0.2);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.disc-upgrade-nudge a {
+  color: var(--blue, #0992C2);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.disc-upgrade-nudge a:hover {
+  text-decoration: underline;
+}
+
+/* Post comment form */
+.disc-post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.disc-post-form textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 180px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.83rem;
+  color: var(--text);
+  background: var(--card, #fff);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.disc-post-form textarea:focus {
+  outline: none;
+  border-color: var(--blue, #0992C2);
+}
+
+.disc-post-form textarea::placeholder {
+  color: var(--muted);
+}
+
+.disc-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.disc-char-count {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.disc-char-count.warn {
+  color: #f59e0b;
+}
+
+.disc-char-count.over {
+  color: #ef4444;
+}
+
+.disc-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.42rem 1rem;
+  background: var(--blue, #0992C2);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.disc-submit-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.disc-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disc-submit-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.disc-error-msg {
+  font-size: 0.78rem;
+  color: #ef4444;
+  margin-top: 0.25rem;
+}
+
+
+/* ── Mobile adjustments ──────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .card-actions {
+    gap: 0.4rem;
+  }
+
+  .card-action-btn {
+    font-size: 0.74rem;
+    padding: 0.38rem 0.7rem;
+  }
+
+  .disc-comment-time {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

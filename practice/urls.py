@@ -1,12 +1,9 @@
 from django.urls import path
 from . import views
-from . import past_paper_views
 
 app_name = 'practice'
 
 urlpatterns = [
-    # path('past-papers/', past_paper_views.past_papers_boards, name='past_papers_boards'),
-    # path('past-papers/papers/', past_paper_views.past_papers, name='past_papers'),
     path('', views.practice_home, name='practice_home'),
     path('start/', views.start_session, name='start_session'),
     path('exam/<int:session_id>/', views.exam_page, name='exam_page'),
@@ -20,4 +17,16 @@ urlpatterns = [
     path('toggle-bookmark/', views.toggle_bookmark, name='toggle_bookmark'),
     path('revision/', views.revision, name='revision'),
     path('referral/', views.referral, name='referral'),
+
+    # ── Question comments ─────────────────────────────────────────────────────
+    path(
+        'questions/<int:question_id>/comments/',
+        views.question_comments,
+        name='question_comments',
+    ),
+    path(
+        'questions/<int:question_id>/comments/<int:comment_id>/delete/',
+        views.delete_comment,
+        name='delete_comment',
+    ),
 ]
