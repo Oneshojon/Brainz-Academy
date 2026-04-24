@@ -80,7 +80,7 @@
       <div class="q-content">
         {{ question.content|render_content }}
           {% if question.image %}
-            <img src="{{ question.image.url }}" alt="Question image" class="review-q-image">
+            <img src="{{ question.image.url }}" alt="Question image" class="q-image">
           {% endif %}
         {% if question.content_after_image %}
           {{ question.content_after_image|render_content }}
