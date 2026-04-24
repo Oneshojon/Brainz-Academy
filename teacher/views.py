@@ -1094,6 +1094,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
             questions.append(q)
 
     return questions
+
 def _parse_docx(file_bytes):
     """
     Parse a DOCX file using pandoc.
@@ -1265,7 +1266,7 @@ def _parse_docx(file_bytes):
         )
     else:
         questions = _parse_obj_blocks_numbered(
-            raw_blocks, img_map, q_inline_re, topic_re, answer_re
+            raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re
         )
 
     return header, questions
