@@ -80,12 +80,12 @@
       <div class="q-content">
         {{ question.content|render_content }}
           {% if question.image %}
-            <img src="{{ question.image.url }}" alt="Question image" class="...">
+            <img src="{{ question.image.url }}" alt="Question image" class="review-q-image">
           {% endif %}
         {% if question.content_after_image %}
           {{ question.content_after_image|render_content }}
         {% endif %}
-        </div>
+      </div>
       {% if question.question_type == 'OBJ' %}
       <ul class="choices" id="choices-{{ question.id }}">
         {% for choice in question.choices.all %}
