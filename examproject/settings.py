@@ -300,7 +300,7 @@ if BREVO_API_KEY:
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-DEFAULT_FROM_EMAIL = 'ExamPrep <noreply@brainzacademy.com>'
+DEFAULT_FROM_EMAIL = 'Brainz Academy <noreply@brainzacademy.com>'
 
 # ── Security (production only) ────────────────────────────────────────────────
 # ── CSRF Trusted Origins (always set) ────────────────────────────────────────
