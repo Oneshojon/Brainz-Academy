@@ -31,14 +31,13 @@
   <!-- Card Body -->
   <div class="review-card-body">
 
-    <div class="review-q-full">{{ question.content|render_content }}</div>
-    <br>
-
-    {% if question.image %}
-      <img src="{{ question.image.url }}"
-           alt="Question image"
-           class="review-q-image" />
-    {% endif %}
+    <div class="review-q-full">{{ question.content|render_content }}</div> <br>
+      {% if question.image %}
+        <img src="{{ question.image.url }}" alt="Question image" class="review-q-image" />
+      {% endif %}
+      {% if question.content_after_image %}
+        <div class="review-q-full">{{ question.content_after_image|render_content }}</div>
+      {% endif %}
 
     {% if question.question_type == 'OBJ' %}
       <ul class="review-choices">

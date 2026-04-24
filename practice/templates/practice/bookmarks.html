@@ -62,7 +62,14 @@
         </div>
         <div class="bookmark-body">
           <p class="bm-content">{{ bm.question.content }}</p>
-          {% if bm.question.question_type == 'OBJ' %}
+            {% if bm.question.image %}
+              <img src="{{ bm.question.image.url }}"
+                  style="max-width:min(100%,480px); height:auto; display:block; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
+            {% endif %}
+            {% if bm.question.content_after_image %}
+              <p class="bm-content">{{ bm.question.content_after_image }}</p>
+            {% endif %}
+            {% if bm.question.question_type == 'OBJ' %}
           <ul class="bm-choices">
             {% for choice in bm.question.choices.all %}
             <li class="bm-choice {% if choice.is_correct %}correct{% endif %}">

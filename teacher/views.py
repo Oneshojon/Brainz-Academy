@@ -853,24 +853,31 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
         "  explanation:  blah blah"   (leading whitespace tolerated)
     The matched text is stored in q['explanation'] and attached to the correct
     Choice after answer resolution — NOT appended to question content.
+ 
+    content_after_image: text that appears after the diagram in the DOCX
+    (e.g. "Which of the following...") is stored separately so templates
+    can render it between the image and the choices.
     """
     questions       = []
     choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
  
     for number, block in sorted(raw_blocks.items()):
         q = {
-            'number':      number,
-            'content':     '',
-            'image_bytes': None,
-            'image_ext':   None,
-            'choices':     [],
-            'answer':      '',
-            'explanation': '',   # ← new
-            'topics':      [],
+            'number':              number,
+            'content':             '',
+            'content_after_image': '',   # text that follows the diagram
+            'image_bytes':         None,
+            'image_ext':           None,
+            'choices':             [],
+            'answer':              '',
+            'explanation':         '',
+            'topics':              [],
         }
-        content_parts = []
-        in_choices    = False
-        seen_labels   = set()
+        content_parts       = []
+        after_image_parts   = []
+        image_seen          = False
+        in_choices          = False
+        seen_labels         = set()
  
         for elem in block:
             tag  = elem.name
@@ -893,6 +900,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
  
             # ── Image ─────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
+                image_seen = True
                 img_tag = elem.find('img') if tag != 'img' else elem
                 if img_tag:
                     src   = img_tag.get('src', '')
@@ -921,7 +929,6 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 lines = _split_para_into_lines(elem)
                 question_lines = []
                 for plain, html_str in lines:
-                    # Explanation check first (before answer/topic/choice)
                     me = explanation_re.match(plain)
                     if me:
                         q['explanation'] = me.group(1).strip()
@@ -953,7 +960,12 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     if not in_choices:
                         question_lines.append(html_str)
                 if question_lines:
-                    content_parts.append('<p>' + '<br/>'.join(question_lines) + '</p>')
+                    # Route to correct bucket depending on whether image was seen
+                    chunk = '<p>' + '<br/>'.join(question_lines) + '</p>'
+                    if image_seen:
+                        after_image_parts.append(chunk)
+                    else:
+                        content_parts.append(chunk)
                 continue
  
             # ── Explanation (standalone <p>, no <br/>) ────────────────────
@@ -996,16 +1008,19 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
  
             # ── Regular content ───────────────────────────────────────────
             if not in_choices and tag in ('p', 'table'):
-                content_parts.append(str(elem))
+                if image_seen:
+                    after_image_parts.append(str(elem))
+                else:
+                    content_parts.append(str(elem))
  
-        q['content'] = '\n'.join(content_parts).strip()
+        q['content']             = '\n'.join(content_parts).strip()
+        q['content_after_image'] = '\n'.join(after_image_parts).strip()
  
         # Mark correct choice and attach explanation to it
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct'] = True
-                    # Attach explanation to the correct choice
                     if q['explanation']:
                         c['explanation'] = q['explanation']
  
@@ -1014,28 +1029,31 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
  
     return questions
 
-
-def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re):
-    """Parse objective (MCQ) question blocks."""
-    questions  = []
-
+def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re, explanation_re):
+    """Parse objective (MCQ) question blocks — legacy function kept for compatibility."""
+    questions = []
+ 
     for block in blocks:
         q = {
-            'number':      None,
-            'content':     '',
-            'image_bytes': None,
-            'image_ext':   None,
-            'choices':     [],
-            'answer':      '',
-            'topics':      [],
+            'number':              None,
+            'content':             '',
+            'content_after_image': '',
+            'image_bytes':         None,
+            'image_ext':           None,
+            'choices':             [],
+            'answer':              '',
+            'explanation':         '',
+            'topics':              [],
         }
-        content_parts = []
-        in_choices    = False
-
+        content_parts     = []
+        after_image_parts = []
+        image_seen        = False
+        in_choices        = False
+ 
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
-
+ 
             # Question number
             if tag == 'p' and q['number'] is None:
                 standalone = q_num_re.match(text)
@@ -1048,9 +1066,10 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                     elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
-
+ 
             # Image
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
+                image_seen = True
                 img_tag = elem.find('img') if tag != 'img' else elem
                 if img_tag:
                     src   = img_tag.get('src', '')
@@ -1059,40 +1078,53 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
-
+ 
+            # Explanation
+            me = explanation_re.match(text)
+            if me:
+                q['explanation'] = me.group(1).strip()
+                in_choices = False
+                continue
+ 
             # Answer key
             ma = answer_re.match(text)
             if ma:
                 q['answer'] = ma.group(1).upper()
                 in_choices  = False
                 continue
-
+ 
             # Topic
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
-
+ 
             # Choices
             if tag == 'p' and _is_choice_block(elem):
                 in_choices = True
                 q['choices'] = _parse_choices(elem)
                 continue
-
+ 
             # Regular content
             if not in_choices and tag in ('p', 'table'):
-                content_parts.append(str(elem))
-
-        q['content'] = '\n'.join(content_parts).strip()
-
+                if image_seen:
+                    after_image_parts.append(str(elem))
+                else:
+                    content_parts.append(str(elem))
+ 
+        q['content']             = '\n'.join(content_parts).strip()
+        q['content_after_image'] = '\n'.join(after_image_parts).strip()
+ 
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct'] = True
-
+                    if q['explanation']:
+                        c['explanation'] = q['explanation']
+ 
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
-
+ 
     return questions
 
 def _parse_docx(file_bytes):
@@ -1731,9 +1763,10 @@ def upload_docx(request):
             with transaction.atomic():
                 if existing and overwrite:
                     existing.content       = q_data['content']
+                    existing.content_after_image  = q_data.get('content_after_image') or ''
                     existing.question_type = paper_type
                     existing.marks         = q_data.get('marks') or existing.marks
-                    existing.save(update_fields=['content', 'question_type', 'marks'])
+                    existing.save(update_fields=['content', 'content_after_image', 'question_type', 'marks'])
                     question = existing
                     question.choices.all().delete()
                     question.topics.clear()
@@ -1744,6 +1777,7 @@ def upload_docx(request):
                         question_number=q_data['number'],
                         question_type=paper_type,
                         content=q_data['content'],
+                        content_after_image=q_data.get('content_after_image') or '',
                         marks=q_data.get('marks') or 1,
                     )
 

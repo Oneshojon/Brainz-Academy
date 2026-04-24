@@ -258,6 +258,11 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
         <img src={q.image} alt="Question" className="q4-preview-img" />
       )}
 
+      {q.content_after_image && (
+        <div className="q4-preview-content"
+            dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
+      )}
+
       {q.question_type === 'OBJ' && q.choices?.length > 0 && (
         <ul className="q4-preview-choices">
           {q.choices.map(c => (

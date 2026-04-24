@@ -385,7 +385,11 @@ export default function Step5Export({
                       />
                     </div>
                     {q.image && <img src={q.image} alt="" className="s5-paper-q-img" />}
-                    {q.question_type === 'OBJ' && q.choices?.length > 0 && (
+                      {q.content_after_image && (
+                        <div className="s5-paper-q-content"
+                            dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
+                      )}
+                      {q.question_type === 'OBJ' && q.choices?.length > 0 && (
                       <ul className="s5-paper-choices">
                         {q.choices.map(c => (
                           <li key={c.id} className="s5-paper-choice">

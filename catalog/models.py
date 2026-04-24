@@ -292,6 +292,10 @@ class Question(models.Model):
     question_number = models.PositiveIntegerField()
     question_type   = models.CharField(max_length=10, choices=QUESTION_TYPES, default='OBJ')
     content         = models.TextField()
+    content_after_image = models.TextField(
+                        blank=True, default='',
+                        help_text="Question text that appears after the diagram image in the original document."
+                    )
     image           = models.ImageField(upload_to='questions/', null=True, blank=True)
     marks           = models.PositiveIntegerField(default=1)
     difficulty      = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, null=True, blank=True)

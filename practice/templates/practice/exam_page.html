@@ -77,13 +77,14 @@
         <span class="q-marks">{{ question.marks }} mark{% if question.marks != 1 %}s{% endif %}</span>
       </div>
 
-      <div class="q-content">{{ question.content|render_content }}</div> <br>
-      {% if question.image %}
-        <img src="{{ question.image.url }}" 
-            alt="Question image" 
-            class="q-image"
-            style="max-width: min(100%, {{ question.image.width }}px);">
-      {% endif %}
+      <div class="q-content">
+        {{ question.content|render_content }}
+          {% if question.image %}
+            <img src="{{ question.image.url }}" alt="Question image" class="...">
+          {% endif %}
+        {% if question.content_after_image %}
+          {{ question.content_after_image|render_content }}
+        {% endif %}
 
       {% if question.question_type == 'OBJ' %}
       <ul class="choices" id="choices-{{ question.id }}">

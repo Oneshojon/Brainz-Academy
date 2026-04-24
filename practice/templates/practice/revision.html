@@ -248,6 +248,10 @@
                 style="max-width:min(100%,480px); height:auto; display:block; border-radius:8px; margin-bottom:1rem; border:1px solid var(--border);" />
             {% endif %}
 
+            {% if item.question.content_after_image %}
+              <p class="rev-q-content">{{ item.question.content_after_image }}</p>
+            {% endif %}
+
             {% if item.question.question_type == 'OBJ' %}
               <ul class="rev-choices">
                 {% for choice in item.question.choices.all %}

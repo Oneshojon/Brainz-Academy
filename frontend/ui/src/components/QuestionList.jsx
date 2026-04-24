@@ -363,6 +363,10 @@ export default function QuestionList({ questions, filterMeta, access }) {
               <img src={q.image} alt={`Q${q.question_number}`} className="q-image" />
             )}
 
+            {q.content_after_image && (
+              <MathContent html={q.content_after_image} className="q-content" />
+            )}
+
             {q.question_type === 'OBJ' && q.choices?.length > 0 && (
               <ul className="choices">
                 {q.choices.map(c => (

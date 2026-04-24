@@ -23,6 +23,7 @@ class SavedTestQuestionDetailSerializer(serializers.ModelSerializer):
     topic_names     = serializers.SerializerMethodField()
     choices         = serializers.SerializerMethodField()
     theory_answer   = serializers.SerializerMethodField()
+    content_after_image = serializers.CharField(source='question.content_after_image')
  
     # Through-model fields
     custom_marks    = serializers.IntegerField()
@@ -34,7 +35,7 @@ class SavedTestQuestionDetailSerializer(serializers.ModelSerializer):
             'id', 'question_number', 'question_type', 'content', 'image',
             'marks', 'difficulty',
             'exam_year', 'exam_board', 'sitting', 'subject_name', 'topic_names',
-            'choices', 'theory_answer',
+            'choices', 'theory_answer', 'content_after_image',
             'custom_marks', 'order',
         ]
  
