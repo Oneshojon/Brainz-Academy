@@ -85,7 +85,7 @@
         {% if question.content_after_image %}
           {{ question.content_after_image|render_content }}
         {% endif %}
-
+        </div>
       {% if question.question_type == 'OBJ' %}
       <ul class="choices" id="choices-{{ question.id }}">
         {% for choice in question.choices.all %}
