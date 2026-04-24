@@ -843,41 +843,46 @@ def _parse_choices(elem):
 
     return choices
 
-def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re):
+def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re):
     """
     Parse objective blocks from raw_blocks dict.
     raw_blocks: {question_number: [elems]} — keys used directly as question numbers.
+ 
+    explanation_re matches lines like:
+        "Explanation: Some text here."
+        "  explanation:  blah blah"   (leading whitespace tolerated)
+    The matched text is stored in q['explanation'] and attached to the correct
+    Choice after answer resolution — NOT appended to question content.
     """
     questions       = []
     choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
-
-    for number, block in sorted(raw_blocks.items()):  # sorted by question number
+ 
+    for number, block in sorted(raw_blocks.items()):
         q = {
-            'number':      number,   # actual question number, not enumerate index
+            'number':      number,
             'content':     '',
             'image_bytes': None,
             'image_ext':   None,
             'choices':     [],
             'answer':      '',
+            'explanation': '',   # ← new
             'topics':      [],
         }
         content_parts = []
         in_choices    = False
         seen_labels   = set()
-
+ 
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
-
+ 
             # ── First element ─────────────────────────────────────────────
             if elem is block[0]:
                 m = q_inline_re.match(text)
                 if m:
-                    # Typed number — strip it, keep content
                     elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
-                # No number — list-based format
                 if tag == 'p' and elem.find('br'):
                     pass   # fall through to <br/> handler below
                 elif tag == 'p' and text:
@@ -885,7 +890,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     continue
                 else:
                     continue
-
+ 
             # ── Image ─────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 img_tag = elem.find('img') if tag != 'img' else elem
@@ -896,7 +901,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
-
+ 
             # ── Alpha ol choices (<ol type="A">) ──────────────────────────
             if tag == 'ol' and elem.get('type') == 'A':
                 in_choices = True
@@ -910,12 +915,18 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             'is_correct': False,
                         })
                 continue
-
+ 
             # ── <p> with <br/> — split and route each line ────────────────
             if tag == 'p' and elem.find('br'):
                 lines = _split_para_into_lines(elem)
                 question_lines = []
                 for plain, html_str in lines:
+                    # Explanation check first (before answer/topic/choice)
+                    me = explanation_re.match(plain)
+                    if me:
+                        q['explanation'] = me.group(1).strip()
+                        in_choices = False
+                        continue
                     ma = answer_re.match(plain)
                     if ma:
                         q['answer'] = ma.group(1).upper()
@@ -944,20 +955,27 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 if question_lines:
                     content_parts.append('<p>' + '<br/>'.join(question_lines) + '</p>')
                 continue
-
+ 
+            # ── Explanation (standalone <p>, no <br/>) ────────────────────
+            me = explanation_re.match(text)
+            if me:
+                q['explanation'] = me.group(1).strip()
+                in_choices = False
+                continue
+ 
             # ── Answer ────────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer']    = ma.group(1).upper()
                 in_choices     = False
                 continue
-
+ 
             # ── Topic ─────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
-
+ 
             # ── Individual choice <p> (no <br/>) ─────────────────────────
             if tag == 'p' and _is_choice_block(elem):
                 in_choices = True
@@ -975,21 +993,25 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                                 'is_correct': False,
                             })
                 continue
-
+ 
             # ── Regular content ───────────────────────────────────────────
             if not in_choices and tag in ('p', 'table'):
                 content_parts.append(str(elem))
-
+ 
         q['content'] = '\n'.join(content_parts).strip()
-
+ 
+        # Mark correct choice and attach explanation to it
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct'] = True
-
+                    # Attach explanation to the correct choice
+                    if q['explanation']:
+                        c['explanation'] = q['explanation']
+ 
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
-
+ 
     return questions
 
 
@@ -1094,6 +1116,7 @@ def _parse_docx(file_bytes):
     theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
     marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
     choice_label_re        = re.compile(r'^([A-E])[.\)]\s*') 
+    explanation_re = re.compile(r'^\s*explanation\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, 'input.docx')
@@ -1747,6 +1770,7 @@ def upload_docx(request):
                                 label=c['label'],
                                 choice_text=c['text'],
                                 is_correct=c['is_correct'],
+                                explanation=c.get('explanation') or ''
                             ))
                     Choice.objects.bulk_create(choices_to_create)
 
