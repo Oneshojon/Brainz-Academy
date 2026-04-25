@@ -106,12 +106,13 @@ WSGI_APPLICATION = 'examproject.wsgi.application'
 
 
 DATABASES = {
- 'default': dj_database_url.config(
- default='postgresql://postgres:ImOaWnrJICMABGasaterRoVUNztWzzIh@crossover.proxy.rlwy.net:27261/railway',
- conn_max_age=600,
- conn_health_checks=True,
- )
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+
 
 CACHE_BACKEND = os.environ.get('CACHE_BACKEND', 'locmem')
 REDIS_URL     = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')

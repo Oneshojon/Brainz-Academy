@@ -31,19 +31,6 @@ const styles = `
   .builder-title-input:focus { border-color: #0992C2; }
   .builder-title-input::placeholder { color: #6B7FA3; }
 
-  .builder-type-toggle {
-    display: flex; gap: 0.25rem; background: #F3F6FA;
-    border: 1.5px solid #C2D4EC; padding: 0.2rem; border-radius: 100px;
-  }
-  .builder-type-btn {
-    padding: 0.3rem 0.85rem; border-radius: 100px; border: none;
-    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.75rem;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .builder-type-btn.active { background: #0B2D72; color: #ffffff; }
-  .builder-type-btn:not(.active) { background: transparent; color: #6B7FA3; }
-  .builder-type-btn:not(.active):hover { color: #0B2D72; }
-
   .builder-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .builder-meta-pill {
     font-size: 0.75rem; color: #6B7FA3;
@@ -285,19 +272,6 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
             onChange={e => setTestTitle(e.target.value)}
             placeholder="Name your test..." />
 
-          {/* OBJ / Theory toggle — only from step 4 */}
-          {step >= 4 && (
-            <div className="builder-type-toggle">
-              {[['', 'All'], ['OBJ', 'OBJ'], ['THEORY', 'Theory']].map(([val, label]) => (
-                <button key={val}
-                  className={`builder-type-btn ${qTypeFilter === val ? 'active' : ''}`}
-                  onClick={() => setQTypeFilter(val)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Selection pills + Change Mode pushed to the right */}
           <div className="builder-meta" style={{ marginLeft: 'auto' }}>
             {board   && <span className="builder-meta-pill">📋 {board.abbreviation}</span>}
@@ -408,6 +382,8 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
         {step === 3 && <Step3Theme board={board} subject={subject} onSelect={handleThemeSelect} selected={theme} onBack={goBack} onNext={() => setStep(4)} />}
         {step === 4 && (
           <Step4Questions board={board} subject={subject} theme={theme}
+            qTypeFilter={qTypeFilter}
+            onQTypeFilter={setQTypeFilter}
             savedQuestions={savedQuestions} onAdd={handleAddQuestion} onRemove={handleRemoveQuestion}
             onBack={goBack} onDone={() => setStep(5)} questionType={qTypeFilter}
             onChangeTheme={() => setStep(3)} access={access} />

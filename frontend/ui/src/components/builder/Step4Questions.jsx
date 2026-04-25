@@ -21,6 +21,21 @@ const styles = `
 .q4-year-pill.active { background: #0B2D72; color: #ffffff; border-color: #0B2D72; }
 .q4-year-pill:hover:not(.active) { border-color: #0B2D72; color: #0B2D72; }
 
+/* ── Type toggle inside topic bar ── */
+.q4-type-toggle {
+  display: flex; gap: 0.2rem;
+  background: #EDF1F8; border: 1.5px solid #C2D4EC;
+  padding: 0.18rem; border-radius: 8px; flex-shrink: 0;
+}
+.q4-type-btn {
+  padding: 0.22rem 0.6rem; border-radius: 6px; border: none;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.72rem;
+  cursor: pointer; transition: all 0.15s; line-height: 1;
+}
+.q4-type-btn.active  { background: #0B2D72; color: #ffffff; }
+.q4-type-btn:not(.active) { background: transparent; color: #6B7FA3; }
+.q4-type-btn:not(.active):hover { color: #0B2D72; }
+
 /* Question limit counter + cap banner */
 .q4-limit-counter {
   font-size: 0.72rem; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
@@ -309,7 +324,7 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
 export default function Step4Questions({
   board, subject, theme, savedQuestions,
   onAdd, onRemove, onBack, onDone, onChangeTheme,
-  access,
+  access, qTypeFilter, onQTypeFilter, 
 }) {
   const topic     = theme?.selectedTopic;
   const maxQ      = access?.max_questions ?? Infinity;
@@ -371,6 +386,7 @@ export default function Step4Questions({
 
   const filtered = questions.filter(q => {
     if (selectedYears.length > 0 && !selectedYears.includes(Number(q.exam_year))) return false;
+    if (qTypeFilter && q.question_type !== qTypeFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -386,10 +402,26 @@ export default function Step4Questions({
       <button className="btn-back-sm" onClick={onBack}>← Back</button>
 
       <div className="q4-topic-bar">
-        <span className="q4-topic-label">Topic:</span>
-        <span className="q4-topic-name">{topic?.name}</span>
-        <button className="q4-topic-btn" onClick={onChangeTheme}>Change Topic</button>
-      </div>
+      <span className="q4-topic-label">Topic:</span>
+      <span className="q4-topic-name">{topic?.name}</span>
+
+      {/* Question type filter */}
+      {onQTypeFilter && (
+        <div className="q4-type-toggle">
+          {[['', 'All'], ['OBJ', 'OBJ'], ['THEORY', 'Theory']].map(([val, label]) => (
+            <button
+              key={val}
+              className={`q4-type-btn ${(qTypeFilter ?? '') === val ? 'active' : ''}`}
+              onClick={() => onQTypeFilter(val)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <button className="q4-topic-btn" onClick={onChangeTheme}>Change Topic</button>
+    </div>
 
       <div className="q4-layout">
         {/* ── Left: question list ── */}
