@@ -407,7 +407,16 @@ export default function Step4Questions({
 
       {/* Question type filter */}
       {onQTypeFilter && (
-        <div className="q4-type-toggle">
+        <>
+          <span style={{
+            fontSize: '0.7rem', fontWeight: 700, color: '#0AC4E0',
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            fontFamily: 'Plus Jakarta Sans, sans-serif', flexShrink: 0,
+          }}>
+            Type:
+          </span>
+
+          <div className="q4-type-toggle">
           {[['', 'All'], ['OBJ', 'OBJ'], ['THEORY', 'Theory']].map(([val, label]) => (
             <button
               key={val}
@@ -418,6 +427,7 @@ export default function Step4Questions({
             </button>
           ))}
         </div>
+        </>
       )}
 
       <button className="q4-topic-btn" onClick={onChangeTheme}>Change Topic</button>
