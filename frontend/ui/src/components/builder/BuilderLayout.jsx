@@ -385,7 +385,7 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
             qTypeFilter={qTypeFilter}
             onQTypeFilter={setQTypeFilter}
             savedQuestions={savedQuestions} onAdd={handleAddQuestion} onRemove={handleRemoveQuestion}
-            onBack={goBack} onDone={() => setStep(5)} questionType={qTypeFilter}
+            onBack={goBack} onDone={() => setStep(5)}
             onChangeTheme={() => setStep(3)} access={access} />
         )}
         {step === 5 && (
