@@ -1,0 +1,25 @@
+# ── LOCAL DEV ONLY — fast rebuild, no frontend build step ─────────────────────
+# React is served by Vite dev server on :5173 (see docker-compose.dev.yml)
+# For production, use the main Dockerfile (multi-stage with Node + gunicorn)
+
+FROM python:3.11-slim
+
+# Only what Django needs locally.
+# pandoc + texlive omitted — adds ~600MB. Add them back if testing PDF export:
+#   pandoc texlive-latex-base texlive-fonts-recommended texlive-latex-extra texlive-xetex
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps (cached — only rebuilds if requirements.txt changes)
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Source is volume-mounted at runtime — no COPY . . needed here.
+# Keeps image lean, rebuild time under 30s after the first build.
+
+EXPOSE 8000
