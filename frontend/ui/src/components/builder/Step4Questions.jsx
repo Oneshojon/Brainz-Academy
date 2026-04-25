@@ -413,7 +413,7 @@ export default function Step4Questions({
             textTransform: 'uppercase', letterSpacing: '0.08em',
             fontFamily: 'Plus Jakarta Sans, sans-serif', flexShrink: 0,
           }}>
-            Type:
+            Choose Type:
           </span>
 
           <div className="q4-type-toggle">
@@ -430,7 +430,7 @@ export default function Step4Questions({
         </>
       )}
 
-      <button className="q4-topic-btn" onClick={onChangeTheme}>Change Topic</button>
+      <button className="q4-topic-btn" style={{ marginLeft: '30px' }} onClick={onChangeTheme}>Change Topic</button>
     </div>
 
       <div className="q4-layout">
