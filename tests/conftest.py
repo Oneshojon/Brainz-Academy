@@ -30,28 +30,29 @@ class UserFactory(factory.django.DjangoModelFactory):
     email      = factory.Sequence(lambda n: f'user{n}@example.com')
     first_name = factory.Sequence(lambda n: f'User{n}')
     last_name  = 'Test'
-    password   = factory.PostGenerationMethodCall('set_password', 'testpass123')
     is_active  = True
     role       = 'STUDENT'
     streak     = 0
     gender     = 'M'
     is_admin   = False
 
+    @factory.post_generation
+    def password(self, create, extracted, **kwargs):
+        pwd = extracted or 'testpass123'
+        self.set_password(pwd)
+        if create:
+            self.save(update_fields=['password'])
+
 
 class AdminUserFactory(UserFactory):
-    class Meta:
-        skip_postgeneration_save = True
     is_admin = True
     is_staff = True
     role     = 'TEACHER'
 
 
 class TeacherUserFactory(UserFactory):
-    class Meta:
-        skip_postgeneration_save = True
     email = factory.Sequence(lambda n: f'teacher{n}@example.com')
     role  = 'TEACHER'
-    
 
 
 class ExamBoardFactory(factory.django.DjangoModelFactory):
@@ -101,7 +102,7 @@ class TopicFactory(factory.django.DjangoModelFactory):
 class QuestionFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = 'catalog.Question'
-        skip_postgeneration_save = True
+        skip_postgeneration_save = True  # topics uses M2M add() — no model save() needed
 
     content         = factory.Sequence(lambda n: f'What is question {n}?')
     question_type   = 'OBJ'
@@ -118,6 +119,7 @@ class QuestionFactory(factory.django.DjangoModelFactory):
         if extracted:
             for topic in extracted:
                 self.topics.add(topic)
+            # M2M doesn't require save() — add() writes directly to the join table
 
 
 class ChoiceFactory(factory.django.DjangoModelFactory):
