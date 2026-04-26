@@ -39,11 +39,15 @@ jobs:
           - 6379:6379
 
     env:
-      DEBUG:           "True"
-      SECRET_KEY:      "github-actions-test-secret-key-not-for-production"
-      DATABASE_URL:    "postgresql://examprep:testpassword@localhost:5432/examprep_test"
-      REDIS_URL:       "redis://localhost:6379/0"
-      ALLOWED_HOSTS:   "localhost,127.0.0.1"
+      DEBUG:              "True"
+      SECRET_KEY:         "github-actions-test-secret-key-not-for-production"
+      DATABASE_URL:       "postgresql://examprep:testpassword@localhost:5432/examprep_test"
+      TEST_DATABASE_URL:  "postgresql://examprep:testpassword@localhost:5432/examprep_test"
+      REDIS_URL:          "redis://localhost:6379/0"
+      ALLOWED_HOSTS:      "localhost,127.0.0.1"
+      DJANGO_SETTINGS_MODULE: "examproject.settings_test"
+      ANTHROPIC_API_KEY:  "dummy-key-for-ci"
+      BREVO_API_KEY:      "dummy-key-for-ci"
 
     steps:
       - name: Checkout code
@@ -56,7 +60,9 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -74,8 +80,15 @@ jobs:
       - name: Run Django migrations
         run: python manage.py migrate --noinput
 
-      - name: Run Django tests
-        run: python manage.py test --verbosity=2
+      - name: Run pytest suite
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+        if: always()
 
   # ── Deploy ─────────────────────────────────────────────────────────────────
   deploy:

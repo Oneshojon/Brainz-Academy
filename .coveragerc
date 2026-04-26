@@ -1,0 +1,37 @@
+[run]
+source = .
+omit =
+    # Management commands — one-time data setup scripts
+    */management/commands/*.py
+    # Migrations — auto-generated
+    */migrations/*.py
+    # Test files themselves
+    tests/*
+    # Config and entry points
+    manage.py
+    examproject/asgi.py
+    examproject/wsgi.py
+    # One-off scripts at project root
+    physics_themes_topics.py
+    test_email.py
+    # Heavy admin/teacher tooling — DOCX parser, CSV uploader, AI generator
+    teacher/views.py
+    # Catalog API views (React test builder backend) — tested via frontend
+    catalog/views.py
+    catalog/views_savedtest.py
+    # Utility files not yet tested
+    catalog/subscription_utils.py
+    catalog/templatetags/feature_tags.py
+    # Empty placeholder files
+    */tests.py
+
+[report]
+fail_under = 70
+show_missing = true
+skip_covered = false
+exclude_lines =
+    @abstractmethod
+    if settings.DEBUG
+    if TYPE_CHECKING
+    ^\s*pass$
+    def __repr__

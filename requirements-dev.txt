@@ -1,0 +1,27 @@
+# Development and testing dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.2.0
+pytest-django==4.8.0
+pytest-cov==5.0.0
+factory-boy==3.3.0
+faker==24.11.0
+
+# ── Query count assertions ────────────────────────────────────────────────────
+# django_assert_num_queries is built into pytest-django — no extra package needed
+
+# ── Mocking ───────────────────────────────────────────────────────────────────
+# unittest.mock is in stdlib — no extra package needed
+
+# ── Linting ───────────────────────────────────────────────────────────────────
+flake8==7.0.0
+isort==5.13.2
+black==24.4.2
+
+# ── Type checking (optional) ──────────────────────────────────────────────────
+# mypy==1.10.0
+# django-stubs==5.0.2
+
+# ── DOCX test helpers ─────────────────────────────────────────────────────────
+python-docx==1.1.2
