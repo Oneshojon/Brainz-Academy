@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from functools import wraps
 from django.utils.html import escape
 
-from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, TheoryAnswer, Topic, LessonNote, Worksheet,Theme 
+from catalog.models import Subject, ExamBoard, Question, ExamSeries, Choice, TheoryAnswer, Topic, LessonNote, Worksheet, Theme
 from practice.models import PracticeSession, UserAnswer
 from catalog.cache_utils import invalidate_feature_flags
 
@@ -55,7 +55,7 @@ def admin_required(view_func):
 
 @teacher_required
 def dashboard(request):
-    is_admin = getattr(request.user, 'is_admin', False)
+    is_admin        = getattr(request.user, 'is_admin', False)
     total_questions = Question.objects.count()
 
     total_students  = None
@@ -102,6 +102,7 @@ def dashboard(request):
 # ══════════════════════════════════════════════════════════════════════════════
 # ADMIN-ONLY VIEWS
 # ══════════════════════════════════════════════════════════════════════════════
+
 @admin_required
 def session_history(request):
     from catalog.models import Subject
@@ -124,7 +125,6 @@ def session_history(request):
     if subject_id:
         sessions_qs = sessions_qs.filter(subject_id=subject_id)
 
-    # Paginate — 20 per page
     from django.core.paginator import Paginator
     paginator = Paginator(sessions_qs, 20)
     page      = paginator.get_page(request.GET.get('page', 1))
@@ -270,7 +270,7 @@ logger = logging.getLogger(__name__)
 def _build_topic_map(subject):
     """
     Fetch all topics for a subject into a dict keyed by lowercase name.
-    Also prefetches lesson_note and worksheet to avoid reverse OneToOne queries later.
+    Prefetches lesson_note and worksheet to avoid reverse OneToOne queries later.
     Returns: {lowercase_name: topic_instance}
     """
     qs = Topic.objects.filter(subject=subject).select_related('lesson_note', 'worksheet')
@@ -286,19 +286,16 @@ def _resolve_topic(item, subject, topic_map):
     name_raw   = item['topic'].strip()
     name_lower = name_raw.lower()
 
-    # 1. Exact match — O(1) dict lookup, case-insensitive
+    # Exact match — O(1) dict lookup, case-insensitive
     topic = topic_map.get(name_lower)
     if topic:
         return topic
 
-    # 2. Fuzzy match — original casing against original topic names,
-    #    preserving exact behaviour from the original resolve_topic
-    original_names = list(topic_map.keys())  # already lowercased in map
-    matches = difflib.get_close_matches(name_lower, original_names, n=1, cutoff=0.7)
+    # Fuzzy match — in memory, no extra DB query
+    matches = difflib.get_close_matches(name_lower, list(topic_map.keys()), n=1, cutoff=0.7)
     if matches:
         return topic_map[matches[0]]
 
-    # 3. Not found — never create
     raise ValueError(
         f'Topic "{name_raw}" not found for subject "{subject.name}". '
         f'Check spelling or add it to the curriculum first.'
@@ -309,37 +306,34 @@ def _process_pdf_items(parsed, file_type, model_cls, subject_map,
                         topic_map_cache, video_url, overwrite, user):
     """
     Process parsed PDF items for either LessonNote or Worksheet.
-    Eliminates the duplicate notes/worksheet loop blocks.
 
-    file_type     : 'Notes' or 'Worksheet' — used in error prefixes
-    model_cls     : LessonNote or Worksheet
-    subject_map   : {lowercase_name: subject} — prefetched before calling
+    file_type      : 'Notes' or 'Worksheet' — used in error prefixes
+    model_cls      : LessonNote or Worksheet
+    subject_map    : {lowercase_name: subject} — prefetched before calling
     topic_map_cache: {subject_id: topic_map} — shared cache across both PDF types
     """
-    results    = []
-    errors     = []
-    is_note    = model_cls is LessonNote
-    prefix     = 'note' if is_note else 'ws'
+    results      = []
+    errors       = []
+    is_note      = model_cls is LessonNote
+    prefix       = 'note' if is_note else 'ws'
     title_suffix = 'Revision Notes' if is_note else 'Worksheet'
     related_name = 'lesson_note' if is_note else 'worksheet'
 
     for item in parsed:
         try:
             subject_key = item['subject'].strip().lower()
-            subject = subject_map.get(subject_key)
+            subject     = subject_map.get(subject_key)
             if not subject:
                 errors.append(f'[{file_type}] Subject "{item["subject"]}" not found — skipped.')
                 continue
 
-            # Build topic map for this subject once, reuse across all items
             if subject.id not in topic_map_cache:
                 topic_map_cache[subject.id] = _build_topic_map(subject)
             topic_map = topic_map_cache[subject.id]
 
-            topic = _resolve_topic(item, subject, topic_map)
-
-            # Check existence via prefetched select_related — no extra query
+            topic    = _resolve_topic(item, subject, topic_map)
             existing = getattr(topic, related_name, None)
+
             if existing and not overwrite:
                 results.append({
                     'topic': topic.name, 'subject': subject.name,
@@ -370,7 +364,6 @@ def _process_pdf_items(parsed, file_type, model_cls, subject_map,
             })
 
         except Exception as e:
-            # Log full traceback server-side only — never expose to browser
             logger.exception(f'[{file_type}] Failed "{item.get("topic", "?")}"')
             errors.append(f'[{file_type}] Failed "{item.get("topic", "?")}": {e}')
 
@@ -381,13 +374,11 @@ def _process_pdf_items(parsed, file_type, model_cls, subject_map,
 def upload_notes(request):
     from catalog.note_pdf_parser import parse_note_pdf
 
-    # ── GET ───────────────────────────────────────────────────────────────────
     if request.method != 'POST':
         return render(request, 'teacher/upload_notes.html', {
             'subjects': Subject.objects.only('id', 'name').order_by('name'),
         })
 
-    # ── POST — form fields ────────────────────────────────────────────────────
     note_file           = request.FILES.get('note_pdf')
     worksheet_file      = request.FILES.get('worksheet_pdf')
     overwrite           = request.POST.get('overwrite') == 'on'
@@ -400,21 +391,13 @@ def upload_notes(request):
             'subjects': Subject.objects.only('id', 'name').order_by('name'),
         })
 
-    # ── Prefetch all subjects once — shared across both PDF processing loops ──
-    subject_map = {
-        s.name.lower(): s
-        for s in Subject.objects.only('id', 'name')
-    }
-
-    # Shared topic map cache: {subject_id: {topic_name_lower: topic}}
-    # Avoids rebuilding per subject when both note and worksheet PDFs share subjects
+    # Prefetch all subjects once — shared across both processing loops
+    subject_map     = {s.name.lower(): s for s in Subject.objects.only('id', 'name')}
     topic_map_cache = {}
+    note_results    = []
+    ws_results      = []
+    all_errors      = []
 
-    note_results      = []
-    worksheet_results = []
-    all_errors        = []
-
-    # ── Process notes ─────────────────────────────────────────────────────────
     if note_file:
         parsed, errors = parse_note_pdf(note_file.read())
         all_errors.extend(errors)
@@ -422,10 +405,9 @@ def upload_notes(request):
             parsed, 'Notes', LessonNote, subject_map,
             topic_map_cache, note_video_url, overwrite, request.user
         )
-        note_results  = results
+        note_results = results
         all_errors.extend(errors)
 
-    # ── Process worksheets ────────────────────────────────────────────────────
     if worksheet_file:
         parsed, errors = parse_note_pdf(worksheet_file.read())
         all_errors.extend(errors)
@@ -433,16 +415,16 @@ def upload_notes(request):
             parsed, 'Worksheet', Worksheet, subject_map,
             topic_map_cache, worksheet_video_url, overwrite, request.user
         )
-        worksheet_results = results
+        ws_results = results
         all_errors.extend(errors)
 
-    # Success — no subject dropdown needed on the result page
     return render(request, 'teacher/upload_notes.html', {
         'success':           True,
         'note_results':      note_results,
-        'worksheet_results': worksheet_results,
+        'worksheet_results': ws_results,
         'errors':            all_errors,
     })
+
 
 @admin_required
 def feature_flags_page(request):
@@ -490,7 +472,6 @@ def lesson_notes(request):
             return _handle_ai_accept(request, data)
         return JsonResponse({'error': 'Unknown action'}, status=400)
 
-    # ── GET ───────────────────────────────────────────────────────────────────
     from catalog.cache_utils import get_or_set, CACHE_5_MIN, KEY_ALL_SUBJECTS
 
     all_subjects = get_or_set(
@@ -509,10 +490,10 @@ def lesson_notes(request):
 
     selected_subject = None
     topics           = []
-    selected_topic   = None 
+    selected_topic   = None
     note             = None
     worksheet        = None
-    themes_grouped = {} 
+    themes_grouped   = {}
     subject_covered  = True
     ai_enabled       = is_feature_enabled('ai_lesson_notes', user=request.user)
 
@@ -520,11 +501,16 @@ def lesson_notes(request):
         try:
             selected_subject = Subject.objects.get(id=selected_subject_id)
             subject_covered  = selected_subject.id in covered_ids
-            
-            if subject_covered:
-                topics = Topic.objects.filter(subject=selected_subject).select_related('theme').prefetch_related('lesson_note', 'worksheet').order_by('theme__order', 'theme__name', 'name')
 
-                # Group topics by theme
+            if subject_covered:
+                topics = (
+                    Topic.objects
+                    .filter(subject=selected_subject)
+                    .select_related('theme')
+                    .prefetch_related('lesson_note', 'worksheet')
+                    .order_by('theme__order', 'theme__name', 'name')
+                )
+
                 from collections import defaultdict
                 themes_dict = defaultdict(list)
                 for t in topics:
@@ -534,23 +520,18 @@ def lesson_notes(request):
         except Subject.DoesNotExist:
             pass
 
-    # Updated Topic retrieval
     if selected_topic_id and subject_covered:
         try:
-            selected_topic = Topic.objects.prefetch_related(
-                'lesson_note', 
-                'worksheet'
-            ).get(id=selected_topic_id, subject=selected_subject)
-            
-            note = getattr(selected_topic, 'lesson_note', None)
+            selected_topic = (
+                Topic.objects
+                .prefetch_related('lesson_note', 'worksheet')
+                .get(id=selected_topic_id, subject=selected_subject)
+            )
+            note      = getattr(selected_topic, 'lesson_note', None)
             worksheet = getattr(selected_topic, 'worksheet', None)
         except Topic.DoesNotExist:
             pass
 
-    # ── Section 10: free-tier topic access check ──────────────────────────────
-    # This runs only when a topic has been selected.
-    # Admins and subscribed teachers always pass.
-    # Free teachers have a lifetime limit of 5 unique topics.
     lesson_access        = None
     lesson_access_denied = False
 
@@ -561,14 +542,9 @@ def lesson_notes(request):
         lesson_access = check_lesson_note_access(request.user, selected_topic)
 
         if not lesson_access['allowed']:
-            # Teacher has used all 5 free topic slots — show upgrade prompt
             lesson_access_denied = True
         else:
-            # Record this topic as accessed.
-            # Uses get_or_create internally so calling it again for the same
-            # topic never consumes an extra slot.
             FreeTeacherTopicAccess.record_access(request.user, selected_topic)
-    # ── end Section 10 ───────────────────────────────────────────────────────
 
     context = {
         'all_subjects':         all_subjects,
@@ -576,14 +552,13 @@ def lesson_notes(request):
         'selected_subject':     selected_subject,
         'subject_covered':      subject_covered,
         'topics':               topics,
-        'themes_grouped': themes_grouped,
+        'themes_grouped':       themes_grouped,
         'selected_topic':       selected_topic,
         'note':                 note,
         'ai_enabled':           ai_enabled,
-        # Section 10 additions — used by lesson_notes.html template
         'lesson_access':        lesson_access,
         'lesson_access_denied': lesson_access_denied,
-        'worksheet': worksheet,
+        'worksheet':            worksheet,
     }
     return render(request, 'teacher/lesson_notes.html', context)
 
@@ -656,30 +631,14 @@ MATHEMATICAL NOTATION — CRITICAL:
 Every mathematical expression, variable, equation, or formula MUST be wrapped in LaTeX delimiters.
 Use \\( ... \\) for inline math and \\[ ... \\] for display (standalone) equations.
 
-CORRECT — always do this:
-  Inline:    "If \\(a^x = N\\), then \\(\\log_a N = x\\)"
-  Display:   "\\[\\log_a(MN) = \\log_a M + \\log_a N\\]"
-  Fractions: \\(\\frac{{1}}{{2}}\\), \\(\\frac{{M}}{{N}}\\)
-  Powers:    \\(x^{{2}}\\), \\(a^{{m+n}}\\)
-  Roots:     \\(\\sqrt{{9}}\\), \\(\\sqrt[3]{{8}}\\)
-  Variables: \\(x\\), \\(a\\), \\(N\\) — even single letters must be wrapped
-
-WRONG — never do this:
-  (a^x = N)       ← plain parentheses around math — this is the most common error, never do it
-  a^x = N         ← raw math with no delimiters
-  $a^x = N$       ← dollar sign delimiter — conflicts with currency
-  9^(1/2)         ← plain text math
-  log_a N         ← undelimited expression
-  Let x = 5       ← x must be \\(x\\), not plain text
-
 RULES:
 - Write for a student with limited time to revise this topic before an exam
 - Every fact must be accurate and pitched at the correct level for WAEC/NECO/JAMB
-- Use Nigerian examples where relevant (organisms, geography, economy, history, industries, food, diseases)
-- No introductions, no conclusions, no motivational sentences, no "in this note we will..."
+- Use Nigerian examples where relevant
+- No introductions, no conclusions, no motivational sentences
 - No repetition — state each fact once
 - Tables must be complete and accurate
-- CURRENCY: write Naira as ₦500 or NGN 500, dollars as USD 10 — never bare $ signs
+- CURRENCY: write Naira as ₦500 or NGN 500 — never bare $ signs
 - Format using markdown"""
 
     try:
@@ -740,35 +699,18 @@ def _handle_ai_accept(request, data):
 # ══════════════════════════════════════════════════════════════════════════════
 # DOCX PARSER HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
-"""
-Drop this into teacher/views.py to replace the existing _parse_docx function
-and all its helper functions.
-
-Requirements:
-- pandoc must be installed on the server (add to Dockerfile: apt-get install -y pandoc)
-- beautifulsoup4 must be in requirements.txt (pip install beautifulsoup4)
-
-The parser:
-1. Uses pandoc to convert DOCX → HTML with --mathjax flag
-2. Math equations become \(...\) inline and \[...\] display MathJax markup
-3. Images are extracted to a temp dir and loaded into memory
-4. Choices with math expressions are fully preserved as HTML
-5. Header (Subject/Exam/Year/Sitting) is parsed from the document top
-"""
 
 import subprocess
 import tempfile
 import os
-import re
-import io
 
 from bs4 import BeautifulSoup, NavigableString
 
 
 _SITTING_MAP = {
-    'may': 'MAY_JUNE', 'june': 'MAY_JUNE',
-    'nov': 'NOV_DEC',  'dec':  'NOV_DEC',
-    'mock': 'MOCK', 
+    'may':  'MAY_JUNE', 'june': 'MAY_JUNE',
+    'nov':  'NOV_DEC',  'dec':  'NOV_DEC',
+    'mock': 'MOCK',
 }
 
 
@@ -785,7 +727,7 @@ def _split_para_into_lines(elem):
     Split a <p> element into lines at <br/> boundaries.
     Returns list of (plain_text, html_string) tuples.
     """
-    lines = []
+    lines        = []
     current_html = ''
     current_text = ''
 
@@ -809,7 +751,7 @@ def _split_para_into_lines(elem):
 
 
 def _is_choice_block(elem):
-    """Check if a <p> element starts with A. or A) — i.e. is a choices block."""
+    """Return True if the paragraph begins with a choice label (A. / A))."""
     _choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
     lines = _split_para_into_lines(elem)
     if not lines:
@@ -824,16 +766,15 @@ def _parse_choices(elem):
     Math in choices is preserved as MathJax HTML.
     """
     _choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
-    lines = _split_para_into_lines(elem)
+    lines   = _split_para_into_lines(elem)
     choices = []
-    seen = set()
+    seen    = set()
 
     for plain, html in lines:
         m = _choice_label_re.match(plain)
         if m and m.group(1).upper() not in seen:
             label = m.group(1).upper()
             seen.add(label)
-            # Strip leading "A. " from html
             choice_html = re.sub(r'^[A-E][.\)]\s*', '', html.strip())
             choices.append({
                 'label':      label,
@@ -843,50 +784,60 @@ def _parse_choices(elem):
 
     return choices
 
+
 def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re):
     """
-    Parse objective blocks from raw_blocks dict.
-    raw_blocks: {question_number: [elems]} — keys used directly as question numbers.
- 
-    explanation_re matches lines like:
-        "Explanation: Some text here."
-        "  explanation:  blah blah"   (leading whitespace tolerated)
-    The matched text is stored in q['explanation'] and attached to the correct
-    Choice after answer resolution — NOT appended to question content.
- 
-    content_after_image: text that appears after the diagram in the DOCX
-    (e.g. "Which of the following...") is stored separately so templates
-    can render it between the image and the choices.
+    Parse objective (MCQ) question blocks from a pre-built raw_blocks dict.
+
+    raw_blocks : {question_number: [BeautifulSoup elements]}
+
+    Explanation handling
+    ────────────────────
+    Each question block may contain a multi-paragraph explanation section
+    between "Explanation: ..." and "Topic: ...":
+
+        Answer: C
+        Explanation: First line of explanation.    ← explanation_re matches here
+        More prose continuation...                 ← in_explanation accumulates
+        | table row | ...  |                       ← tables also accumulated
+        Topic: Some Topic                          ← resets in_explanation, saves
+
+    The full explanation text is stored in q['explanation'] and attached to the
+    correct Choice dict as c['explanation'].  It is NEVER appended to
+    content_parts / question.content.
     """
     questions       = []
     choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
- 
+
     for number, block in sorted(raw_blocks.items()):
         q = {
             'number':              number,
             'content':             '',
-            'content_after_image': '',   # text that follows the diagram
+            'content_after_image': '',
             'image_bytes':         None,
             'image_ext':           None,
             'choices':             [],
             'answer':              '',
-            'explanation':         '',
+            'explanation':         '',   # populated from explanation block; never from content
             'topics':              [],
         }
-        content_parts       = []
-        after_image_parts   = []
-        image_seen          = False
-        in_choices          = False
-        seen_labels         = set()
- 
+        content_parts     = []
+        after_image_parts = []
+        image_seen        = False
+        in_choices        = False
+        in_explanation    = False   # True while consuming explanation body paragraphs
+        expl_parts        = []      # accumulates multi-paragraph explanation text
+        seen_labels       = set()
+
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
- 
-            # ── First element ─────────────────────────────────────────────
+
+            # ── First element: question stem ──────────────────────────────────
             if elem is block[0]:
                 m = q_inline_re.match(text)
                 if m:
+                    # Strip leading "N. " from HTML and keep the rest
                     elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
@@ -897,11 +848,11 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     continue
                 else:
                     continue
- 
-            # ── Image ─────────────────────────────────────────────────────
+
+            # ── Image ─────────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 image_seen = True
-                img_tag = elem.find('img') if tag != 'img' else elem
+                img_tag    = elem.find('img') if tag != 'img' else elem
                 if img_tag:
                     src   = img_tag.get('src', '')
                     fname = os.path.basename(src)
@@ -909,10 +860,11 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
- 
-            # ── Alpha ol choices (<ol type="A">) ──────────────────────────
+
+            # ── Alpha <ol type="A"> choices ───────────────────────────────────
             if tag == 'ol' and elem.get('type') == 'A':
-                in_choices = True
+                in_choices     = True
+                in_explanation = False
                 for label_idx, li in enumerate(elem.find_all('li', recursive=False)):
                     label = chr(65 + label_idx)
                     if label not in seen_labels:
@@ -923,16 +875,31 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             'is_correct': False,
                         })
                 continue
- 
-            # ── <p> with <br/> — split and route each line ────────────────
+
+            # ── <p> with <br/> — split and route each line ────────────────────
+            # Explanation continuation within a <br/>-split paragraph is handled
+            # line-by-line using the same in_explanation state.
             if tag == 'p' and elem.find('br'):
-                lines = _split_para_into_lines(elem)
+                lines          = _split_para_into_lines(elem)
                 question_lines = []
                 for plain, html_str in lines:
                     me = explanation_re.match(plain)
                     if me:
-                        q['explanation'] = me.group(1).strip()
-                        in_choices = False
+                        in_explanation = True
+                        in_choices     = False
+                        first_line     = me.group(1).strip()
+                        if first_line:
+                            expl_parts.append(first_line)
+                        continue
+                    if in_explanation:
+                        mt = topic_re.match(plain)
+                        if mt:
+                            in_explanation   = False
+                            q['explanation'] = '\n'.join(expl_parts).strip()
+                            expl_parts       = []
+                            q['topics'].append(' '.join(mt.group(1).split()))
+                        elif plain:
+                            expl_parts.append(plain)
                         continue
                     ma = answer_re.match(plain)
                     if ma:
@@ -960,37 +927,62 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     if not in_choices:
                         question_lines.append(html_str)
                 if question_lines:
-                    # Route to correct bucket depending on whether image was seen
                     chunk = '<p>' + '<br/>'.join(question_lines) + '</p>'
                     if image_seen:
                         after_image_parts.append(chunk)
                     else:
                         content_parts.append(chunk)
                 continue
- 
-            # ── Explanation (standalone <p>, no <br/>) ────────────────────
+
+            # ── Explanation — standalone <p>, no <br/> ────────────────────────
             me = explanation_re.match(text)
             if me:
-                q['explanation'] = me.group(1).strip()
-                in_choices = False
+                in_explanation = True       # enter explanation-accumulation mode
+                in_choices     = False
+                first_line     = me.group(1).strip()
+                if first_line:
+                    expl_parts.append(first_line)
                 continue
- 
-            # ── Answer ────────────────────────────────────────────────────
+
+            # ── Explanation continuation ───────────────────────────────────────
+            # Any element between Explanation: and Topic: belongs to the
+            # explanation body — prose paragraphs, ASCII art, tables, etc.
+            # Topic: is intercepted here to cleanly finalise expl_parts.
+            if in_explanation:
+                mt = topic_re.match(text)
+                if mt:
+                    # Topic: terminates the explanation section
+                    in_explanation   = False
+                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    expl_parts       = []
+                    q['topics'].append(mt.group(1).strip())
+                elif text:
+                    expl_parts.append(text)
+                continue
+
+            # ── Answer ────────────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer']    = ma.group(1).upper()
                 in_choices     = False
+                in_explanation = False   # guard: Answer: should not appear inside explanation
                 continue
- 
-            # ── Topic ─────────────────────────────────────────────────────
+
+            # ── Topic ─────────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
-                q['topics'].append(' '.join(mt.group(1).split()))
+                # Finalise any accumulated explanation before recording topic
+                if in_explanation:
+                    in_explanation   = False
+                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    expl_parts       = []
+                q['topics'].append(mt.group(1).strip())
                 continue
- 
-            # ── Individual choice <p> (no <br/>) ─────────────────────────
+
+            # ── Individual choice <p> (no <br/>) ─────────────────────────────
             if tag == 'p' and _is_choice_block(elem):
-                in_choices = True
+                in_choices     = True
+                in_explanation = False
                 lines = _split_para_into_lines(elem)
                 for plain, html_str in lines:
                     mc = choice_label_re.match(plain)
@@ -1005,34 +997,42 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                                 'is_correct': False,
                             })
                 continue
- 
-            # ── Regular content ───────────────────────────────────────────
-            if not in_choices and tag in ('p', 'table'):
+
+            # ── Regular content (catch-all) ───────────────────────────────────
+            # Guard: in_explanation ensures explanation body never lands here.
+            if not in_choices and not in_explanation and tag in ('p', 'table'):
                 if image_seen:
                     after_image_parts.append(str(elem))
                 else:
                     content_parts.append(str(elem))
- 
+
+        # ── Flush any trailing explanation not terminated by Topic: ──────────
+        if expl_parts and not q['explanation']:
+            q['explanation'] = '\n'.join(expl_parts).strip()
+
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()
- 
+
         # Mark correct choice and attach explanation to it
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
-                    c['is_correct'] = True
-                    if q['explanation']:
-                        c['explanation'] = q['explanation']
- 
+                    c['is_correct']  = True
+                    c['explanation'] = q.get('explanation', '')
+
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
- 
+
     return questions
 
+
 def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re, explanation_re):
-    """Parse objective (MCQ) question blocks — legacy function kept for compatibility."""
+    """
+    Parse objective (MCQ) question blocks — legacy path kept for compatibility.
+    Applies the same in_explanation state machine as _parse_obj_blocks_numbered.
+    """
     questions = []
- 
+
     for block in blocks:
         q = {
             'number':              None,
@@ -1049,11 +1049,13 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
         after_image_parts = []
         image_seen        = False
         in_choices        = False
- 
+        in_explanation    = False
+        expl_parts        = []
+
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
- 
+
             # Question number
             if tag == 'p' and q['number'] is None:
                 standalone = q_num_re.match(text)
@@ -1066,11 +1068,11 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                     elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
- 
+
             # Image
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 image_seen = True
-                img_tag = elem.find('img') if tag != 'img' else elem
+                img_tag    = elem.find('img') if tag != 'img' else elem
                 if img_tag:
                     src   = img_tag.get('src', '')
                     fname = os.path.basename(src)
@@ -1078,78 +1080,103 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
- 
-            # Explanation
+
+            # Explanation first line
             me = explanation_re.match(text)
             if me:
-                q['explanation'] = me.group(1).strip()
-                in_choices = False
+                in_explanation = True
+                in_choices     = False
+                first_line     = me.group(1).strip()
+                if first_line:
+                    expl_parts.append(first_line)
                 continue
- 
+
+            # Explanation continuation
+            if in_explanation:
+                mt = topic_re.match(text)
+                if mt:
+                    in_explanation   = False
+                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    expl_parts       = []
+                    q['topics'].append(' '.join(mt.group(1).split()))
+                elif text:
+                    expl_parts.append(text)
+                continue
+
             # Answer key
             ma = answer_re.match(text)
             if ma:
-                q['answer'] = ma.group(1).upper()
-                in_choices  = False
+                q['answer']    = ma.group(1).upper()
+                in_choices     = False
+                in_explanation = False
                 continue
- 
+
             # Topic
             mt = topic_re.match(text)
             if mt:
+                if in_explanation:
+                    in_explanation   = False
+                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    expl_parts       = []
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
- 
+
             # Choices
             if tag == 'p' and _is_choice_block(elem):
-                in_choices = True
-                q['choices'] = _parse_choices(elem)
+                in_choices     = True
+                in_explanation = False
+                q['choices']   = _parse_choices(elem)
                 continue
- 
+
             # Regular content
-            if not in_choices and tag in ('p', 'table'):
+            if not in_choices and not in_explanation and tag in ('p', 'table'):
                 if image_seen:
                     after_image_parts.append(str(elem))
                 else:
                     content_parts.append(str(elem))
- 
+
+        # Flush trailing explanation
+        if expl_parts and not q['explanation']:
+            q['explanation'] = '\n'.join(expl_parts).strip()
+
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()
- 
+
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
-                    c['is_correct'] = True
-                    if q['explanation']:
-                        c['explanation'] = q['explanation']
- 
+                    c['is_correct']  = True
+                    c['explanation'] = q.get('explanation', '')
+
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
- 
+
     return questions
+
 
 def _parse_docx(file_bytes):
     """
-    Parse a DOCX file using pandoc.
-    Handles both paragraph-based (typed numbers), list-based (Word numbering),
-    and mixed format files in a single unified pass.
+    Parse a DOCX file using pandoc → HTML → BeautifulSoup.
+
+    Handles paragraph-based (typed numbers), list-based (Word numbering),
+    and mixed-format files in a unified two-pass block collection.
 
     Returns:
         (header, questions)
 
-    header: dict with keys: subject, exam, year, sitting, paper_type
-    questions: list of dicts with keys:
-        number, content (HTML), image_bytes, image_ext, topics
-        — OBJ also has: choices, answer
-        — THEORY also has: theory_answer, marking_guide
+    header    : dict — subject, exam, year, sitting, paper_type
+    questions : list of dicts — number, content (HTML), image_bytes,
+                image_ext, topics, choices, answer, explanation (OBJ)
+                              — theory_answer, marking_guide (THEORY)
     """
     q_num_re               = re.compile(r'^\s*(\d+)[.\)]\s*$')
     q_inline_re            = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
     topic_re               = re.compile(r'^topic\s*:\s*(.+)', re.IGNORECASE | re.DOTALL)
     answer_re              = re.compile(r'^answer\s*(?:key\s*)?:\s*([A-E])', re.IGNORECASE)
-    theory_answer_start_re = re.compile(r'^answer\s*:\s*(.*)$', re.IGNORECASE)
-    marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE)
-    choice_label_re        = re.compile(r'^([A-E])[.\)]\s*') 
-    explanation_re = re.compile(r'^\s*explanation\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
+    theory_answer_start_re = re.compile(r'^(answer|solution)\s*:\s*(.*)$', re.IGNORECASE | re.DOTALL)
+    marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$',   re.IGNORECASE | re.DOTALL)
+    choice_label_re        = re.compile(r'^([A-E])[.\)]\s*')
+    explanation_re         = re.compile(r'^\s*explanation\s*:\s*(.*)',       re.IGNORECASE | re.DOTALL)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, 'input.docx')
@@ -1165,10 +1192,10 @@ def _parse_docx(file_bytes):
             raise ValueError(f'pandoc conversion failed: {result.stderr}')
 
         html = result.stdout
-        # ── Escape currency $ signs before MathJax interprets them ───────────
+        # Escape bare currency $ signs before MathJax interprets them
         html = re.sub(r'\$(?=\s*\d)', r'&#36;', html)
 
-        img_map = {}
+        img_map    = {}
         media_path = os.path.join(tmpdir, 'media')
         if os.path.exists(media_path):
             for fname in os.listdir(media_path):
@@ -1178,9 +1205,8 @@ def _parse_docx(file_bytes):
 
     soup = BeautifulSoup(html, 'html.parser')
 
-    # ── Shared header builder ─────────────────────────────────────────────────
+    # ── Header parser ─────────────────────────────────────────────────────────
     def _parse_header(header_elems):
-        """Parse header fields from a list of elements in document order."""
         header = {
             'subject':    '',
             'exam':       '',
@@ -1209,9 +1235,7 @@ def _parse_docx(file_bytes):
                 )
         return header
 
-    # ── Header detection — works for both formats ─────────────────────────────
-    # Collect all <p> tags that appear before the first question element
-    # (either a <ol type="1"> or a paragraph with a typed number)
+    # ── Locate where questions begin ──────────────────────────────────────────
     first_ol      = soup.find('ol', type='1')
     first_p_match = None
     for p in soup.find_all('p'):
@@ -1227,10 +1251,8 @@ def _parse_docx(file_bytes):
         header_elems.append(p)
     header = _parse_header(header_elems)
 
-    # ── Unified two-pass block collection ─────────────────────────────────────
-    # Handles pure list-based, pure paragraph-based, and mixed files.
-    # raw_blocks keyed by question number — prevents duplicates automatically.
-    raw_blocks = {}  # {question_number: [elems]}
+    # ── Two-pass block collection ─────────────────────────────────────────────
+    raw_blocks = {}  # {question_number: [elements]}
 
     # Pass 1 — list-based questions from <ol type="1">
     for ol in soup.find_all('ol', type='1'):
@@ -1241,8 +1263,6 @@ def _parse_docx(file_bytes):
             number = start + idx
             elems  = list(li.find_all(['p', 'img', 'figure', 'table', 'ol']))
 
-            # For the last <li> in this <ol>, collect trailing siblings:
-            # <ol type="A"> (alpha choice lists), Answer:, Topic: lines
             if li == lis[-1]:
                 next_sib = ol.find_next_sibling()
                 while next_sib and not hasattr(next_sib, 'name'):
@@ -1266,8 +1286,8 @@ def _parse_docx(file_bytes):
 
             raw_blocks[number] = elems
 
-    # Pass 2 — paragraph-based questions (typed numbers like "22.")
-    # Only adds questions not already found in Pass 1
+    # Pass 2 — paragraph-based questions (typed "N." numbers)
+    # Only adds questions not already captured in Pass 1
     all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
     current_num  = None
     current      = []
@@ -1278,7 +1298,6 @@ def _parse_docx(file_bytes):
         inline     = q_inline_re.match(text)
 
         if standalone or inline:
-            # Save previous block if not already captured by Pass 1
             if current_num is not None and current_num not in raw_blocks:
                 raw_blocks[current_num] = current
             current_num = int((standalone or inline).group(1))
@@ -1286,11 +1305,10 @@ def _parse_docx(file_bytes):
         elif current_num is not None:
             current.append(elem)
 
-    # Save last block
     if current_num is not None and current_num not in raw_blocks:
         raw_blocks[current_num] = current
 
-    # ── Branch to correct parser ──────────────────────────────────────────────
+    # ── Dispatch to correct parser ────────────────────────────────────────────
     if header['paper_type'] == 'THEORY':
         questions = _parse_theory_blocks(
             soup, img_map, q_num_re, q_inline_re, topic_re,
@@ -1303,40 +1321,40 @@ def _parse_docx(file_bytes):
 
     return header, questions
 
+
 import os
 from bs4 import Tag
- 
+
 _TH_Q_TYPED_RE = re.compile(r'^\s*(\d+)[.)]\s*(.*)', re.DOTALL)
 _TH_ANSWER_RE  = re.compile(r'^(answer|solution)\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
 _TH_MARKING_RE = re.compile(r'^marking\s*guide\s*:\s*(.*)',   re.IGNORECASE | re.DOTALL)
 _TH_VIDEO_RE   = re.compile(r'^video\s*:\s*(\S+)',            re.IGNORECASE)
-_TH_MARKS_RE   = re.compile(r'^\[(\d+)\s*marks?\]$', re.IGNORECASE)
+_TH_MARKS_RE   = re.compile(r'^\[(\d+)\s*marks?\]$',         re.IGNORECASE)
 _TH_TOPIC_RE   = re.compile(r'^topic\s*:\s*(.+)',             re.IGNORECASE | re.DOTALL)
 _TH_SUBPART_RE = re.compile(
     r'^\s*[\(\[]?([a-zA-Z]{1,3}|i{1,4}v?|vi{0,3}|ix|x{1,3})[\)\].]\s*\S',
     re.IGNORECASE
 )
-_TH_IMG_W_RE   = re.compile(r'width\s*:\s*([\d.]+)in',  re.IGNORECASE)
-_TH_IMG_H_RE   = re.compile(r'height\s*:\s*([\d.]+)in', re.IGNORECASE)
- 
- 
+_TH_IMG_W_RE = re.compile(r'width\s*:\s*([\d.]+)in',  re.IGNORECASE)
+_TH_IMG_H_RE = re.compile(r'height\s*:\s*([\d.]+)in', re.IGNORECASE)
+
+
 def _th_text(elem) -> str:
     return elem.get_text(separator=' ', strip=True).replace('\n', ' ')
- 
- 
+
+
 def _th_is_topic(elem) -> bool:
     return bool(_TH_TOPIC_RE.match(_th_text(elem)))
- 
- 
+
+
 def _th_topic_name(elem) -> str:
     m = _TH_TOPIC_RE.match(_th_text(elem))
     return m.group(1).strip() if m else ''
- 
- 
+
+
 def _th_img_info(img_tag, img_map: dict):
     """
     Return (bytes, ext, width_px, height_px) or (None, None, None, None).
-    pandoc writes full temp paths as src; img_map is keyed by basename only.
     96 dpi: px = inches × 96.
     """
     src   = img_tag.get('src', '')
@@ -1351,12 +1369,11 @@ def _th_img_info(img_tag, img_map: dict):
     w_px  = round(float(wm.group(1)) * 96) if wm else None
     h_px  = round(float(hm.group(1)) * 96) if hm else None
     return data, ext, w_px, h_px
- 
- 
+
+
 def _th_ol_to_html(ol_elem, lv: int) -> str:
     """
     Render <ol type="a"|"i"> into sq-lv{N} indent blocks.
-    Uses li.decode_contents() directly — pandoc already wraps li text in <p>.
     Nested <ol> recurse one level deeper (capped at lv3).
     """
     parts = []
@@ -1370,8 +1387,8 @@ def _th_ol_to_html(ol_elem, lv: int) -> str:
         for nol in nested_ols:
             parts.append(_th_ol_to_html(nol, min(lv + 1, 3)))
     return '\n'.join(parts)
- 
- 
+
+
 def _th_blockquote_html(bq_elem, img_map: dict, set_img_fn) -> list:
     """
     Walk a <blockquote> and return list of HTML strings.
@@ -1403,56 +1420,54 @@ def _th_blockquote_html(bq_elem, img_map: dict, set_img_fn) -> list:
             if inner:
                 parts.append('<div class="sq-lv1"><p>%s</p></div>' % inner)
     return parts
- 
- 
+
+
 def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                           theory_answer_start_re, marking_guide_re):
     """
-    Parse theory/essay questions from pandoc HTML.
- 
+    Parse theory/essay questions from pandoc-generated HTML.
+
     Args:
-        blocks   — Pass the BeautifulSoup `soup` object (repurposed arg).
-        img_map  — {filename: bytes} from pandoc --extract-media.
-        Remaining args kept for signature compatibility; unused internally.
- 
+        blocks   — BeautifulSoup soup object (repurposed arg name for compatibility)
+        img_map  — {filename: bytes} from pandoc --extract-media
+
     Returns list of question dicts:
         number, content (HTML), image_bytes, image_ext,
-        image_width_px, image_height_px,
-        topics (list[str]),
+        image_width_px, image_height_px, topics (list[str]),
         theory_answer (HTML), marking_guide (HTML), video_url (str|None)
- 
-    DOCX section markers (place after question content, before Topic:):
-        Answer:        or  Solution:      → theory_answer
-        Marking Guide:                    → marking_guide
-        Video:  https://...               → video_url (single URL, first wins)
-        Topic:                            → closes the question record
+
+    Section markers (place after question content, before Topic:):
+        Answer: / Solution:  → theory_answer
+        Marking Guide:       → marking_guide
+        Video: https://...   → video_url (first occurrence wins)
+        Topic:               → closes the question record
     """
     soup = blocks
- 
+
     def _new_q(number):
         return {
-            'number':           number,
-            'content':          '',
-            'image_bytes':      None,
-            'image_ext':        None,
-            'image_width_px':   None,
-            'image_height_px':  None,
-            'topics':           [],
-            'theory_answer':    '',
-            'marking_guide':    '',
-            'video_url':        None,
-            'marks':            1,
+            'number':          number,
+            'content':         '',
+            'image_bytes':     None,
+            'image_ext':       None,
+            'image_width_px':  None,
+            'image_height_px': None,
+            'topics':          [],
+            'theory_answer':   '',
+            'marking_guide':   '',
+            'video_url':       None,
+            'marks':           1,
         }
- 
-    questions      = []
-    current_q      = None
-    content_parts  = []
-    answer_parts   = []
-    marking_parts  = []
-    section        = 'content'
-    last_q_number  = 0
-    used_numbers   = set()
- 
+
+    questions     = []
+    current_q     = None
+    content_parts = []
+    answer_parts  = []
+    marking_parts = []
+    section       = 'content'
+    last_q_number = 0
+    used_numbers  = set()
+
     def _flush():
         nonlocal current_q, content_parts, answer_parts
         nonlocal marking_parts, section, last_q_number
@@ -1470,48 +1485,41 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
         answer_parts  = []
         marking_parts = []
         section       = 'content'
- 
+
     def _open(number):
         nonlocal current_q, section
         _flush()
         current_q = _new_q(number)
         section   = 'content'
- 
+
     def _append(html):
         if not html:
             return
         if   section == 'content': content_parts.append(html)
         elif section == 'answer':  answer_parts.append(html)
         elif section == 'marking': marking_parts.append(html)
- 
+
     def _set_image(b, ext, w, h):
         if current_q and current_q['image_bytes'] is None and b:
             current_q['image_bytes']     = b
             current_q['image_ext']       = ext
             current_q['image_width_px']  = w
             current_q['image_height_px'] = h
- 
+
     def _try_section_switch(text) -> bool:
-        """
-        Check for Answer:, Marking Guide:, or Video: headers.
-        Switches active section and returns True if matched.
-        Video: is extracted once and does not change the section.
-        """
         nonlocal section
 
-        # Marks allocation — e.g. [3 marks]
         mm = _TH_MARKS_RE.match(text.strip())
         if mm and current_q is not None:
             current_q['marks'] = int(mm.group(1))
             return True
- 
-        # Video: — extract URL, don't change section
+
         mv = _TH_VIDEO_RE.match(text)
         if mv and current_q is not None:
-            if current_q['video_url'] is None:          # first wins
+            if current_q['video_url'] is None:
                 current_q['video_url'] = mv.group(1).strip()
             return True
- 
+
         mg = _TH_MARKING_RE.match(text)
         if mg:
             section = 'marking'
@@ -1519,7 +1527,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             if inline:
                 _append('<p>%s</p>' % inline)
             return True
- 
+
         ans = _TH_ANSWER_RE.match(text)
         if ans:
             section = 'answer'
@@ -1527,24 +1535,23 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             if inline:
                 _append('<p>%s</p>' % inline)
             return True
- 
+
         return False
- 
-    # ── Walk top-level soup children ──────────────────────────────────────────
+
     top_elems = [e for e in soup.children if isinstance(e, Tag)]
- 
+
     for elem in top_elems:
         tag  = elem.name
         text = _th_text(elem)
- 
-        # ── Topic → close question ────────────────────────────────────────────
+
+        # Topic → close question
         if _th_is_topic(elem):
             tn = _th_topic_name(elem)
             if tn and current_q is not None:
                 current_q['topics'].append(tn)
             _flush()
             continue
- 
+
         # Topic wrapped in <blockquote>
         if tag == 'blockquote':
             topic_p = next(
@@ -1557,28 +1564,28 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     current_q['topics'].append(tn)
                 _flush()
                 continue
- 
-        # ── Section switches at top level ─────────────────────────────────────
+
+        # Section switches at top level
         if current_q is not None and _try_section_switch(text):
             continue
- 
-        # ── <ol type="1"> — list-based questions ─────────────────────────────
+
+        # <ol type="1"> — list-based questions
         if tag == 'ol' and elem.get('type') == '1':
             start_attr = elem.get('start')
             q_num      = int(start_attr) if start_attr else (last_q_number + 1)
- 
+
             for li in elem.find_all('li', recursive=False):
                 _open(q_num)
                 q_num += 1
- 
+
                 for child in li.children:
                     if not isinstance(child, Tag):
                         continue
                     child_text = _th_text(child)
- 
+
                     if _try_section_switch(child_text):
                         continue
- 
+
                     if child.name == 'p':
                         img_t = child.find('img')
                         if img_t:
@@ -1596,8 +1603,8 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     elif child.name == 'table':
                         _append(str(child))
             continue
- 
-        # ── <p>N. text — typed-number question ───────────────────────────────
+
+        # <p>N. text — typed-number question
         if tag == 'p':
             m_typed = _TH_Q_TYPED_RE.match(text)
             if m_typed:
@@ -1612,56 +1619,56 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     b, ext, w, h = _th_img_info(img_t, img_map)
                     _set_image(b, ext, w, h)
                 continue
- 
+
             # Orphan sub-part after a topic flush
             if current_q is None and _TH_SUBPART_RE.match(text):
                 synthetic = last_q_number + 1
                 while synthetic in used_numbers:
                     synthetic += 1
                 _open(synthetic)
- 
+
             if current_q is None:
                 continue
- 
+
             if _try_section_switch(text):
                 continue
- 
+
             img_t = elem.find('img')
             if img_t:
                 b, ext, w, h = _th_img_info(img_t, img_map)
                 _set_image(b, ext, w, h)
                 if not text.strip():
                     continue
- 
+
             inner = elem.decode_contents().strip()
             if inner:
                 _append('<p>%s</p>' % inner)
             continue
- 
-        # ── <blockquote> — lv1 indented continuation ─────────────────────────
+
+        # <blockquote> — lv1 indented continuation
         if tag == 'blockquote':
             if current_q is None:
                 continue
             for html in _th_blockquote_html(elem, img_map, _set_image):
                 _append(html)
             continue
- 
-        # ── <ol type="a"|"i"> at top level ───────────────────────────────────
+
+        # <ol type="a"|"i"> at top level
         if tag == 'ol' and elem.get('type', '').lower() in ('a', 'i'):
             if current_q is None:
                 continue
             lv = 2 if elem.get('type', 'a').lower() == 'a' else 3
             _append(_th_ol_to_html(elem, lv))
             continue
- 
-        # ── <table> ───────────────────────────────────────────────────────────
+
+        # <table>
         if tag == 'table':
             if current_q is None:
                 continue
             _append(str(elem))
             continue
- 
-        # ── Bare <figure> or <img> ────────────────────────────────────────────
+
+        # Bare <figure> or <img>
         if tag in ('figure', 'img'):
             if current_q is None:
                 continue
@@ -1670,9 +1677,10 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                 b, ext, w, h = _th_img_info(img_t, img_map)
                 _set_image(b, ext, w, h)
             continue
- 
+
     _flush()
     return questions
+
 
 @admin_required
 @feature_required('docx_upload')
@@ -1729,22 +1737,18 @@ def upload_docx(request):
         exam_board=exam_board, subject=subject, year=year, sitting=sitting,
     )
 
-    # ── Pre-fetch everything needed for the loop — eliminates all N+1s ───────
-
-    # Fix N+1 #1: all existing question numbers for this series in one query
+    # Pre-fetch everything needed for the loop — eliminates all N+1s
     existing_questions = {
         (q.question_number, q.question_type): q
         for q in Question.objects.filter(exam_series=exam_series, question_type=paper_type)
-                                .only('id', 'question_number', 'content', 'question_type')
+                                 .only('id', 'question_number', 'content', 'question_type')
     }
 
-    # Fix N+1 #2: all topics for this subject in one query, keyed by lowercase name
     topic_map = {
         t.name.lower(): t
         for t in Topic.objects.filter(subject=subject).only('id', 'name')
     }
 
-    # ── Process questions ─────────────────────────────────────────────────────
     created_count = 0
     skipped_count = 0
     skipped_nums  = []
@@ -1762,10 +1766,10 @@ def upload_docx(request):
         try:
             with transaction.atomic():
                 if existing and overwrite:
-                    existing.content       = q_data['content']
-                    existing.content_after_image  = q_data.get('content_after_image') or ''
-                    existing.question_type = paper_type
-                    existing.marks         = q_data.get('marks') or existing.marks
+                    existing.content             = q_data['content']
+                    existing.content_after_image = q_data.get('content_after_image') or ''
+                    existing.question_type       = paper_type
+                    existing.marks               = q_data.get('marks') or existing.marks
                     existing.save(update_fields=['content', 'content_after_image', 'question_type', 'marks'])
                     question = existing
                     question.choices.all().delete()
@@ -1781,21 +1785,20 @@ def upload_docx(request):
                         marks=q_data.get('marks') or 1,
                     )
 
-                # Image — both create and overwrite paths
+                # Image
                 if q_data.get('image_bytes'):
                     ext      = q_data['image_ext'] or 'png'
                     filename = f"q_{subject.name.lower()}_{year}_{paper_type.lower()}_{q_data['number']}.{ext}"
                     question.image.save(filename, ContentFile(q_data['image_bytes']), save=True)
                 elif existing and overwrite:
-                    # Overwriting but no image in new file — clear the old one
                     if question.image:
                         question.image.delete(save=False)
                         question.image = None
                         question.save(update_fields=['image'])
 
-                # Fix batching #1: bulk_create choices instead of one INSERT per choice
+                # Choices — bulk_create: single INSERT regardless of choice count
                 if paper_type == 'OBJ' and q_data['choices']:
-                    seen_labels = set()
+                    seen_labels       = set()
                     choices_to_create = []
                     for c in q_data['choices']:
                         if c['label'] not in seen_labels:
@@ -1805,7 +1808,7 @@ def upload_docx(request):
                                 label=c['label'],
                                 choice_text=c['text'],
                                 is_correct=c['is_correct'],
-                                explanation=c.get('explanation') or ''
+                                explanation=c.get('explanation') or '',
                             ))
                     Choice.objects.bulk_create(choices_to_create)
 
@@ -1819,7 +1822,7 @@ def upload_docx(request):
                         }
                     )
 
-                # Fix N+1 #3 + batching #2: resolve topics from dict, add in one call
+                # Topics — single INSERT regardless of topic count
                 topics_to_add = []
                 for topic_name in q_data['topics']:
                     topic_name = topic_name.strip().lower()
@@ -1833,7 +1836,7 @@ def upload_docx(request):
                             f"Q{q_data['number']}: Topic '{topic_name}' not found — skipped"
                         )
                 if topics_to_add:
-                    question.topics.add(*topics_to_add)  # single INSERT regardless of count
+                    question.topics.add(*topics_to_add)
 
             created_count += 1
 
@@ -1865,31 +1868,29 @@ def upload_docx(request):
     }
     return render(request, 'teacher/upload_docx.html', context)
 
+
 @admin_required
 def referral_analytics(request):
-    """Admin view showing referral statistics and top referrers.""" 
-    total_referrals = Referral.objects.count()
+    """Admin view showing referral statistics and top referrers."""
+    total_referrals       = Referral.objects.count()
     total_referring_users = Referral.objects.values('referrer').distinct().count()
- 
-    # Last 30 days
-    thirty_days_ago = timezone.now() - timedelta(days=30)
+
+    thirty_days_ago  = timezone.now() - timedelta(days=30)
     recent_referrals = Referral.objects.filter(created_at__gte=thirty_days_ago).count()
- 
-    # Top referrers
+
     top_referrers = (
         Referral.objects
         .values('referrer__id', 'referrer__first_name', 'referrer__last_name', 'referrer__email')
         .annotate(total=Count('id'))
         .order_by('-total')[:20]
     )
- 
-    # Recent referral events
+
     recent_events = (
         Referral.objects
         .select_related('referrer', 'referred')
         .order_by('-created_at')[:15]
     )
- 
+
     context = {
         'total_referrals':       total_referrals,
         'total_referring_users': total_referring_users,
@@ -1899,21 +1900,18 @@ def referral_analytics(request):
     }
     return render(request, 'teacher/referral_analytics.html', context)
 
-    # Add to teacher/views.py
 
 @admin_required
 def upload_past_paper(request):
     from catalog.models import Subject, ExamBoard, ExamSeries, PastPaper
     from django.core.files.base import ContentFile
 
-    # ── GET — only load dropdowns when rendering the empty form ──────────────
     if request.method != 'POST':
         return render(request, 'teacher/upload_past_paper.html', {
             'subjects':    Subject.objects.only('id', 'name').order_by('name'),
             'exam_boards': ExamBoard.objects.only('id', 'name', 'abbreviation').order_by('name'),
         })
 
-    # ── POST — parse form fields ──────────────────────────────────────────────
     subject_id    = request.POST.get('subject')
     board_id      = request.POST.get('exam_board')
     year_str      = request.POST.get('year', '').strip()
@@ -1923,7 +1921,6 @@ def upload_past_paper(request):
     question_file = request.FILES.get('question_pdf')
     answer_file   = request.FILES.get('answer_pdf')
 
-    # ── Validation ────────────────────────────────────────────────────────────
     errors = []
     if not subject_id:  errors.append('Please select a subject.')
     if not board_id:    errors.append('Please select an exam board.')
@@ -1941,7 +1938,6 @@ def upload_past_paper(request):
         errors.append(f'Invalid year: "{year_str}".')
 
     if errors:
-        # Only load dropdowns here if validation failed and we must re-render
         return render(request, 'teacher/upload_past_paper.html', {
             'subjects':    Subject.objects.only('id', 'name').order_by('name'),
             'exam_boards': ExamBoard.objects.only('id', 'name', 'abbreviation').order_by('name'),
@@ -1949,8 +1945,6 @@ def upload_past_paper(request):
             'post':        request.POST,
         })
 
-    # ── Resolve subject and board — no extra queries ──────────────────────────
-    # Fetch only what we need, directly by PK — single targeted query each
     try:
         subject    = Subject.objects.only('id', 'name').get(id=subject_id)
         exam_board = ExamBoard.objects.only('id', 'name', 'abbreviation').get(id=board_id)
@@ -1962,21 +1956,19 @@ def upload_past_paper(request):
             'post':        request.POST,
         })
 
-    # ── Get or create ExamSeries and PastPaper ────────────────────────────────
     exam_series, _ = ExamSeries.objects.get_or_create(
         exam_board=exam_board, subject=subject,
         year=year, sitting=sitting,
     )
 
-    paper, created = PastPaper.objects.get_or_create(
+    paper, created    = PastPaper.objects.get_or_create(
         exam_series=exam_series,
         paper_type=paper_type,
     )
 
-    # ── Apply only changed fields — targeted UPDATE ───────────────────────────
-    updated_fields  = []
-    save_fields     = ['uploaded_by']  # always update this
+    save_fields       = ['uploaded_by']
     paper.uploaded_by = request.user
+    updated_fields    = []
 
     if question_file:
         paper.question_pdf = question_file
@@ -1994,19 +1986,18 @@ def upload_past_paper(request):
         updated_fields.append('video URL')
 
     paper.save(update_fields=save_fields)
+
     from django.core.cache import cache
     cache.delete_many([
         f'pp:papers_board_{exam_board.id}',
         'pp:boards_with_counts',
     ])
 
-    # ── PRG pattern — redirect on success to prevent duplicate POSTs ──────────
     action  = 'Created' if created else 'Updated'
     summary = f"{action}: {exam_board.abbreviation} {subject.name} {sitting} {year} — {paper_type}"
     if updated_fields:
         summary += f" ({', '.join(updated_fields)} added)"
 
-    # Success — no dropdown queries needed, just confirm what happened
     return render(request, 'teacher/upload_past_paper.html', {
         'success': True,
         'summary': summary,
