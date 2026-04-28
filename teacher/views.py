@@ -955,7 +955,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     in_explanation   = False
                     q['explanation'] = '\n'.join(expl_parts).strip()
                     expl_parts       = []
-                    q['topics'].append(mt.group(1).strip())
+                    q['topics'].append(' '.join(mt.group(1).split()))
                 elif text:
                     expl_parts.append(text)
                 continue
@@ -976,7 +976,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     in_explanation   = False
                     q['explanation'] = '\n'.join(expl_parts).strip()
                     expl_parts       = []
-                q['topics'].append(mt.group(1).strip())
+                q['topics'].append(' '.join(mt.group(1).split()))
                 continue
 
             # ── Individual choice <p> (no <br/>) ─────────────────────────────
@@ -1349,7 +1349,7 @@ def _th_is_topic(elem) -> bool:
 
 def _th_topic_name(elem) -> str:
     m = _TH_TOPIC_RE.match(_th_text(elem))
-    return m.group(1).strip() if m else ''
+    return ' '.join(m.group(1).split()) if m else ''
 
 
 def _th_img_info(img_tag, img_map: dict):
@@ -1825,7 +1825,7 @@ def upload_docx(request):
                 # Topics — single INSERT regardless of topic count
                 topics_to_add = []
                 for topic_name in q_data['topics']:
-                    topic_name = topic_name.strip().lower()
+                    topic_name = " ".join(topic_name.split()).lower()
                     if not topic_name:
                         continue
                     topic = topic_map.get(topic_name)
