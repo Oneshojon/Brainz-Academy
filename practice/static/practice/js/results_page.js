@@ -40,6 +40,10 @@ window.addEventListener('load', () => {
 function toggleCard(id) {
   const card = document.getElementById(`review-card-${id}`);
   card?.classList.toggle('expanded');
+  // Re-render math if card just became visible
+  if (card?.classList.contains('expanded') && typeof renderMath === 'function') {
+    requestAnimationFrame(() => renderMath(card));
+  }
 }
 
 // ── FILTER ──
@@ -75,6 +79,10 @@ function toggleBookmark(questionId, btn) {
 // ── EXPAND ALL / COLLAPSE ALL ──
 function expandAll() {
   document.querySelectorAll('.review-card:not(.hidden)').forEach(c => c.classList.add('expanded'));
+  // KaTeX skips elements inside display:none — call renderMath after cards are visible
+  if (typeof renderMath === 'function') {
+    requestAnimationFrame(() => renderMath(document.querySelector('.review-list')));
+  }
 }
 function collapseAll() {
   document.querySelectorAll('.review-card').forEach(c => c.classList.remove('expanded'));
@@ -158,11 +166,11 @@ function _buildDiscussionHTML(questionId, data) {
   if (data.explanation) {
     html += `
       <div class="disc-explanation">
-        <span class="disc-explanation-icon">&#x1F4A1;</span>
-        <div class="disc-explanation-body">
-          <div class="disc-explanation-label">Explanation</div>
-          <div class="disc-explanation-text">${data.explanation}</div>
+        <div class="disc-explanation-top">
+          <span class="disc-explanation-icon">&#x1F4A1;</span>
+          <span class="disc-explanation-label">Explanation</span>
         </div>
+        <div class="disc-explanation-text">${data.explanation}</div>
       </div>`;
   }
 

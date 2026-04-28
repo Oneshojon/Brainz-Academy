@@ -310,23 +310,49 @@ body {
 .review-explanation-body p:last-child,
 .disc-explanation-text p:last-child { margin-bottom: 0; }
 
-/* Tables inside explanation */
+/* Tables inside explanation — pandoc generates <table> with tr.odd/tr.even classes */
 .review-explanation-body table,
 .disc-explanation-text table {
-  border-collapse: collapse; width: 100%; margin: 0.6rem 0; font-size: 0.83rem;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6rem 0;
+  font-size: 0.83rem;
+  table-layout: auto;
+  display: table; /* override any inherited flex/block */
 }
 .review-explanation-body table th,
 .review-explanation-body table td,
 .disc-explanation-text table th,
 .disc-explanation-text table td {
-  border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top;
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.5;
 }
 .review-explanation-body table th,
-.disc-explanation-text table th { background: var(--offwhite); font-weight: 700; color: var(--navy); }
+.disc-explanation-text table th {
+  background: var(--offwhite);
+  font-weight: 700;
+  color: var(--navy);
+  white-space: nowrap;
+}
+/* pandoc row classes */
 .review-explanation-body table tr.odd,
 .disc-explanation-text table tr.odd  { background: #ffffff; }
 .review-explanation-body table tr.even,
-.disc-explanation-text table tr.even { background: var(--offwhite); }
+.disc-explanation-text table tr.even { background: #f7f9fc; }
+/* colgroup col widths from pandoc — let table use them */
+.review-explanation-body table col,
+.disc-explanation-text table col { /* respect pandoc width attrs */ }
+/* Mobile: allow horizontal scroll on narrow screens */
+.review-explanation-body,
+.disc-explanation-text {
+  font-size: 0.83rem;
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: auto;
+}
 
 /* pre.ascii-diagram — global */
 pre.ascii-diagram {
@@ -399,17 +425,19 @@ pre.ascii-diagram {
 
 /* Explanation pin inside discussion panel */
 .disc-explanation {
-  display: flex; gap: 0.65rem;
   background: rgba(9,146,194,0.06); border: 1px solid rgba(9,146,194,0.22);
   border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 1rem;
 }
+.disc-explanation-top {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;
+}
 .disc-explanation-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
-.disc-explanation-body { flex: 1; min-width: 0; }
+.disc-explanation-body { flex: 1; min-width: 0; overflow-x: auto; }
 .disc-explanation-label {
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--blue); margin-bottom: 0.25rem;
 }
-.disc-explanation-text { font-size: 0.83rem; color: var(--text); line-height: 1.55; }
+/* .disc-explanation-text font/color defined above with overflow-x: auto */
 
 .disc-section-heading {
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
