@@ -2,8 +2,13 @@
 {# Context: item, answer, question, video_url (may be empty) #}
 {% load question_filters %}
 
-<div class="review-card {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %} expanded"
-     id="review-card-{{ question.id }}">
+{% if answer.is_correct %}
+  <div class="review-card correct expanded" id="review-card-{{ question.id }}">
+{% elif answer.is_correct == False %}
+  <div class="review-card incorrect expanded" id="review-card-{{ question.id }}">
+{% else %}
+  <div class="review-card unanswered expanded" id="review-card-{{ question.id }}">
+{% endif %}
 
   <!-- Card Header -->
   <div class="review-card-header" onclick="toggleCard({{ question.id }})">
@@ -11,7 +16,6 @@
       {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
     </span>
     <span class="review-q-num">Q{{ forloop.counter }}</span>
-    {# striptags first so raw HTML tags don't appear in the one-line preview #}
     <span class="review-q-preview">{{ question.content|striptags|truncatechars:80 }}</span>
     <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
       {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
@@ -27,22 +31,15 @@
   <!-- Card Body -->
   <div class="review-card-body">
 
-    {# Question stem — render_content handles MathJax HTML safely #}
     <div class="review-q-full">{{ question.content|render_content }}</div>
-
     {% if question.image %}
       <img src="{{ question.image.url }}" alt="Question image" class="review-q-image" />
     {% endif %}
-
     {% if question.content_after_image %}
-      <div class="review-q-full" style="margin-top:0.75rem;">
-        {{ question.content_after_image|render_content }}
-      </div>
+      <div class="review-q-full">{{ question.content_after_image|render_content }}</div>
     {% endif %}
 
     {% if question.question_type == 'OBJ' %}
-
-      {# ── Choice list ─────────────────────────────────────────────────────── #}
       <ul class="review-choices">
         {% for choice in question.choices.all %}
         <li class="review-choice
@@ -50,19 +47,15 @@
               {% elif answer.selected_choice and answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick
               {% endif %}">
           <span class="review-choice-label">{{ choice.label }}</span>
-          {# |safe: choice_text is pandoc HTML that may contain MathJax spans #}
-          <span class="review-choice-text">{{ choice.choice_text|safe }}</span>
+          <span>{{ choice.choice_text|safe }}</span>
           {% if choice.is_correct %}
-            <span class="review-choice-tick">✓ Correct</span>
+            <span style="margin-left:auto; font-size:0.75rem; color:var(--green); font-weight:700;">✓ Correct</span>
           {% endif %}
         </li>
         {% endfor %}
       </ul>
 
-      {# ── Inline explanation ────────────────────────────────────────────────
-           Stored as pandoc HTML: <p>, <pre class="ascii-diagram">, <table>,
-           <span class="math inline">\(...\)</span>.
-           |safe is required. MathJax re-typesets on DOMContentLoaded. ──── #}
+      {# Explanation — pandoc HTML with possible KaTeX \(...\), tables, pre blocks #}
       {% if item.correct_choice and item.correct_choice.explanation %}
         <div class="review-explanation">
           <div class="review-explanation-header">
@@ -76,30 +69,25 @@
       {% endif %}
 
     {% else %}
-
-      {# ── Theory question ──────────────────────────────────────────────────── #}
-      <div class="theory-label">Your Answer:</div>
+      <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">Your Answer:</div>
       {% if answer.theory_response %}
         <div class="theory-response-box">{{ answer.theory_response }}</div>
       {% else %}
-        <div class="theory-response-box theory-response-empty">No answer provided.</div>
+        <div class="theory-response-box" style="color:var(--muted); font-style:italic;">No answer provided.</div>
       {% endif %}
 
       {% if question.theory_answer %}
         <div class="theory-model-answer">
           <div class="theory-model-title">Model Answer</div>
-          {# |safe: theory content is pandoc HTML with MathJax, tables, pre blocks #}
           <div class="theory-model-content">{{ question.theory_answer.content|safe }}</div>
           {% if question.theory_answer.marking_guide %}
-            <details class="marking-guide-details">
-              <summary class="marking-guide-summary">📋 Marking Guide</summary>
-              {# |safe: marking guide is also pandoc HTML #}
-              <div class="marking-guide-body">{{ question.theory_answer.marking_guide|safe }}</div>
+            <details style="margin-top:0.75rem;">
+              <summary style="font-size:0.78rem; color:var(--green); cursor:pointer; font-weight:600;">📋 Marking Guide</summary>
+              <div style="font-size:0.85rem; color:var(--text); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide|safe }}</div>
             </details>
           {% endif %}
         </div>
       {% endif %}
-
     {% endif %}
 
     <!-- Topic tags -->
@@ -111,7 +99,7 @@
       </div>
     {% endif %}
 
-    <!-- ── Action Buttons Row ──────────────────────────────────────────────── -->
+    <!-- Action Buttons Row -->
     <div class="card-actions">
 
       {% if video_url %}
@@ -141,19 +129,25 @@
         </span>
       </button>
 
-    </div><!-- end card-actions -->
+    </div>
 
-    <!-- ── Discussion Panel ────────────────────────────────────────────────── -->
+    <!-- Discussion Panel -->
     <div class="discussion-panel" id="discussion-{{ question.id }}" hidden>
       <div class="discussion-inner">
         <div class="disc-loading" id="disc-loading-{{ question.id }}">
           <span class="disc-spinner"></span>
           <span>Loading discussion…</span>
-        </div><!-- end disc-loading -->
+        </div>
         <div class="disc-content" id="disc-content-{{ question.id }}" hidden></div>
-      </div><!-- end discussion-inner -->
-    </div><!-- end discussion-panel -->
+      </div>
+    </div>
 
-  </div><!-- end review-card-body -->
+  </div>
 
-</div><!-- end review-card -->
+{% if answer.is_correct %}
+  </div>
+{% elif answer.is_correct == False %}
+  </div>
+{% else %}
+  </div>
+{% endif %}

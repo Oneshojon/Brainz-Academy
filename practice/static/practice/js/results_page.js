@@ -80,22 +80,6 @@ function collapseAll() {
   document.querySelectorAll('.review-card').forEach(c => c.classList.remove('expanded'));
 }
 
-// ── MATHJAX — typeset server-rendered explanation blocks ──────────────────
-// explanation HTML is injected by Django (|safe filter) so MathJax must be
-// told to process it after the DOM is ready. The score ring runs on 'load';
-// MathJax should run on DOMContentLoaded so it fires as soon as possible.
-document.addEventListener('DOMContentLoaded', () => {
-  if (window.MathJax) {
-    // Target only explanation bodies to minimise work
-    const targets = document.querySelectorAll(
-      '.review-explanation-body, .theory-model-content, .marking-guide-body'
-    );
-    if (targets.length) {
-      MathJax.typesetPromise(Array.from(targets))
-        .catch(err => console.warn('MathJax page-load typeset:', err));
-    }
-  }
-});
 
 
 
@@ -146,10 +130,10 @@ async function openDiscussion(questionId, btn) {
     contentEl.innerHTML = _buildDiscussionHTML(questionId, data);
     _bindDiscussionEvents(questionId, data.can_post);
 
-    // Re-run MathJax over the freshly injected explanation HTML so that
-    // \( ... \) spans render as typeset math.
-    if (window.MathJax && data.explanation) {
-      MathJax.typesetPromise([contentEl]).catch(err => console.warn('MathJax:', err));
+    // Re-render KaTeX in the freshly injected discussion content.
+    // renderMath() is the global KaTeX helper defined in layout.html.
+    if (typeof renderMath === 'function' && data.explanation) {
+      renderMath(contentEl);
     }
 
     _loadedDiscussions.add(questionId);
@@ -170,7 +154,7 @@ function _buildDiscussionHTML(questionId, data) {
   // 1. Explanation — stored as pandoc HTML: <p>, <pre class="ascii-diagram">,
   //    <table>, <span class="math inline">\( ... \)</span>.
   //    Must be injected as raw HTML (NOT _escapeHtml) so formatting is preserved.
-  //    MathJax.typesetPromise() is called by openDiscussion() after injection.
+  //    renderMath() is called by openDiscussion() after injection.
   if (data.explanation) {
     html += `
       <div class="disc-explanation">
