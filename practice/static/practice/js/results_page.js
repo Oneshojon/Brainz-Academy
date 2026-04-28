@@ -80,6 +80,24 @@ function collapseAll() {
   document.querySelectorAll('.review-card').forEach(c => c.classList.remove('expanded'));
 }
 
+// ── MATHJAX — typeset server-rendered explanation blocks ──────────────────
+// explanation HTML is injected by Django (|safe filter) so MathJax must be
+// told to process it after the DOM is ready. The score ring runs on 'load';
+// MathJax should run on DOMContentLoaded so it fires as soon as possible.
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.MathJax) {
+    // Target only explanation bodies to minimise work
+    const targets = document.querySelectorAll(
+      '.review-explanation-body, .theory-model-content, .marking-guide-body'
+    );
+    if (targets.length) {
+      MathJax.typesetPromise(Array.from(targets))
+        .catch(err => console.warn('MathJax page-load typeset:', err));
+    }
+  }
+});
+
+
 
 /* ── Discussion state ─────────────────────────────────────────────────────── */
 
