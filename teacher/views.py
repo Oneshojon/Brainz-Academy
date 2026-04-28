@@ -713,6 +713,120 @@ _SITTING_MAP = {
     'mock': 'MOCK',
 }
 
+# ── ASCII diagram detection ────────────────────────────────────────────────────
+# Matches Unicode box-drawing and arrow characters that signal positional layout.
+_ASCII_DRAW_RE = re.compile(
+    r'[\u2500\u2501\u2502\u2503\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c'
+    r'\u2190\u2191\u2192\u2193\u2194\u27f5\u27f6'
+    r'\u2504\u2505\u2508\u2509\u2506\u2507\u250a\u250b'
+    r'\u250d\u250e\u250f\u2511\u2512\u2513\u2515\u2516\u2517\u2519\u251a\u251b]'
+)
+
+
+def _is_ascii_para(text: str) -> bool:
+    """
+    Return True if this paragraph text needs monospace/preformatted rendering.
+
+    Detects:
+      1. Box-drawing or arrow Unicode characters (\u2500 range, \u2190-\u2193)
+      2. Caret/arrow annotations: "^ \u2190", "\u2191 label"
+      3. Separator lines: 3+ chars composed only of - = _ space
+      4. Pipe-separated column rows: "val | val | val"
+      5. Positional slash/backslash lines used in geometry diagrams
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if _ASCII_DRAW_RE.search(text):
+        return True
+    if re.search(r'[\^\u2191\u2193]\s*[\u2190\u2192]', text) or re.search(r'[\u2190\u2192]\s*\^', text):
+        return True
+    if len(stripped) >= 3 and not re.sub(r'[-=_\s]', '', stripped):
+        return True
+    if re.search(r'\S\s*\|\s*\S', text):
+        return True
+    non_slash = re.sub(r'[/\\|\s]', '', stripped)
+    if len(stripped) >= 2 and len(non_slash) / max(len(stripped), 1) < 0.35:
+        return True
+    return False
+
+
+def _para_is_prose(text: str) -> bool:
+    """Return True when a paragraph is clearly prose and should not be absorbed into an ASCII block."""
+    stripped = text.strip()
+    words    = stripped.split()
+    if len(words) >= 6 and not _is_ascii_para(stripped):
+        return True
+    if len(words) >= 4 and stripped.endswith(('.', ':', '?', '!')):
+        return True
+    return False
+
+
+def _group_and_wrap_ascii(html_parts: list) -> list:
+    """
+    Post-process explanation HTML parts and merge consecutive ASCII paragraphs
+    into <pre class="ascii-diagram"> blocks, preserving math spans inside.
+
+    Rules:
+      - <table> always ends the current ASCII group.
+      - Clearly prose paragraphs end the ASCII group.
+      - Short ambiguous lines between ASCII lines are absorbed into the <pre>.
+      - Math <span class="math inline"> elements are preserved as HTML inside <pre>.
+    """
+    from bs4 import BeautifulSoup as _BS
+
+    result     = []
+    pre_buffer = []
+    in_ascii   = False
+
+    def _flush():
+        nonlocal in_ascii
+        if pre_buffer:
+            result.append(
+                '<pre class="ascii-diagram">'
+                + '\n'.join(pre_buffer)
+                + '</pre>'
+            )
+            pre_buffer.clear()
+        in_ascii = False
+
+    for html_str in html_parts:
+        frag = _BS(html_str, 'html.parser')
+        elem = next((c for c in frag.children if hasattr(c, 'name')), None)
+
+        if elem is None:
+            _flush()
+            result.append(html_str)
+            continue
+
+        if elem.name == 'table':
+            _flush()
+            result.append(html_str)
+            continue
+
+        if elem.name != 'p':
+            _flush()
+            result.append(html_str)
+            continue
+
+        text     = elem.get_text(separator='', strip=False)
+        inner    = elem.decode_contents()
+        is_asc   = _is_ascii_para(text)
+        is_prose = _para_is_prose(text)
+
+        if is_asc:
+            in_ascii = True
+            pre_buffer.append(inner)
+        elif in_ascii and not is_prose:
+            pre_buffer.append(inner)
+        else:
+            _flush()
+            result.append(html_str)
+
+    _flush()
+    return result
+
+
 
 def _resolve_sitting(s):
     s = s.lower()
@@ -889,17 +1003,17 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         in_choices     = False
                         first_line     = me.group(1).strip()
                         if first_line:
-                            expl_parts.append(first_line)
+                            expl_parts.append(re.sub(r"^\s*[Ee]xplanation\s*:\s*", "", html_str.strip()))
                         continue
                     if in_explanation:
                         mt = topic_re.match(plain)
                         if mt:
                             in_explanation   = False
-                            q['explanation'] = '\n'.join(expl_parts).strip()
+                            q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                             expl_parts       = []
                             q['topics'].append(' '.join(mt.group(1).split()))
                         elif plain:
-                            expl_parts.append(plain)
+                            expl_parts.append(html_str)
                         continue
                     ma = answer_re.match(plain)
                     if ma:
@@ -941,7 +1055,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 in_choices     = False
                 first_line     = me.group(1).strip()
                 if first_line:
-                    expl_parts.append(first_line)
+                    expl_parts.append(re.sub(r"Explanation\s*:\s*", "", str(elem), count=1, flags=re.IGNORECASE))
                 continue
 
             # ── Explanation continuation ───────────────────────────────────────
@@ -953,11 +1067,11 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 if mt:
                     # Topic: terminates the explanation section
                     in_explanation   = False
-                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                     q['topics'].append(' '.join(mt.group(1).split()))
                 elif text:
-                    expl_parts.append(text)
+                    expl_parts.append(str(elem))
                 continue
 
             # ── Answer ────────────────────────────────────────────────────────
@@ -974,7 +1088,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                 # Finalise any accumulated explanation before recording topic
                 if in_explanation:
                     in_explanation   = False
-                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
@@ -1008,7 +1122,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
 
         # ── Flush any trailing explanation not terminated by Topic: ──────────
         if expl_parts and not q['explanation']:
-            q['explanation'] = '\n'.join(expl_parts).strip()
+            q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
 
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()
@@ -1088,7 +1202,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                 in_choices     = False
                 first_line     = me.group(1).strip()
                 if first_line:
-                    expl_parts.append(first_line)
+                    expl_parts.append(re.sub(r"Explanation\s*:\s*", "", str(elem), count=1, flags=re.IGNORECASE))
                 continue
 
             # Explanation continuation
@@ -1096,11 +1210,11 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                 mt = topic_re.match(text)
                 if mt:
                     in_explanation   = False
-                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                     q['topics'].append(' '.join(mt.group(1).split()))
                 elif text:
-                    expl_parts.append(text)
+                    expl_parts.append(str(elem))
                 continue
 
             # Answer key
@@ -1116,7 +1230,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
             if mt:
                 if in_explanation:
                     in_explanation   = False
-                    q['explanation'] = '\n'.join(expl_parts).strip()
+                    q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
@@ -1137,7 +1251,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
 
         # Flush trailing explanation
         if expl_parts and not q['explanation']:
-            q['explanation'] = '\n'.join(expl_parts).strip()
+            q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
 
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()

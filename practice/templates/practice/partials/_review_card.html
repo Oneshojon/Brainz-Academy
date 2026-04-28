@@ -31,15 +31,20 @@
   <!-- Card Body -->
   <div class="review-card-body">
 
-    <div class="review-q-full">{{ question.content|render_content }}</div> <br>
-      {% if question.image %}
-        <img src="{{ question.image.url }}" alt="Question image" class="review-q-image" />
-      {% endif %}
-      {% if question.content_after_image %}
-        <div class="review-q-full">{{ question.content_after_image|render_content }}</div>
-      {% endif %}
+    {# Question stem — render_content handles MathJax and HTML safely #}
+    <div class="review-q-full">{{ question.content|render_content }}</div>
+
+    {% if question.image %}
+      <img src="{{ question.image.url }}" alt="Question image" class="review-q-image" />
+    {% endif %}
+
+    {% if question.content_after_image %}
+      <div class="review-q-full">{{ question.content_after_image|render_content }}</div>
+    {% endif %}
 
     {% if question.question_type == 'OBJ' %}
+
+      {# ── Choice list ─────────────────────────────────────────────────────── #}
       <ul class="review-choices">
         {% for choice in question.choices.all %}
         <li class="review-choice
@@ -47,7 +52,8 @@
               {% elif answer.selected_choice.id == choice.id and not choice.is_correct %}wrong-pick
               {% endif %}">
           <span class="review-choice-label">{{ choice.label }}</span>
-          <span>{{ choice.choice_text }}</span>
+          {# |safe: choice_text is pandoc HTML that may contain MathJax spans #}
+          <span>{{ choice.choice_text|safe }}</span>
           {% if choice.is_correct %}
             <span style="margin-left:auto; font-size:0.75rem; color:var(--green); font-weight:700;">✓ Correct</span>
           {% endif %}
@@ -55,8 +61,28 @@
         {% endfor %}
       </ul>
 
+      {# ── Inline explanation (correct choice only) ─────────────────────────
+           explanation is stored as HTML: <p>, <pre class="ascii-diagram">,
+           <table>, <span class="math inline">\(...\)</span>
+           |safe is required — MathJax on the page then renders \(...\).
+           Only shown when the correct choice has an explanation. ────────── #}
+      {% with expl=item.correct_choice.explanation %}
+        {% if expl %}
+          <div class="review-explanation">
+            <div class="review-explanation-header">
+              <span class="review-explanation-icon">💡</span>
+              <span class="review-explanation-label">Explanation</span>
+            </div>
+            <div class="review-explanation-body">
+              {{ expl|safe }}
+            </div>
+          </div>
+        {% endif %}
+      {% endwith %}
+
     {% else %}
-      {# Theory question — show student's response + model answer #}
+
+      {# ── Theory question ──────────────────────────────────────────────────── #}
       <div style="font-size:0.78rem; color:var(--muted); margin-bottom:0.35rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">Your Answer:</div>
       {% if answer.theory_response %}
         <div class="theory-response-box">{{ answer.theory_response }}</div>
@@ -67,15 +93,18 @@
       {% if question.theory_answer %}
         <div class="theory-model-answer">
           <div class="theory-model-title">Model Answer</div>
-          <div class="theory-model-content">{{ question.theory_answer.content }}</div>
+          {# |safe: theory content is pandoc HTML with MathJax, tables, pre blocks #}
+          <div class="theory-model-content">{{ question.theory_answer.content|safe }}</div>
           {% if question.theory_answer.marking_guide %}
             <details style="margin-top:0.75rem;">
               <summary style="font-size:0.78rem; color:var(--green); cursor:pointer; font-weight:600;">📋 Marking Guide</summary>
-              <p style="font-size:0.85rem; color:var(--text); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide }}</p>
+              {# |safe: marking guide is also pandoc HTML #}
+              <div style="font-size:0.85rem; color:var(--text); margin-top:0.5rem; line-height:1.6;">{{ question.theory_answer.marking_guide|safe }}</div>
             </details>
           {% endif %}
         </div>
       {% endif %}
+
     {% endif %}
 
     <!-- Topic tags -->
@@ -90,7 +119,6 @@
     <!-- ── Action Buttons Row ──────────────────────────────────────────────── -->
     <div class="card-actions">
 
-      {# Video button — only if URL exists #}
       {% if video_url %}
         <a href="{{ video_url }}"
            target="_blank"
@@ -102,7 +130,6 @@
         </a>
       {% endif %}
 
-      {# Revision Note button — only if a note exists for one of this question's topics #}
       {% if item.note_topic_id %}
         <a href="{% url 'lessonnotes:lesson_notes' %}?subject={{ item.note_subject_id }}&topic={{ item.note_topic_id }}"
            class="card-action-btn note-btn"
@@ -112,7 +139,6 @@
         </a>
       {% endif %}
 
-      {# Discussion button — always shown #}
       <button class="card-action-btn discussion-btn"
               id="disc-btn-{{ question.id }}"
               onclick="openDiscussion({{ question.id }}, this)"
@@ -129,20 +155,13 @@
 
     <!-- ── Discussion Panel (hidden until button clicked) ─────────────────── -->
     <div class="discussion-panel" id="discussion-{{ question.id }}" hidden>
-
       <div class="discussion-inner">
-
-        <!-- Loading state -->
         <div class="disc-loading" id="disc-loading-{{ question.id }}">
           <span class="disc-spinner"></span>
           <span>Loading discussion…</span>
         </div>
-
-        <!-- Content (injected by JS) -->
         <div class="disc-content" id="disc-content-{{ question.id }}" hidden></div>
-
       </div>
-
     </div>
     <!-- ── End Discussion Panel ────────────────────────────────────────────── -->
 

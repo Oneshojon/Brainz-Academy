@@ -607,6 +607,19 @@ body {
   text-decoration: underline;
 }
 
+pre.ascii-diagram {
+    font-family: 'Courier New', Courier, monospace;
+    white-space: pre;
+    overflow-x: auto;
+    background: var(--surface, #f5f5f5);
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.5rem 0;
+}
+
 /* Post comment form */
 .disc-post-form {
   display: flex;

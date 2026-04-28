@@ -12,20 +12,17 @@ window.addEventListener('load', () => {
   circle.style.strokeDasharray = circumference;
   circle.style.strokeDashoffset = circumference;
 
-  // Pick colour based on score
-  let colour = '#f87171'; // red
+  let colour = '#f87171';
   if (SCORE_PCT >= 70) colour = '#4ade80';
   else if (SCORE_PCT >= 50) colour = '#f5c842';
   circle.setAttribute('stroke', colour);
 
-  // Animate
   setTimeout(() => {
     const offset = circumference - (SCORE_PCT / 100) * circumference;
     circle.style.transition = 'stroke-dashoffset 1.2s ease';
     circle.style.strokeDashoffset = offset;
   }, 300);
 
-  // Counter
   const valEl = document.getElementById('scoreRingPct');
   if (valEl) {
     let current = 0;
@@ -70,7 +67,7 @@ function toggleBookmark(questionId, btn) {
   .then(res => {
     btn.classList.toggle('bookmarked', res.bookmarked);
     btn.title = res.bookmarked ? 'Remove bookmark' : 'Bookmark this question';
-    btn.textContent = res.bookmarked ? '🔖' : '🏷️';
+    btn.textContent = res.bookmarked ? '\uD83D\uDD16' : '\uD83C\uDFF7\uFE0F';
   })
   .catch(() => console.error('Bookmark failed'));
 }
@@ -83,21 +80,13 @@ function collapseAll() {
   document.querySelectorAll('.review-card').forEach(c => c.classList.remove('expanded'));
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   APPEND TO: practice/static/practice/js/results_page.js
-   ─────────────────────────────────────────────────────────────────────────── */
 
-/* ── Discussion state ────────────────────────────────────────────────────── */
+/* ── Discussion state ─────────────────────────────────────────────────────── */
 
-// Tracks which panels have already been fetched (prevents refetch on re-open)
 const _loadedDiscussions = new Set();
 
-// Builds the API URL from the base URL stored in the data div.
-// Base URL is e.g. "/practice/questions/0/comments/"
-// We replace the trailing "/0/" with "/<id>/"
 function _commentsUrl(questionId) {
-  const base = document.getElementById('results-data')
-    .dataset.commentsBaseUrl;               // "/practice/questions/0/comments/"
+  const base = document.getElementById('results-data').dataset.commentsBaseUrl;
   return base.replace('/0/', `/${questionId}/`);
 }
 
@@ -106,14 +95,13 @@ function _csrfToken() {
 }
 
 
-/* ── openDiscussion ──────────────────────────────────────────────────────── */
+/* ── openDiscussion ───────────────────────────────────────────────────────── */
 
 async function openDiscussion(questionId, btn) {
-  const panel      = document.getElementById(`discussion-${questionId}`);
-  const loadingEl  = document.getElementById(`disc-loading-${questionId}`);
-  const contentEl  = document.getElementById(`disc-content-${questionId}`);
+  const panel     = document.getElementById(`discussion-${questionId}`);
+  const loadingEl = document.getElementById(`disc-loading-${questionId}`);
+  const contentEl = document.getElementById(`disc-content-${questionId}`);
 
-  // Toggle visibility
   const isOpen = !panel.hidden;
   if (isOpen) {
     panel.hidden = true;
@@ -124,12 +112,10 @@ async function openDiscussion(questionId, btn) {
   panel.hidden = false;
   btn.classList.add('active');
 
-  // Only fetch once per panel lifetime
   if (_loadedDiscussions.has(questionId)) return;
 
-  // Show loader, hide content
-  loadingEl.hidden  = false;
-  contentEl.hidden  = true;
+  loadingEl.hidden = false;
+  contentEl.hidden = true;
 
   try {
     const res  = await fetch(_commentsUrl(questionId), {
@@ -141,6 +127,12 @@ async function openDiscussion(questionId, btn) {
 
     contentEl.innerHTML = _buildDiscussionHTML(questionId, data);
     _bindDiscussionEvents(questionId, data.can_post);
+
+    // Re-run MathJax over the freshly injected explanation HTML so that
+    // \( ... \) spans render as typeset math.
+    if (window.MathJax && data.explanation) {
+      MathJax.typesetPromise([contentEl]).catch(err => console.warn('MathJax:', err));
+    }
 
     _loadedDiscussions.add(questionId);
   } catch (err) {
@@ -157,14 +149,17 @@ async function openDiscussion(questionId, btn) {
 function _buildDiscussionHTML(questionId, data) {
   let html = '';
 
-  // 1. Explanation pin (from Choice.explanation, OBJ questions only)
+  // 1. Explanation — stored as pandoc HTML: <p>, <pre class="ascii-diagram">,
+  //    <table>, <span class="math inline">\( ... \)</span>.
+  //    Must be injected as raw HTML (NOT _escapeHtml) so formatting is preserved.
+  //    MathJax.typesetPromise() is called by openDiscussion() after injection.
   if (data.explanation) {
     html += `
       <div class="disc-explanation">
-        <span class="disc-explanation-icon">💡</span>
+        <span class="disc-explanation-icon">&#x1F4A1;</span>
         <div class="disc-explanation-body">
           <div class="disc-explanation-label">Explanation</div>
-          <div class="disc-explanation-text">${_escapeHtml(data.explanation)}</div>
+          <div class="disc-explanation-text">${data.explanation}</div>
         </div>
       </div>`;
   }
@@ -188,7 +183,7 @@ function _buildDiscussionHTML(questionId, data) {
       <div class="disc-post-form" id="disc-form-${questionId}">
         <textarea
           id="disc-textarea-${questionId}"
-          placeholder="Share your thoughts or ask a question…"
+          placeholder="Share your thoughts or ask a question\u2026"
           maxlength="1000"
           rows="3"
           oninput="_updateCharCount(${questionId}, this.value.length)"
@@ -205,8 +200,8 @@ function _buildDiscussionHTML(questionId, data) {
   } else {
     html += `
       <div class="disc-upgrade-nudge">
-        <span>🔒</span>
-        <span>Subscribe to join the discussion. <a href="/pricing/">Upgrade now →</a></span>
+        <span>&#x1F512;</span>
+        <span>Subscribe to join the discussion. <a href="/pricing/">Upgrade now \u2192</a></span>
       </div>`;
   }
 
@@ -217,14 +212,16 @@ function _buildDiscussionHTML(questionId, data) {
 /* ── _commentHTML ─────────────────────────────────────────────────────────── */
 
 function _commentHTML(c) {
+  // User-generated content (author name, body, timestamp) is always escaped.
+  // These are NOT trusted HTML — they come from user input.
   const deleteBtn = c.is_mine
     ? `<button class="disc-delete-btn"
               onclick="deleteComment(${c.id}, this)"
-              title="Delete comment">✕</button>`
+              title="Delete comment">&#x2715;</button>`
     : '';
 
   const pinBadge = c.is_pinned
-    ? `<span style="font-size:0.68rem;color:var(--green);font-weight:700;">📌 Pinned</span>`
+    ? `<span style="font-size:0.68rem;color:var(--green);font-weight:700;">&#x1F4CC; Pinned</span>`
     : '';
 
   return `
@@ -243,9 +240,7 @@ function _commentHTML(c) {
 /* ── _bindDiscussionEvents ────────────────────────────────────────────────── */
 
 function _bindDiscussionEvents(questionId, canPost) {
-  // If the comment list didn't exist before (0 comments),
-  // we need to ensure the container is injected on first post.
-  // This is handled inside postComment().
+  // First-post container creation is handled inside postComment().
 }
 
 
@@ -259,10 +254,9 @@ async function postComment(questionId) {
 
   if (!body) return;
 
-  // Loading state
-  submitBtn.disabled     = true;
-  submitBtn.innerHTML    = `<span class="disc-submit-spinner"></span> Posting…`;
-  errorEl.hidden         = true;
+  submitBtn.disabled  = true;
+  submitBtn.innerHTML = `<span class="disc-submit-spinner"></span> Posting\u2026`;
+  errorEl.hidden      = true;
 
   try {
     const res  = await fetch(_commentsUrl(questionId), {
@@ -276,17 +270,12 @@ async function postComment(questionId) {
     });
     const data = await res.json();
 
-    if (!data.ok) {
-      throw new Error(data.error || 'Could not post comment.');
-    }
+    if (!data.ok) throw new Error(data.error || 'Could not post comment.');
 
-    // Inject comment into list (create list container if first comment)
     let listEl = document.getElementById(`disc-list-${questionId}`);
     if (!listEl) {
-      // Remove "no comments yet" message and create list
       const emptyEl = document.querySelector(`#disc-content-${questionId} .disc-empty`);
       if (emptyEl) emptyEl.remove();
-
       const formEl = document.getElementById(`disc-form-${questionId}`);
       listEl = document.createElement('div');
       listEl.className = 'disc-comment-list';
@@ -295,12 +284,9 @@ async function postComment(questionId) {
     }
 
     listEl.insertAdjacentHTML('beforeend', _commentHTML(data.comment));
-
-    // Update badge count
     _incrementCommentBadge(questionId);
 
-    // Reset form
-    textarea.value      = '';
+    textarea.value = '';
     _updateCharCount(questionId, 0);
 
   } catch (err) {
@@ -323,7 +309,7 @@ async function deleteComment(commentId, btn) {
   const originalHTML = btn.innerHTML;
 
   btn.disabled    = true;
-  btn.textContent = '…';
+  btn.textContent = '\u2026';
 
   try {
     const url = _commentsUrl(questionId) + `${commentId}/delete/`;
@@ -342,8 +328,8 @@ async function deleteComment(commentId, btn) {
     _decrementCommentBadge(questionId);
 
   } catch (err) {
-    btn.disabled   = false;
-    btn.innerHTML  = originalHTML;
+    btn.disabled  = false;
+    btn.innerHTML = originalHTML;
     alert('Could not delete comment. Please try again.');
   }
 }
@@ -354,15 +340,13 @@ async function deleteComment(commentId, btn) {
 function _incrementCommentBadge(questionId) {
   const badge = document.getElementById(`comment-count-${questionId}`);
   if (!badge) return;
-  const current = parseInt(badge.textContent || '0', 10);
-  badge.textContent = current + 1;
+  badge.textContent = (parseInt(badge.textContent || '0', 10) + 1).toString();
 }
 
 function _decrementCommentBadge(questionId) {
   const badge = document.getElementById(`comment-count-${questionId}`);
   if (!badge) return;
-  const current = parseInt(badge.textContent || '0', 10);
-  const next    = Math.max(0, current - 1);
+  const next = Math.max(0, parseInt(badge.textContent || '0', 10) - 1);
   badge.textContent = next > 0 ? next : '';
 }
 
@@ -380,6 +364,11 @@ function _updateCharCount(questionId, length) {
 
 /* ── Utilities ───────────────────────────────────────────────────────────── */
 
+/**
+ * Escape user-generated text before injecting into innerHTML.
+ * ONLY use this for user content (comments, names, timestamps).
+ * Do NOT use for trusted server HTML (explanation, theory answers).
+ */
 function _escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -390,8 +379,6 @@ function _escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Walk up from a comment element to find the question ID
-// (comments live inside #discussion-<questionId>)
 function _questionIdFromCommentEl(commentEl) {
   const panel = commentEl.closest('.discussion-panel');
   if (!panel) return null;
