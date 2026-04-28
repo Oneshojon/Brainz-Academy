@@ -2,16 +2,8 @@
 {# Context: item, answer, question, video_url (may be empty) #}
 {% load question_filters %}
 
-{# Determine card state class once — avoids opening 3 separate <div>s in an if/elif/else #}
-{% if answer.is_correct %}
-  {% with card_state="correct" %}
-{% elif answer.is_correct == False %}
-  {% with card_state="incorrect" %}
-{% else %}
-  {% with card_state="unanswered" %}
-{% endif %}
-
-<div class="review-card {{ card_state }} expanded" id="review-card-{{ question.id }}">
+<div class="review-card {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %} expanded"
+     id="review-card-{{ question.id }}">
 
   <!-- Card Header -->
   <div class="review-card-header" onclick="toggleCard({{ question.id }})">
@@ -19,9 +11,9 @@
       {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
     </span>
     <span class="review-q-num">Q{{ forloop.counter }}</span>
-    {# striptags prevents raw HTML tags from appearing in the one-line preview #}
+    {# striptags first so raw HTML tags don't appear in the one-line preview #}
     <span class="review-q-preview">{{ question.content|striptags|truncatechars:80 }}</span>
-    <span class="review-status-badge {{ card_state }}">
+    <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
       {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
     </span>
     <button class="bookmark-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
@@ -165,5 +157,3 @@
   </div><!-- end review-card-body -->
 
 </div><!-- end review-card -->
-
-{% endwith %}{# end card_state with block #}
