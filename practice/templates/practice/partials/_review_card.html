@@ -2,13 +2,16 @@
 {# Context: item, answer, question, video_url (may be empty) #}
 {% load question_filters %}
 
+{# Determine card state class once — avoids opening 3 separate <div>s in an if/elif/else #}
 {% if answer.is_correct %}
-  <div class="review-card correct expanded" id="review-card-{{ question.id }}">
+  {% with card_state="correct" %}
 {% elif answer.is_correct == False %}
-  <div class="review-card incorrect expanded" id="review-card-{{ question.id }}">
+  {% with card_state="incorrect" %}
 {% else %}
-  <div class="review-card unanswered expanded" id="review-card-{{ question.id }}">
+  {% with card_state="unanswered" %}
 {% endif %}
+
+<div class="review-card {{ card_state }} expanded" id="review-card-{{ question.id }}">
 
   <!-- Card Header -->
   <div class="review-card-header" onclick="toggleCard({{ question.id }})">
@@ -16,9 +19,9 @@
       {% if answer.is_correct %}✅{% elif answer.is_correct == False %}❌{% else %}⬜{% endif %}
     </span>
     <span class="review-q-num">Q{{ forloop.counter }}</span>
-    {# truncatechars on plain content — striptags first so HTML tags don't appear in preview #}
+    {# striptags prevents raw HTML tags from appearing in the one-line preview #}
     <span class="review-q-preview">{{ question.content|striptags|truncatechars:80 }}</span>
-    <span class="review-status-badge {% if answer.is_correct %}correct{% elif answer.is_correct == False %}incorrect{% else %}unanswered{% endif %}">
+    <span class="review-status-badge {{ card_state }}">
       {% if answer.is_correct %}Correct{% elif answer.is_correct == False %}Incorrect{% else %}Unanswered{% endif %}
     </span>
     <button class="bookmark-btn {% if item.is_bookmarked %}bookmarked{% endif %}"
@@ -67,8 +70,7 @@
       {# ── Inline explanation ────────────────────────────────────────────────
            Stored as pandoc HTML: <p>, <pre class="ascii-diagram">, <table>,
            <span class="math inline">\(...\)</span>.
-           |safe is required. MathJax on the page renders \(...\) on load.
-           Guard: correct_choice may be None for unanswered questions. ──── #}
+           |safe is required. MathJax re-typesets on DOMContentLoaded. ──── #}
       {% if item.correct_choice and item.correct_choice.explanation %}
         <div class="review-explanation">
           <div class="review-explanation-header">
@@ -147,7 +149,7 @@
         </span>
       </button>
 
-    </div>
+    </div><!-- end card-actions -->
 
     <!-- ── Discussion Panel ────────────────────────────────────────────────── -->
     <div class="discussion-panel" id="discussion-{{ question.id }}" hidden>
@@ -155,11 +157,13 @@
         <div class="disc-loading" id="disc-loading-{{ question.id }}">
           <span class="disc-spinner"></span>
           <span>Loading discussion…</span>
-        </div>
+        </div><!-- end disc-loading -->
         <div class="disc-content" id="disc-content-{{ question.id }}" hidden></div>
-      </div>
-    </div>
+      </div><!-- end discussion-inner -->
+    </div><!-- end discussion-panel -->
 
-  </div>{# end review-card-body #}
+  </div><!-- end review-card-body -->
 
-</div>{# end review-card #}
+</div><!-- end review-card -->
+
+{% endwith %}{# end card_state with block #}
