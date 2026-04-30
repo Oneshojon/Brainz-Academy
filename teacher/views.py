@@ -594,35 +594,45 @@ Topic: {topic.name}
 Write a REVISION NOTE — not a textbook chapter. Every line must be something a student could be examined on. Cut anything that cannot appear in an exam question.
 
 STRUCTURE:
-1. **Key Definitions** — every term a student must know for this topic. Concise and precise.
+1. **Key Definitions** — every term a student must know for this topic. Write as a plain bullet list: **Term** — definition. Never use a table for definitions.
 2. **Core Facts & Concepts** — bullet points only. State facts directly. No padding or storytelling.
-3. **Tables & Comparisons** — use tables wherever the topic involves comparing items, structures, functions, processes, or properties. Exams frequently use table-completion questions.
-4. **Worked Examples** — include only if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics.
-5. **Diagrams** — include ONLY if the topic is commonly examined with a diagram. Apply strict rules:
+3. **Tables & Comparisons** — use a markdown table ONLY when the content is a genuine side-by-side comparison of two or more items across the same attributes (e.g., mitosis vs meiosis, series vs parallel circuits, demand vs supply). Do NOT use tables for definitions, lists of facts, enumerations, or any content that flows naturally as bullet points. Definitions belong in section 1 as a plain list. Exams frequently use table-completion questions, so when a table is appropriate, make it complete and accurate. If no genuine comparison exists for this topic, omit this section entirely including its heading.
+4. **Worked Examples** — include ONLY if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics. Do NOT include this section header if you are skipping it.
+5. **Diagrams** — follow ALL rules below without exception:
 
-   MERMAID (flowcharts/graphs) — use ONLY when the topic is genuinely process-based or algorithmic:
-   - Computer Science: algorithms, sorting, program flow, data structures, network topologies
-   - Biology: only for multi-step biochemical cycles (e.g., nitrogen cycle, Krebs cycle) — NOT for anatomy or organ structures
-   - Other subjects: use mermaid only if the examined content is literally a flow or decision tree
-   - DO NOT use mermaid for: classification hierarchies, lists of features, economic concepts, historical timelines, simple cause-and-effect, or anything better shown as a table or SVG
-   - Use a fenced code block tagged ```mermaid
+   RULE 1 — MERMAID FLOWCHARTS:
+   Mermaid is STRICTLY FORBIDDEN except for Computer Science topics.
+   Permitted Computer Science uses ONLY: algorithms, sorting, program flow, data structures, network topologies, decision trees.
+   For ALL other subjects — Biology, Chemistry, Physics, Economics, Geography, etc. — do NOT produce a mermaid block under any circumstance. Use a table or SVG instead.
+   When permitted, use a fenced code block tagged ```mermaid.
 
-   SVG — preferred for most visual content:
-   - Labelled anatomical or structural diagrams (cells, organs, ecosystems, circuits, maps)
-   - Write raw <svg>...</svg> markup directly inline — do NOT wrap in backticks or a code block
-   - viewBox max 600×400; use a clean white or light background (#f9f9f9)
-   - Label the 5–7 most examined parts using <text> elements; position labels so they do NOT overlap
-     the structure they label — place labels outside the shape with a short <line> or offset clearly
-   - Use font-size="13" or "14" for labels; use font-weight="bold" for the diagram title
+   RULE 2 — SVG DIAGRAMS:
+   Use SVG ONLY when the topic is commonly examined with a physical labelled diagram AND you can draw it accurately.
+   Suitable SVG topics: labelled anatomical or cellular structures, electrical circuits, ecosystem diagrams, map cross-sections, physical apparatus.
+   DO NOT use SVG for: classifications, lists of types, comparisons between concepts, hierarchies, historical timelines, economic models, or any content better shown as a table.
+   If you are not certain you can draw and label the structure accurately, DO NOT attempt SVG — use a table instead.
+
+   RULE 3 — SVG TECHNICAL REQUIREMENTS (mandatory if SVG is used):
+   - Write raw <svg>...</svg> markup inline — do NOT wrap in backticks or a code block
+   - viewBox="0 0 600 420"; background rect fill="#f9f9f9"; border rect stroke="#cccccc"
+   - Draw the main structure first, then add labels OUTSIDE the structure using this exact pattern for each label:
+     * Place a filled circle marker at the point being labelled: <circle cx="X" cy="Y" r="3" fill="#333"/>
+     * Draw a straight line from that point to the label position: <line x1="X" y1="Y" x2="LX" y2="LY" stroke="#555" stroke-width="1"/>
+     * Place the label text at the line endpoint: <text x="LX" y="LY" font-size="13" fill="#222">Label Text</text>
+     * Labels on the LEFT side: text-anchor="end", line goes left; Labels on the RIGHT side: text-anchor="start", line goes right
+     * Minimum 30px gap between the structure boundary and the label text
+     * No two label texts may share the same Y coordinate within 18px of each other
+   - Label only the 5–7 most examined parts
+   - Bold diagram title at top: <text x="300" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Title</text>
    - Use distinct fill colours for different parts to aid identification
-   - Under 60 lines total
-   - DO NOT use SVG for: classifications, lists of types/forms, comparisons between concepts,
-     hierarchies of categories, or any content that is better expressed as a table — use a
-     markdown table instead. If you cannot draw a labelled physical structure, do not use SVG.
+   - Total SVG under 70 lines
+   - CRITICAL: If you include a Diagrams section, it MUST contain actual rendered content (mermaid block or raw SVG). An empty Diagrams section or a section with only a heading and description text is FORBIDDEN. If you cannot produce a valid diagram, omit the entire section including the heading.
 
-   ASCII — for simple linear or relational content only (inline within text)
+   RULE 4 — ASCII:
+   Use ASCII only for simple linear or relational content inline within text, never as a standalone section.
 
-   Maximum 7 diagrams per note. Omit entirely if diagrams are not commonly examined for this topic.
+   RULE 5 — LIMITS:
+   Maximum 2 diagrams per note. Omit the entire Diagrams section — including its heading — if diagrams are not commonly examined for this topic or if you cannot produce valid content.
 
 6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
@@ -637,8 +647,9 @@ RULES:
 - Use Nigerian examples where relevant
 - No introductions, no conclusions, no motivational sentences
 - No repetition — state each fact once
-- Tables must be complete and accurate
+- TABLES: use sparingly — only for genuine side-by-side comparisons. Definitions, features, and enumerated facts must use bullet points or numbered lists, never a table
 - CURRENCY: write Naira as ₦500 or NGN 500 — never bare $ signs
+- OMIT any section heading entirely if that section has no content — never leave an empty section
 - Format using markdown"""
 
     try:
@@ -654,7 +665,6 @@ RULES:
         })
     except Exception as e:
         return JsonResponse({'error': f'AI generation failed: {e}'}, status=500)
-
 
 def _handle_ai_accept(request, data):
     topic_id   = data.get('topic_id')
