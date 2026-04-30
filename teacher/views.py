@@ -632,9 +632,9 @@ STRUCTURE:
    Use ASCII only for simple linear or relational content inline within text, never as a standalone section.
 
    RULE 5 — LIMITS:
-   Maximum 2 diagrams per note. Omit the entire Diagrams section — including its heading — if diagrams are not commonly examined for this topic or if you cannot produce valid content.
+   Maximum 4 diagrams per note. Omit the entire Diagrams section — including its heading — if diagrams are not commonly examined for this topic or if you cannot produce valid content.
 
-6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
+6. **Likely Exam Questions** — 5–10 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
 7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
 
 MATHEMATICAL NOTATION — CRITICAL:
