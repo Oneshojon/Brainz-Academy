@@ -614,7 +614,7 @@ STRUCTURE:
 
    RULE 3 — SVG TECHNICAL REQUIREMENTS (mandatory if SVG is used):
    - Write raw <svg>...</svg> markup inline — do NOT wrap in backticks or a code block
-   - viewBox="0 0 600 420"; background rect fill="#f9f9f9"; border rect stroke="#cccccc"
+   - viewBox="0 0 700 450"; background rect fill="#f9f9f9"; border rect stroke="#cccccc"
    - Draw the main structure first, then add labels OUTSIDE the structure using this exact pattern for each label:
      * Place a filled circle marker at the point being labelled: <circle cx="X" cy="Y" r="3" fill="#333"/>
      * Draw a straight line from that point to the label position: <line x1="X" y1="Y" x2="LX" y2="LY" stroke="#555" stroke-width="1"/>
@@ -625,7 +625,10 @@ STRUCTURE:
    - Label only the 5–7 most examined parts
    - Bold diagram title at top: <text x="300" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Title</text>
    - Use distinct fill colours for different parts to aid identification
-   - Total SVG under 70 lines
+   - Total SVG under 150 lines. Do not sacrifice label accuracy, structure detail, or correct positioning to meet the line limit. Every label must have its own circle marker, connector line, and text element — these must never be skipped to save lines.
+   - Left-side labels MUST have x no less than 80 — never place label text closer than 80px to the left edge of the viewBox
+   - Right-side labels MUST have x no greater than 620 — never place label text closer than 80px to the right edge of the viewBox
+   - The main structure (cell, organ, apparatus) must be centred within x=80 to x=620, leaving at least 80px on each side exclusively for label text
    - CRITICAL: If you include a Diagrams section, it MUST contain actual rendered content (mermaid block or raw SVG). An empty Diagrams section or a section with only a heading and description text is FORBIDDEN. If you cannot produce a valid diagram, omit the entire section including the heading.
 
    RULE 4 — ASCII:
