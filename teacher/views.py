@@ -622,10 +622,15 @@ STRUCTURE:
    When the topic is commonly examined with a graph, draw it as an SVG following these rules:
    - Draw a clean x-axis and y-axis with arrowheads at the positive ends
    - Label BOTH axes with the quantity and unit: e.g. <text>Force (N)</text>, <text>Extension (m)</text>
-   - Plot the correct curve or line shape for this topic — do NOT leave axes empty
-   - Mark and label ALL key points on the graph (e.g. P = Proportionality Limit, E = Elastic Limit, Y = Yield Point, B = Breaking Point) using small filled circles with leader lines and text labels
-   - Shade or annotate key regions where examined (e.g. "Hooke's Law region", "plastic deformation")
-   - Origin must be labelled O
+   - MANDATORY: Plot the actual curve or line using <path> or <polyline> elements with explicit
+     coordinate points. An SVG graph with only axes and no plotted data is a SEVERE ERROR.
+     Example for a straight line: <polyline points="100,350 500,100" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+     Example for a curve: <path d="M 100,350 Q 250,200 400,120 T 560,80" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+     Choose the correct path shape for the topic — straight line, curve, S-curve, bell curve, etc.
+   - Mark ALL key points on the plotted line using <circle> elements at the correct coordinates,
+     with a short leader <line> and <text> label for each point
+   - Shade examined regions using <rect> or <path> with low opacity fill (e.g. fill="rgba(9,146,194,0.12)")
+   - Origin must be labelled O at the axis intersection
    - Use gridlines sparingly if they aid reading
    - Graph title in bold at top of SVG
 
