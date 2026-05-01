@@ -595,50 +595,83 @@ Write a REVISION NOTE — not a textbook chapter. Every line must be something a
 
 STRUCTURE:
 1. **Key Definitions** — every term a student must know for this topic. Write as a plain bullet list: **Term** — definition. Never use a table for definitions.
-2. **Core Facts & Concepts** — bullet points only. State facts directly. No padding or storytelling.
+
+2. **Core Facts & Concepts** — for each major concept, write a short explanatory paragraph (2–4 sentences) that teaches the idea clearly, then follow it with bullet points covering the specific exam facts under that concept. Do NOT write bare bullet points without explanation. The paragraph must come first, then the bullets beneath it. Repeat this pattern for each distinct concept in the topic.
+
 3. **Tables & Comparisons** — use a markdown table ONLY when the content is a genuine side-by-side comparison of two or more items across the same attributes (e.g., mitosis vs meiosis, series vs parallel circuits, demand vs supply). Do NOT use tables for definitions, lists of facts, enumerations, or any content that flows naturally as bullet points. Definitions belong in section 1 as a plain list. Exams frequently use table-completion questions, so when a table is appropriate, make it complete and accurate. If no genuine comparison exists for this topic, omit this section entirely including its heading.
+
 4. **Worked Examples** — include ONLY if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics. Do NOT include this section header if you are skipping it.
+   Format every solution using numbered steps:
+   **Step 1: [action heading]** — show full workings
+   **Step 2: [action heading]** — show full workings
+   Final answer on its own line in bold.
+   Include 2–4 examples of increasing difficulty where relevant.
+
 5. **Diagrams** — follow ALL rules below without exception:
 
-   RULE 1 — MERMAID FLOWCHARTS:
+   RULE 1 — GRAPHS (for topics commonly examined with a plotted graph):
+   Graphs apply across ALL subjects — not Physics only. Common cases include:
+   - Physics: force-extension, velocity-time, distance-time, I-V characteristics
+   - Mathematics: quadratic curves, straight line graphs, cumulative frequency, histograms
+   - Chemistry: reaction rate curves, Maxwell-Boltzmann distribution, titration curves
+   - Economics: supply/demand curves, PPC curves, cost curves
+   - Biology: population growth, enzyme activity curves
+   - Geography: population pyramids, climate graphs
+
+   When the topic is commonly examined with a graph, draw it as an SVG following these rules:
+   - Draw a clean x-axis and y-axis with arrowheads at the positive ends
+   - Label BOTH axes with the quantity and unit: e.g. <text>Force (N)</text>, <text>Extension (m)</text>
+   - Plot the correct curve or line shape for this topic — do NOT leave axes empty
+   - Mark and label ALL key points on the graph (e.g. P = Proportionality Limit, E = Elastic Limit, Y = Yield Point, B = Breaking Point) using small filled circles with leader lines and text labels
+   - Shade or annotate key regions where examined (e.g. "Hooke's Law region", "plastic deformation")
+   - Origin must be labelled O
+   - Use gridlines sparingly if they aid reading
+   - Graph title in bold at top of SVG
+
+   RULE 2 — MERMAID FLOWCHARTS:
    Mermaid is STRICTLY FORBIDDEN except for Computer Science topics.
    Permitted Computer Science uses ONLY: algorithms, sorting, program flow, data structures, network topologies, decision trees.
    For ALL other subjects — Biology, Chemistry, Physics, Economics, Geography, etc. — do NOT produce a mermaid block under any circumstance. Use a table or SVG instead.
    When permitted, use a fenced code block tagged ```mermaid.
 
-   RULE 2 — SVG DIAGRAMS:
+   RULE 3 — SVG STRUCTURAL DIAGRAMS:
    Use SVG ONLY when the topic is commonly examined with a physical labelled diagram AND you can draw it accurately.
    Suitable SVG topics: labelled anatomical or cellular structures, electrical circuits, ecosystem diagrams, map cross-sections, physical apparatus.
    DO NOT use SVG for: classifications, lists of types, comparisons between concepts, hierarchies, historical timelines, economic models, or any content better shown as a table.
    If you are not certain you can draw and label the structure accurately, DO NOT attempt SVG — use a table instead.
 
-   RULE 3 — SVG TECHNICAL REQUIREMENTS (mandatory if SVG is used):
+   RULE 4 — SVG TECHNICAL REQUIREMENTS (mandatory for ALL SVG including graphs):
    - Write raw <svg>...</svg> markup inline — do NOT wrap in backticks or a code block
    - viewBox="0 0 700 450"; background rect fill="#f9f9f9"; border rect stroke="#cccccc"
-   - Draw the main structure first, then add labels OUTSIDE the structure using this exact pattern for each label:
+   - The SVG will be rendered at A4 width by the template — do NOT set a fixed width or height attribute on the <svg> tag. Use viewBox only. Example: <svg viewBox="0 0 700 450" xmlns="..."> with no width/height attributes
+   - For structural diagrams, draw the main structure first, then add labels OUTSIDE the structure using this exact pattern for each label:
      * Place a filled circle marker at the point being labelled: <circle cx="X" cy="Y" r="3" fill="#333"/>
      * Draw a straight line from that point to the label position: <line x1="X" y1="Y" x2="LX" y2="LY" stroke="#555" stroke-width="1"/>
      * Place the label text at the line endpoint: <text x="LX" y="LY" font-size="13" fill="#222">Label Text</text>
      * Labels on the LEFT side: text-anchor="end", line goes left; Labels on the RIGHT side: text-anchor="start", line goes right
      * Minimum 30px gap between the structure boundary and the label text
      * No two label texts may share the same Y coordinate within 18px of each other
-   - Label only the 5–7 most examined parts
-   - Bold diagram title at top: <text x="300" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Title</text>
-   - Use distinct fill colours for different parts to aid identification
-   - Total SVG under 150 lines. Do not sacrifice label accuracy, structure detail, or correct positioning to meet the line limit. Every label must have its own circle marker, connector line, and text element — these must never be skipped to save lines.
    - Left-side labels MUST have x no less than 80 — never place label text closer than 80px to the left edge of the viewBox
    - Right-side labels MUST have x no greater than 620 — never place label text closer than 80px to the right edge of the viewBox
-   - The main structure (cell, organ, apparatus) must be centred within x=80 to x=620, leaving at least 80px on each side exclusively for label text
-   - CRITICAL: If you include a Diagrams section, it MUST contain actual rendered content (mermaid block or raw SVG). An empty Diagrams section or a section with only a heading and description text is FORBIDDEN. If you cannot produce a valid diagram, omit the entire section including the heading.
+   - The main structure must be centred within x=80 to x=620, leaving at least 80px on each side exclusively for label text
+   - Label only the 5–7 most examined parts
+   - Bold diagram title at top: <text x="350" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Title</text>
+   - Use distinct fill colours for different parts to aid identification
+   - Total SVG under 150 lines. Do not sacrifice label accuracy, structure detail, or correct positioning to meet the line limit. Every label must have its own circle marker, connector line, and text element — these must never be skipped to save lines.
+   - CRITICAL: If you include a Diagrams section, it MUST contain actual rendered content (graph SVG, structural SVG, or mermaid block). An empty Diagrams section or a section with only a heading and description text is FORBIDDEN. If you cannot produce a valid diagram, omit the entire section including the heading.
 
-   RULE 4 — ASCII:
+   RULE 5 — ASCII:
    Use ASCII only for simple linear or relational content inline within text, never as a standalone section.
 
-   RULE 5 — LIMITS:
+   RULE 6 — LIMITS:
    Maximum 4 diagrams per note. Omit the entire Diagrams section — including its heading — if diagrams are not commonly examined for this topic or if you cannot produce valid content.
 
-6. **Likely Exam Questions** — 5–10 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
-7. **Common Mistakes** — 2–3 things students consistently get wrong on this topic in exams.
+6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
+
+7. **Exam Tips & Common Mistakes** — merge examiner strategy and student errors into one focused section. Format each point as:
+   > ⚠️ **Mistake:** [what students get wrong and why it costs marks]
+   > 💡 **Tip:** [strategic advice, memory aid, or examiner trap to watch for]
+   Include 3–5 points total, mixing mistakes and tips as appropriate for the topic.
 
 MATHEMATICAL NOTATION — CRITICAL:
 Every mathematical expression, variable, equation, or formula MUST be wrapped in LaTeX delimiters.
@@ -668,7 +701,7 @@ RULES:
         })
     except Exception as e:
         return JsonResponse({'error': f'AI generation failed: {e}'}, status=500)
-
+    
 def _handle_ai_accept(request, data):
     topic_id   = data.get('topic_id')
     ai_content = data.get('content', '').strip()
