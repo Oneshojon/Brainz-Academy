@@ -546,6 +546,12 @@
               <div class="ai-note-a4-wrap">
                 <div class="ai-note-a4-actions">
                   <button class="btn-dl" onclick="printAiNote()" id="btn-print-secondary">🖨️ Print / Save PDF</button>
+                  {% if note and note.id %}
+                  <a href="{% url 'teacher:download_lesson_note_docx' note.id %}"
+                    class="btn-dl" title="Download as editable Word document">
+                    📄 Download DOCX
+                  </a>
+                  {% endif %}
                 </div>
                 <div class="ai-note-a4-page">
                   <div class="ai-content" id="ai-note-rendered-secondary"></div>
@@ -565,6 +571,12 @@
                 <span>— review before sharing with students</span>
               </div>
               <button class="btn-dl" onclick="printAiNote()" id="btn-print-main">🖨️ Print / Save PDF</button>
+              {% if note and note.id %}
+              <a href="{% url 'teacher:download_lesson_note_docx' note.id %}"
+                class="btn-dl" title="Download as editable Word document">
+                📄 Download DOCX
+              </a>
+              {% endif %}
             </div>
             <div class="ai-note-a4-page">
               <div class="ai-content" id="ai-note-rendered"></div>

@@ -16,4 +16,5 @@ urlpatterns = [
     path('upload-notes/', views.upload_notes, name='upload_notes'),
     path('upload-docx/', views.upload_docx, name='upload_docx'),
     path('sessions/', views.session_history, name='session_history'),
+    path('lesson-notes/download-docx/<int:note_id>/', views.download_lesson_note_docx, name='download_lesson_note_docx'),
 ]

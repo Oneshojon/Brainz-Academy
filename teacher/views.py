@@ -10,6 +10,7 @@ from practice.models import PracticeSession, UserAnswer
 from catalog.cache_utils import invalidate_feature_flags
 
 import re
+from django.http import HttpResponse
 import io
 from docx import Document as DocxDocument
 from docx.oxml.ns import qn
@@ -741,6 +742,43 @@ def _handle_ai_accept(request, data):
     )
     return JsonResponse({'success': True, 'note_id': note.id, 'message': 'Lesson note saved.'})
 
+@login_required
+@feature_required('lesson_notes')
+def download_lesson_note_docx(request, note_id):
+    """Stream AI lesson note as a .docx attachment."""
+    from catalog.models import LessonNote
+    from catalog.subscription_access import check_lesson_note_access
+    from catalog.utils.docx_generator import generate_lesson_note_docx
+
+    try:
+        note = (
+            LessonNote.objects
+            .select_related('topic', 'topic__subject', 'topic__theme')
+            .get(id=note_id)
+        )
+    except LessonNote.DoesNotExist:
+        from django.http import Http404
+        raise Http404
+
+    if not note.ai_content:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest('This note has no AI content to download.')
+
+    access = check_lesson_note_access(request.user, note.topic)
+    if not access['allowed']:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('Upgrade to Teacher Pro for full access.')
+
+    buffer    = generate_lesson_note_docx(note.ai_content, note.topic.name, note.topic.subject.name)
+    safe_name = re.sub(r'[^\w\s\-]', '', f'{note.topic.subject.name} - {note.topic.name}')
+    safe_name = re.sub(r'\s+', ' ', safe_name).strip()
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{safe_name}.docx"'
+    return response
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DOCX PARSER HELPERS
