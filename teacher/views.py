@@ -812,7 +812,7 @@ from bs4 import BeautifulSoup, NavigableString
 _SITTING_MAP = {
     'may':  'MAY_JUNE', 'june': 'MAY_JUNE',
     'nov':  'NOV_DEC',  'dec':  'NOV_DEC',
-    'mock': 'MOCK',
+    'mock': 'MOCK_SERIES', 'mock_series': 'MOCK_SERIES',
 }
 
 # ── ASCII diagram detection ────────────────────────────────────────────────────

@@ -178,7 +178,7 @@ class ExamSeries(models.Model):
         ('MAY_JUNE', 'May/June'),
         ('NOV_DEC',  'Nov/Dec'),
         ('MOCK',     'Mock'),
-        ('OTHER',    'Other'),
+        ('MOCK-SERIES',    'Mock Series'),
     ]
 
     exam_board = models.ForeignKey(ExamBoard, on_delete=models.CASCADE, related_name='series')
