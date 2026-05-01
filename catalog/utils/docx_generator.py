@@ -64,9 +64,80 @@ RE_BOLD_ITALIC  = re.compile(r'\*\*\*(.*?)\*\*\*')
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _strip_latex(text: str) -> str:
-    """Remove LaTeX delimiters, keeping the inner expression as plain text."""
-    text = RE_LATEX_DISP.sub(lambda m: m.group(0)[2:-2].strip(), text)
-    text = RE_LATEX_INLINE.sub(lambda m: m.group(0)[2:-2].strip(), text)
+    """
+    Remove LaTeX delimiters and convert common LaTeX commands to
+    readable plain text for Word output.
+    """
+    def _clean_latex(expr: str) -> str:
+        """Convert a raw LaTeX expression to readable plain text."""
+        # Remove display/text wrappers
+        expr = re.sub(r'\\text\{([^}]*)\}',    r'\1', expr)
+        expr = re.sub(r'\\mathrm\{([^}]*)\}',  r'\1', expr)
+        expr = re.sub(r'\\mathbf\{([^}]*)\}',  r'\1', expr)
+        expr = re.sub(r'\\textbf\{([^}]*)\}',  r'\1', expr)
+
+        # Fractions — \frac{a}{b} → a/b
+        expr = re.sub(r'\\d?frac\{([^}]*)\}\{([^}]*)\}', r'\1/\2', expr)
+
+        # Superscripts / subscripts
+        expr = re.sub(r'\^\{([^}]*)\}', r'^\1', expr)
+        expr = re.sub(r'_\{([^}]*)\}',  r'_\1', expr)
+
+        # Greek letters → Unicode
+        greek = {
+            r'\\sigma':   'σ',  r'\\Sigma':   'Σ',
+            r'\\epsilon': 'ε',  r'\\varepsilon': 'ε',
+            r'\\alpha':   'α',  r'\\beta':    'β',
+            r'\\gamma':   'γ',  r'\\Gamma':   'Γ',
+            r'\\delta':   'δ',  r'\\Delta':   'Δ',
+            r'\\theta':   'θ',  r'\\Theta':   'Θ',
+            r'\\lambda':  'λ',  r'\\Lambda':  'Λ',
+            r'\\mu':      'μ',  r'\\nu':      'ν',
+            r'\\pi':      'π',  r'\\Pi':      'Π',
+            r'\\rho':     'ρ',  r'\\tau':     'τ',
+            r'\\phi':     'φ',  r'\\Phi':     'Φ',
+            r'\\omega':   'ω',  r'\\Omega':   'Ω',
+            r'\\eta':     'η',  r'\\xi':      'ξ',
+            r'\\zeta':    'ζ',  r'\\psi':     'ψ',
+            r'\\kappa':   'κ',  r'\\chi':     'χ',
+        }
+        for cmd, uni in greek.items():
+            expr = re.sub(cmd + r'(?![a-zA-Z])', uni, expr)
+
+        # Math symbols → Unicode
+        symbols = {
+            r'\\times':   '×',  r'\\cdot':    '·',
+            r'\\div':     '÷',  r'\\pm':      '±',
+            r'\\leq':     '≤',  r'\\geq':     '≥',
+            r'\\neq':     '≠',  r'\\approx':  '≈',
+            r'\\infty':   '∞',  r'\\sqrt':    '√',
+            r'\\sum':     'Σ',  r'\\int':     '∫',
+            r'\\rightarrow': '→', r'\\leftarrow': '←',
+            r'\\Rightarrow': '⇒', r'\\Leftrightarrow': '⟺',
+            r'\\therefore': '∴', r'\\because': '∵',
+            r'\\partial': '∂',  r'\\nabla':   '∇',
+            r'\\propto':  '∝',  r'\\in':      '∈',
+        }
+        for cmd, uni in symbols.items():
+            expr = re.sub(cmd + r'(?![a-zA-Z])', uni, expr)
+
+        # Formatting commands — just strip
+        expr = re.sub(r'\\[a-zA-Z]+\{([^}]*)\}', r'\1', expr)  # \cmd{x} → x
+        expr = re.sub(r'\\[a-zA-Z]+\s*',          '',   expr)   # remaining \cmd → ''
+
+        # Clean up braces and excess whitespace
+        expr = expr.replace('{', '').replace('}', '')
+        expr = re.sub(r'\s+', ' ', expr).strip()
+        return expr
+
+    # Strip display math \[...\]
+    text = RE_LATEX_DISP.sub(
+        lambda m: _clean_latex(m.group(0)[2:-2].strip()), text
+    )
+    # Strip inline math \(...\)
+    text = RE_LATEX_INLINE.sub(
+        lambda m: _clean_latex(m.group(0)[2:-2].strip()), text
+    )
     return text
 
 

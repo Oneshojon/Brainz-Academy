@@ -622,11 +622,18 @@ STRUCTURE:
    When the topic is commonly examined with a graph, draw it as an SVG following these rules:
    - Draw a clean x-axis and y-axis with arrowheads at the positive ends
    - Label BOTH axes with the quantity and unit: e.g. <text>Force (N)</text>, <text>Extension (m)</text>
-   - MANDATORY: Plot the actual curve or line using <path> or <polyline> elements with explicit
-     coordinate points. An SVG graph with only axes and no plotted data is a SEVERE ERROR.
-     Example for a straight line: <polyline points="100,350 500,100" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
-     Example for a curve: <path d="M 100,350 Q 250,200 400,120 T 560,80" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
-     Choose the correct path shape for the topic — straight line, curve, S-curve, bell curve, etc.
+   - MANDATORY: You MUST draw the plotted line BEFORE adding labels.
+     Follow this exact build order for every graph SVG:
+     STEP 1 — Draw axes:
+       <line x1="100" y1="50" x2="100" y2="380" stroke="#333" stroke-width="2"/>  (y-axis)
+       <line x1="100" y1="380" x2="620" y2="380" stroke="#333" stroke-width="2"/> (x-axis)
+     STEP 2 — Draw the plotted curve/line using <polyline> or <path>:
+       Straight line example:  <polyline points="100,380 300,200" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+       Curve example: <path d="M 100,380 L 280,180 Q 320,160 360,155 T 440,140 500,100 560,60" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+     STEP 3 — Mark key points ON the plotted line with <circle cx="X" cy="Y" r="5"/>
+     STEP 4 — Add leader lines and labels for each key point
+     STEP 5 — Add axis labels, origin O, title
+     A graph SVG that skips STEP 2 is INVALID and must not be output.
    - Mark ALL key points on the plotted line using <circle> elements at the correct coordinates,
      with a short leader <line> and <text> label for each point
    - Shade examined regions using <rect> or <path> with low opacity fill (e.g. fill="rgba(9,146,194,0.12)")
