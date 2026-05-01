@@ -621,7 +621,13 @@ STRUCTURE:
 
    When the topic is commonly examined with a graph, draw it as an SVG following these rules:
    - Draw a clean x-axis and y-axis with arrowheads at the positive ends
-   - Label BOTH axes with the quantity and unit: e.g. <text>Force (N)</text>, <text>Extension (m)</text>
+   - Label BOTH axes — this is MANDATORY and must never be omitted:
+     * Y-axis label: rotated text at the left of the y-axis, e.g.:
+       <text x="18" y="220" text-anchor="middle" font-size="13" fill="#333"
+             transform="rotate(-90, 18, 220)">Force (N)</text>
+     * X-axis label: horizontal text below the x-axis, e.g.:
+       <text x="360" y="415" text-anchor="middle" font-size="13" fill="#333">Extension (m)</text>
+     * Use the correct quantity and unit for the topic — do not use placeholder text
    - MANDATORY: You MUST draw the plotted line BEFORE adding labels.
      Follow this exact build order for every graph SVG:
      STEP 1 — Draw axes:
