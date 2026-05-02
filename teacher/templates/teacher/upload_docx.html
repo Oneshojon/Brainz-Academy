@@ -6,7 +6,6 @@
 <link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
 
 <style>
-  /* ── Format table ──────────────────────────────────────────────────────── */
   .fmt-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -40,7 +39,7 @@
     align-items: center;
     gap: 0.4rem;
   }
-  .fmt-col-header.obj  { color: var(--accent); }
+  .fmt-col-header.obj    { color: var(--accent); }
   .fmt-col-header.theory { color: #a78bfa; }
 
   .fmt-shared {
@@ -64,8 +63,8 @@
     margin-bottom: 0.4rem;
   }
 
-  .fmt-key   { color: var(--text); font-weight: 600; }
-  .fmt-opt   { color: var(--muted); font-style: italic; }
+  .fmt-key  { color: var(--text); font-weight: 600; }
+  .fmt-opt  { color: var(--muted); font-style: italic; }
   .fmt-badge {
     display: inline-block;
     font-family: 'DM Sans', sans-serif;
@@ -76,7 +75,9 @@
     vertical-align: middle;
     margin-left: 0.3rem;
   }
-  .badge-opt { background: rgba(156,213,255,0.1); color: var(--accent); }
+  .badge-opt      { background: rgba(156,213,255,0.10); color: var(--accent); }
+  .badge-required { background: rgba(0,232,122,0.10);   color: #00e87a; }
+  .badge-diff     { background: rgba(251,191,36,0.12);  color: #f59e0b; }
 </style>
 
 <div class="dash-body">
@@ -106,7 +107,7 @@
   <p style="color:var(--muted); font-size:0.9rem; margin-bottom:2rem; max-width:640px;">
     Upload a <strong>.docx</strong> file formatted in the standard Brainz Academy question format.
     Duplicate questions (same exam series + question number) are automatically skipped.
-    Topics found in the file are matched against existing topics in the database.
+    Topics are matched against existing topics in the database.
   </p>
 
   <!-- ── Result banner ──────────────────────────────────────────────────── -->
@@ -185,10 +186,10 @@
         margin-bottom:0.75rem;
       ">Expected file format</div>
 
-      <!-- Shared header (same for both types) -->
+      <!-- Shared header -->
       <div class="fmt-shared">
         <div class="fmt-shared-label">Header — every file</div>
-        <span class="fmt-key">Subject:</span> Biology<br>
+        <span class="fmt-key">Subject:</span> Mathematics<br>
         <span class="fmt-key">Exam:</span> WAEC<br>
         <span class="fmt-key">Year:</span> 2024<br>
         <span class="fmt-key">Sitting:</span> May/June<br>
@@ -207,6 +208,10 @@
           C. Third choice<br>
           D. Fourth choice<br>
           <span class="fmt-key">Answer:</span> C<br>
+          <span class="fmt-opt">Explanation:</span> Working here…
+          <span class="fmt-badge badge-opt">optional</span><br>
+          <span class="fmt-opt">Difficulty:</span> Easy
+          <span class="fmt-badge badge-diff">optional</span><br>
           <span class="fmt-key">Topic:</span> Topic Name
         </div>
 
@@ -219,13 +224,37 @@
           <span class="fmt-key">Answer:</span> Model answer here<br>
           <span class="fmt-opt">Marking Guide:</span> 1 mark for…
           <span class="fmt-badge badge-opt">optional</span><br>
+          <span class="fmt-opt">Difficulty:</span> Medium
+          <span class="fmt-badge badge-diff">optional</span><br>
           <span class="fmt-opt">Video:</span> https://youtu.be/…
           <span class="fmt-badge badge-opt">optional</span><br>
           <span class="fmt-key">Topic:</span> Topic Name
         </div>
 
+      </div><!-- end fmt-grid -->
+
+      <!-- Field notes -->
+      <div style="
+        background: var(--deep); border: 1px solid var(--border);
+        border-radius: 10px; padding: 0.85rem 1.25rem;
+        font-size: 0.8rem; color: var(--muted); line-height: 1.9;
+        margin-bottom: 1.5rem;
+      ">
+        <div style="
+          font-family:'DM Sans',sans-serif; font-weight:700; font-size:0.75rem;
+          letter-spacing:0.06em; text-transform:uppercase; color:var(--text);
+          margin-bottom:0.4rem;
+        ">Field notes</div>
+        <strong style="color:var(--text);">Explanation:</strong>
+          OBJ only. Placed after <code>Answer:</code>. May span multiple paragraphs and include tables.<br>
+        <strong style="color:var(--text);">Difficulty:</strong>
+          Accepts <code>Easy</code>, <code>Medium</code>, or <code>Hard</code> (case-insensitive).
+          Placed after <code>Explanation:</code> in OBJ; after <code>Answer:</code> / <code>Marking Guide:</code> in Theory.<br>
+        <strong style="color:var(--text);">Topic:</strong>
+          Must match an existing topic name exactly (case-insensitive). Unmatched topics are skipped with a warning.<br>
+        <strong style="color:var(--text);">Sitting:</strong>
+          Accepts <code>May/June</code>, <code>Nov/Dec</code>, or <code>Mock</code>.
       </div>
-      <!-- end fmt-grid -->
 
       <!-- Overwrite + submit -->
       <label style="
@@ -253,8 +282,8 @@
 
   input.addEventListener('change', () => {
     if (input.files[0]) {
-      label.textContent    = '📄 ' + input.files[0].name
-      label.style.display  = 'block'
+      label.textContent   = '📄 ' + input.files[0].name
+      label.style.display = 'block'
       zone.style.borderColor = 'var(--accent)'
     }
   })
@@ -276,9 +305,9 @@
     if (file && file.name.endsWith('.docx')) {
       const dt = new DataTransfer()
       dt.items.add(file)
-      input.files          = dt.files
-      label.textContent    = '📄 ' + file.name
-      label.style.display  = 'block'
+      input.files         = dt.files
+      label.textContent   = '📄 ' + file.name
+      label.style.display = 'block'
     }
   })
 </script>

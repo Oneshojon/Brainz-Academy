@@ -587,126 +587,224 @@ def _handle_ai_generate(request, data):
                 'cached':     True,
             })
 
-    prompt = f"""You are an experienced {topic.subject.name} teacher preparing a focused revision note for Nigerian students writing WAEC, NECO, or JAMB.
+    prompt = f"""You are an experienced {topic.subject.name} teacher and examiner preparing a focused revision note for Nigerian secondary school students writing WAEC, NECO, or JAMB.
 
 Subject: {topic.subject.name}
 Topic: {topic.name}
 
-Write a REVISION NOTE — not a textbook chapter. Every line must be something a student could be examined on. Cut anything that cannot appear in an exam question.
+Write a REVISION NOTE of the highest possible quality — structured, accurate, and complete. Every line must be something a student could be examined on. Cut anything that cannot appear in an exam question. This note must be the best revision resource a student can find for this topic.
 
-STRUCTURE:
-1. **Key Definitions** — every term a student must know for this topic. Write as a plain bullet list: **Term** — definition. Never use a table for definitions.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2. **Core Facts & Concepts** — for each major concept, write a short explanatory paragraph (2–4 sentences) that teaches the idea clearly, then follow it with bullet points covering the specific exam facts under that concept. Do NOT write bare bullet points without explanation. The paragraph must come first, then the bullets beneath it. Repeat this pattern for each distinct concept in the topic.
+## 1. Key Definitions
+List every term a student must know for this topic as a plain bullet list.
+Format: **Term** — precise definition.
+- Definitions must be concise, accurate, and pitched at WAEC/NECO/JAMB level
+- Never use a table for definitions
+- Include every term that has appeared or could appear in an exam question
 
-3. **Tables & Comparisons** — use a markdown table ONLY when the content is a genuine side-by-side comparison of two or more items across the same attributes (e.g., mitosis vs meiosis, series vs parallel circuits, demand vs supply). Do NOT use tables for definitions, lists of facts, enumerations, or any content that flows naturally as bullet points. Definitions belong in section 1 as a plain list. Exams frequently use table-completion questions, so when a table is appropriate, make it complete and accurate. If no genuine comparison exists for this topic, omit this section entirely including its heading.
+## 2. Core Facts & Concepts
+For EACH major concept in the topic, follow this exact pattern — no exceptions:
 
-4. **Worked Examples** — include ONLY if the subject requires calculation or step-by-step application (Mathematics, Physics, Chemistry, Economics). Skip entirely for purely factual topics. Do NOT include this section header if you are skipping it.
-   Format every solution using numbered steps:
-   **Step 1: [action heading]** — show full workings
-   **Step 2: [action heading]** — show full workings
-   Final answer on its own line in bold.
-   Include 2–4 examples of increasing difficulty where relevant.
+  [Concept Sub-heading as ### heading]
+  
+  Write a clear explanatory paragraph of 3–5 sentences that teaches the concept. 
+  This paragraph must explain the idea, not just name it. Include why it matters, 
+  how it works, and any key relationships or conditions. Do NOT skip the paragraph 
+  and jump to bullets.
 
-5. **Diagrams** — follow ALL rules below without exception:
+  Then follow with bullet points covering the specific exam facts:
+  - Each bullet must be a precise, examinable fact
+  - Include units, conditions, exceptions, and Nigerian examples where relevant
+  - Cover every sub-concept that has appeared in past WAEC/NECO/JAMB questions
 
-   RULE 1 — GRAPHS (for topics commonly examined with a plotted graph):
-   Graphs apply across ALL subjects — not Physics only. Common cases include:
-   - Physics: force-extension, velocity-time, distance-time, I-V characteristics
-   - Mathematics: quadratic curves, straight line graphs, cumulative frequency, histograms
-   - Chemistry: reaction rate curves, Maxwell-Boltzmann distribution, titration curves
-   - Economics: supply/demand curves, PPC curves, cost curves
-   - Biology: population growth, enzyme activity curves
-   - Geography: population pyramids, climate graphs
+Repeat this paragraph + bullets pattern for every distinct concept. Aim for depth over breadth.
 
-   When the topic is commonly examined with a graph, draw it as an SVG following these rules:
-   - Draw a clean x-axis and y-axis with arrowheads at the positive ends
-   - Label BOTH axes — this is MANDATORY and must never be omitted:
-     * Y-axis label: rotated text at the left of the y-axis, e.g.:
-       <text x="18" y="220" text-anchor="middle" font-size="13" fill="#333"
-             transform="rotate(-90, 18, 220)">Force (N)</text>
-     * X-axis label: horizontal text below the x-axis, e.g.:
-       <text x="360" y="415" text-anchor="middle" font-size="13" fill="#333">Extension (m)</text>
-     * Use the correct quantity and unit for the topic — do not use placeholder text
-   - MANDATORY: You MUST draw the plotted line BEFORE adding labels.
-     Follow this exact build order for every graph SVG:
-     STEP 1 — Draw axes:
-       <line x1="100" y1="50" x2="100" y2="380" stroke="#333" stroke-width="2"/>  (y-axis)
-       <line x1="100" y1="380" x2="620" y2="380" stroke="#333" stroke-width="2"/> (x-axis)
-     STEP 2 — Draw the plotted curve/line using <polyline> or <path>:
-       Straight line example:  <polyline points="100,380 300,200" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
-       Curve example: <path d="M 100,380 L 280,180 Q 320,160 360,155 T 440,140 500,100 560,60" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
-     STEP 3 — Mark key points ON the plotted line with <circle cx="X" cy="Y" r="5"/>
-     STEP 4 — Add leader lines and labels for each key point
-     STEP 5 — Add axis labels, origin O, title
-     A graph SVG that skips STEP 2 is INVALID and must not be output.
-   - Mark ALL key points on the plotted line using <circle> elements at the correct coordinates,
-     with a short leader <line> and <text> label for each point
-   - Shade examined regions using <rect> or <path> with low opacity fill (e.g. fill="rgba(9,146,194,0.12)")
-   - Origin must be labelled O at the axis intersection
-   - Use gridlines sparingly if they aid reading
-   - Graph title in bold at top of SVG
+## 3. Tables & Comparisons
+Use a markdown table ONLY for genuine side-by-side comparisons of two or more items 
+across the same attributes (e.g., mitosis vs meiosis, series vs parallel circuits, 
+ductile vs brittle materials, demand vs supply).
 
-   RULE 2 — MERMAID FLOWCHARTS:
-   Mermaid is STRICTLY FORBIDDEN except for Computer Science topics.
-   Permitted Computer Science uses ONLY: algorithms, sorting, program flow, data structures, network topologies, decision trees.
-   For ALL other subjects — Biology, Chemistry, Physics, Economics, Geography, etc. — do NOT produce a mermaid block under any circumstance. Use a table or SVG instead.
-   When permitted, use a fenced code block tagged ```mermaid.
+Rules:
+- Tables must be complete — no empty cells, no placeholder dashes
+- Column headers must be specific and bold
+- Do NOT use tables for: definitions, lists of facts, enumerations, or anything 
+  that flows naturally as bullet points
+- If no genuine comparison exists for this topic, omit this section entirely including its heading
 
-   RULE 3 — SVG STRUCTURAL DIAGRAMS:
-   Use SVG ONLY when the topic is commonly examined with a physical labelled diagram AND you can draw it accurately.
-   Suitable SVG topics: labelled anatomical or cellular structures, electrical circuits, ecosystem diagrams, map cross-sections, physical apparatus.
-   DO NOT use SVG for: classifications, lists of types, comparisons between concepts, hierarchies, historical timelines, economic models, or any content better shown as a table.
-   If you are not certain you can draw and label the structure accurately, DO NOT attempt SVG — use a table instead.
+## 4. Worked Examples
+Include ONLY for subjects requiring calculation or step-by-step application:
+Mathematics, Physics, Chemistry, Economics, Further Mathematics.
+Skip entirely for purely factual topics. Do NOT include this heading if skipping.
 
-   RULE 4 — SVG TECHNICAL REQUIREMENTS (mandatory for ALL SVG including graphs):
-   - Write raw <svg>...</svg> markup inline — do NOT wrap in backticks or a code block
-   - viewBox="0 0 700 450"; background rect fill="#f9f9f9"; border rect stroke="#cccccc"
-   - The SVG will be rendered at A4 width by the template — do NOT set a fixed width or height attribute on the <svg> tag. Use viewBox only. Example: <svg viewBox="0 0 700 450" xmlns="..."> with no width/height attributes
-   - For structural diagrams, draw the main structure first, then add labels OUTSIDE the structure using this exact pattern for each label:
-     * Place a filled circle marker at the point being labelled: <circle cx="X" cy="Y" r="3" fill="#333"/>
-     * Draw a straight line from that point to the label position: <line x1="X" y1="Y" x2="LX" y2="LY" stroke="#555" stroke-width="1"/>
-     * Place the label text at the line endpoint: <text x="LX" y="LY" font-size="13" fill="#222">Label Text</text>
-     * Labels on the LEFT side: text-anchor="end", line goes left; Labels on the RIGHT side: text-anchor="start", line goes right
-     * Minimum 30px gap between the structure boundary and the label text
-     * No two label texts may share the same Y coordinate within 18px of each other
-   - Left-side labels MUST have x no less than 80 — never place label text closer than 80px to the left edge of the viewBox
-   - Right-side labels MUST have x no greater than 620 — never place label text closer than 80px to the right edge of the viewBox
-   - The main structure must be centred within x=80 to x=620, leaving at least 80px on each side exclusively for label text
-   - Label only the 5–7 most examined parts
-   - Bold diagram title at top: <text x="350" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Title</text>
-   - Use distinct fill colours for different parts to aid identification
-   - Total SVG under 150 lines. Do not sacrifice label accuracy, structure detail, or correct positioning to meet the line limit. Every label must have its own circle marker, connector line, and text element — these must never be skipped to save lines.
-   - CRITICAL: If you include a Diagrams section, it MUST contain actual rendered content (graph SVG, structural SVG, or mermaid block). An empty Diagrams section or a section with only a heading and description text is FORBIDDEN. If you cannot produce a valid diagram, omit the entire section including the heading.
+Format every solution as:
+**Example N — [descriptive title]**
+[Problem statement]
 
-   RULE 5 — ASCII:
-   Use ASCII only for simple linear or relational content inline within text, never as a standalone section.
+**Step 1: [Action heading]** — show full workings on this line
+**Step 2: [Action heading]** — show full workings on this line
+...continue steps as needed...
+**Answer: [final answer with units in bold]**
 
-   RULE 6 — LIMITS:
-   Maximum 4 diagrams per note. Omit the entire Diagrams section — including its heading — if diagrams are not commonly examined for this topic or if you cannot produce valid content.
+Requirements:
+- Include 2–4 examples of increasing difficulty
+- Show every step — no skipped algebra
+- Always include unit conversion as an explicit step if needed
+- Final answer must always be on its own bold line with correct units
 
-6. **Likely Exam Questions** — 4–7 specific questions likely to appear in WAEC/NECO/JAMB on this topic, with concise model answers. Format strictly as Q: / A: pairs.
+## 5. Diagrams
 
-7. **Exam Tips & Common Mistakes** — merge examiner strategy and student errors into one focused section. Format each point as:
-   > ⚠️ **Mistake:** [what students get wrong and why it costs marks]
-   > 💡 **Tip:** [strategic advice, memory aid, or examiner trap to watch for]
-   Include 3–5 points total, mixing mistakes and tips as appropriate for the topic.
+### GRAPHS — SVG (for topics examined with a plotted graph)
 
-MATHEMATICAL NOTATION — CRITICAL:
-Every mathematical expression, variable, equation, or formula MUST be wrapped in LaTeX delimiters.
-Use \\( ... \\) for inline math and \\[ ... \\] for display (standalone) equations.
+Graphs apply across ALL subjects. Common examined graphs include:
+- Physics: force-extension, velocity-time, distance-time, I-V characteristics, cooling curves
+- Mathematics: quadratic curves, straight lines, cumulative frequency, histograms, sine/cosine
+- Chemistry: reaction rate curves, Maxwell-Boltzmann distribution, titration curves
+- Economics: supply/demand curves, PPC curves, average/marginal cost curves
+- Biology: population growth curves, enzyme activity vs pH/temperature
+- Geography: population pyramids, climate graphs, hydrographs
 
-RULES:
-- Write for a student with limited time to revise this topic before an exam
-- Every fact must be accurate and pitched at the correct level for WAEC/NECO/JAMB
-- Use Nigerian examples where relevant
-- No introductions, no conclusions, no motivational sentences
-- No repetition — state each fact once
-- TABLES: use sparingly — only for genuine side-by-side comparisons. Definitions, features, and enumerated facts must use bullet points or numbered lists, never a table
-- CURRENCY: write Naira as ₦500 or NGN 500 — never bare $ signs
-- OMIT any section heading entirely if that section has no content — never leave an empty section
-- Format using markdown"""
+When a graph is commonly examined for this topic, produce it as an inline SVG strictly 
+following ALL of these requirements:
 
+COORDINATE SYSTEM:
+- viewBox="0 0 700 480" — use this exact viewBox for all graphs
+- Origin at coordinate (100, 390) within the SVG — all data is plotted relative to this
+- X-axis runs from (100, 390) to (630, 390) — total length 530px
+- Y-axis runs from (100, 390) to (100, 50) — total height 340px
+- Leave top 50px for title, bottom 90px for x-axis label, left 100px for y-axis label
+
+STEP 1 — BACKGROUND AND BORDER (draw first):
+<rect width="700" height="480" fill="#f9f9f9"/>
+<rect width="698" height="478" x="1" y="1" fill="none" stroke="#cccccc" stroke-width="1"/>
+
+STEP 2 — AXES with arrowheads (draw second):
+Define arrowhead marker at top of SVG inside <defs>:
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#333"/>
+  </marker>
+</defs>
+Draw axes using the marker:
+<line x1="100" y1="390" x2="100" y2="45" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="100" y1="390" x2="635" y2="390" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+
+STEP 3 — PLOTTED CURVE OR LINE (draw third — MANDATORY, NEVER SKIP):
+Plot the mathematically correct shape for this specific topic using <path> or <polyline>.
+The curve MUST start at or near the origin (100, 390) and extend into the graph area.
+Choose the correct shape:
+- Linear (e.g. Ohm's law, Hooke's law elastic region): <polyline points="100,390 500,120" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+- Concave curve (e.g. enzyme activity): <path d="M 100,390 Q 200,200 310,130 T 520,100" stroke="#0B2D72" stroke-width="2.5" fill="none"/>  
+- Complex multi-segment (e.g. force-extension): <path d="M 100,390 L 250,250 Q 310,210 360,200 T 460,185 520,160 550,130 560,110 530,140" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+- Bell curve (e.g. Maxwell-Boltzmann): <path d="M 120,380 Q 200,370 280,200 350,60 420,200 500,370 580,380" stroke="#0B2D72" stroke-width="2.5" fill="none"/>
+NEVER output a graph with axes only and no plotted data — this is a critical failure.
+
+STEP 4 — KEY POINTS on the curve (draw fourth):
+Mark every examined landmark with a filled circle ON the curve:
+<circle cx="X" cy="Y" r="5" fill="#C0392B"/>
+Add a short diagonal leader line from each point to its label:
+<line x1="X" y1="Y" x2="LX" y2="LY" stroke="#555" stroke-width="1" stroke-dasharray="3,2"/>
+Add label text at end of leader:
+<text x="LX" y="LY" font-size="12" fill="#222" text-anchor="start">P (Proportional limit)</text>
+
+STEP 5 — SHADED REGIONS (draw fifth, where examined):
+Shade key regions using low-opacity fill:
+<rect x="100" y="200" width="150" height="190" fill="rgba(9,146,194,0.08)"/>
+Add a small region label inside or beside the shaded area.
+
+STEP 6 — AXIS LABELS (draw sixth — MANDATORY, NEVER OMIT):
+Y-axis label (rotated, left side):
+<text x="20" y="220" text-anchor="middle" font-size="13" fill="#444" transform="rotate(-90,20,220)">Force (N)</text>
+X-axis label (horizontal, below axis):
+<text x="365" y="435" text-anchor="middle" font-size="13" fill="#444">Extension (m)</text>
+Origin label:
+<text x="88" y="405" font-size="12" fill="#555">O</text>
+
+STEP 7 — TITLE (draw last):
+<text x="350" y="32" text-anchor="middle" font-size="15" font-weight="bold" fill="#111">Graph Title Here</text>
+
+CRITICAL GRAPH RULES:
+- Do NOT set width or height attributes on the <svg> tag — use viewBox only
+- Do NOT wrap SVG in backticks or code fences — write raw inline SVG
+- Every graph MUST complete all 7 steps in order
+- Steps 3 and 6 are non-negotiable — a graph missing either is invalid
+
+### IMAGE DESCRIPTIONS — Physical Diagrams (for topics examined with a labelled diagram)
+
+For topics where students are asked to draw or label a physical diagram in exams 
+(anatomy, cells, apparatus, circuits, ecosystems, maps, cross-sections), do NOT 
+attempt to draw SVG. Instead produce a structured image description block using 
+this exact format:
+
+📷 **Image Required — [Descriptive title of the diagram]**
+> **Exam relevance:** [Specific WAEC/NECO/JAMB question types this diagram appears in]
+> **Must show:** [Comma-separated list of every part that must be visible and labelled]
+> **Key labels for exam:** [The 5–8 parts students are most frequently asked to identify or label]
+> **Search term:** [Exact search phrase a teacher can use to find a suitable diagram image]
+
+Rules for image descriptions:
+- Include an image description for EVERY diagram type that commonly appears in WAEC/NECO/JAMB for this topic
+- Be specific — "labelled diagram of the nephron showing Bowman's capsule, 
+  glomerulus, proximal convoluted tubule, loop of Henle, distal convoluted 
+  tubule, collecting duct" not just "kidney diagram"
+- Include multiple image descriptions if the topic has multiple examined diagrams
+- A teacher will source and upload the actual image — your job is to specify it precisely
+
+### MERMAID FLOWCHARTS — Computer Science only
+Mermaid is STRICTLY FORBIDDEN for all subjects except Computer Science.
+For Computer Science, use only for: algorithms, sorting, program flow, data structures, 
+network topologies, decision trees.
+Use a fenced code block tagged ```mermaid when permitted.
+
+### LIMITS
+- Maximum 5 SVG graphs per note
+- Maximum 8 image description blocks per note
+- Omit the entire Diagrams section including its heading if neither graphs nor image 
+  descriptions apply to this topic
+
+## 6. Likely Exam Questions
+Provide 5–8 specific questions that are highly likely to appear in WAEC/NECO/JAMB 
+for this topic. Format strictly as:
+
+**Q[N] ([marks]):** [Question as it would appear in an exam paper]
+**A[N]:** [Complete model answer — full sentences, all steps shown for calculations]
+
+Requirements:
+- Include the mark allocation in brackets e.g. (2 marks), (4 marks)
+- Mix question types: definition, explain, calculate, sketch/draw, compare, state
+- Model answers must be complete — examiner-standard responses
+- Include at least one calculation question for science/maths topics
+- Include at least one "sketch/draw" question for topics with examined diagrams
+
+## 7. Exam Tips & Common Mistakes
+Provide 4–6 points that directly address how students lose marks on this topic in WAEC/NECO/JAMB.
+Format each point strictly as:
+
+> ⚠️ **Mistake:** [Specific error students make and exactly why it loses marks]
+> 💡 **Tip:** [Precise corrective strategy, memory aid, or examiner expectation]
+
+Each ⚠️ must be paired with a 💡 on the next line. Mix mistakes and tips as needed.
+Focus on errors that actually cost marks in past papers — not generic advice.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GLOBAL RULES — apply throughout the entire note
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Accuracy first — every fact must be correct for WAEC/NECO/JAMB level
+- Nigerian context — use Nigerian examples, currency (₦), institutions, and 
+  environments wherever relevant (e.g. Lagos traffic for motion, River Niger for 
+  ecosystems, Dangote Cement for industrial chemistry)
+- No filler — no introductions, conclusions, motivational sentences, or 
+  meta-commentary about the note itself
+- No repetition — state each fact exactly once in the most appropriate section
+- LaTeX for ALL math — every expression, variable, equation, formula, and unit 
+  must use \\( ... \\) for inline and \\[ ... \\] for display math
+- TABLES: genuine comparisons only — never for definitions, features, or lists
+- CURRENCY: always ₦ or NGN — never bare $ signs
+- OMIT empty sections — if a section has no content, omit its heading entirely
+- FORMAT: markdown throughout"""
+    
     try:
         client  = anthropic.Anthropic()
         message = client.messages.create(
@@ -805,33 +903,49 @@ def download_lesson_note_docx(request, note_id):
 import subprocess
 import tempfile
 import os
-
+import re
+ 
 from bs4 import BeautifulSoup, NavigableString
-
-
+ 
+ 
 _SITTING_MAP = {
     'may':  'MAY_JUNE', 'june': 'MAY_JUNE',
     'nov':  'NOV_DEC',  'dec':  'NOV_DEC',
     'mock': 'MOCK_SERIES', 'mock_series': 'MOCK_SERIES',
 }
-
+ 
+# ── Difficulty normalisation ───────────────────────────────────────────────────
+_DIFFICULTY_MAP = {
+    'easy':   'EASY',
+    'medium': 'MEDIUM',
+    'hard':   'HARD',
+}
+ 
+ 
+def _normalise_difficulty(raw: str):
+    """
+    Normalise a raw Difficulty: value to a model choice string.
+    Returns None if the value is not recognised so the field stays blank.
+    """
+    return _DIFFICULTY_MAP.get(raw.strip().lower())
+ 
+ 
 # ── ASCII diagram detection ────────────────────────────────────────────────────
-# Matches Unicode box-drawing and arrow characters that signal positional layout.
 _ASCII_DRAW_RE = re.compile(
     r'[\u2500\u2501\u2502\u2503\u250c\u2510\u2514\u2518\u251c\u2524\u252c\u2534\u253c'
     r'\u2190\u2191\u2192\u2193\u2194\u27f5\u27f6'
     r'\u2504\u2505\u2508\u2509\u2506\u2507\u250a\u250b'
     r'\u250d\u250e\u250f\u2511\u2512\u2513\u2515\u2516\u2517\u2519\u251a\u251b]'
 )
-
-
+ 
+ 
 def _is_ascii_para(text: str) -> bool:
     """
     Return True if this paragraph text needs monospace/preformatted rendering.
-
+ 
     Detects:
-      1. Box-drawing or arrow Unicode characters (\u2500 range, \u2190-\u2193)
-      2. Caret/arrow annotations: "^ \u2190", "\u2191 label"
+      1. Box-drawing or arrow Unicode characters
+      2. Caret/arrow annotations: "^ ←", "↑ label"
       3. Separator lines: 3+ chars composed only of - = _ space
       4. Pipe-separated column rows: "val | val | val"
       5. Positional slash/backslash lines used in geometry diagrams
@@ -851,8 +965,8 @@ def _is_ascii_para(text: str) -> bool:
     if len(stripped) >= 2 and len(non_slash) / max(len(stripped), 1) < 0.35:
         return True
     return False
-
-
+ 
+ 
 def _para_is_prose(text: str) -> bool:
     """Return True when a paragraph is clearly prose and should not be absorbed into an ASCII block."""
     stripped = text.strip()
@@ -862,13 +976,13 @@ def _para_is_prose(text: str) -> bool:
     if len(words) >= 4 and stripped.endswith(('.', ':', '?', '!')):
         return True
     return False
-
-
+ 
+ 
 def _group_and_wrap_ascii(html_parts: list) -> list:
     """
     Post-process explanation HTML parts and merge consecutive ASCII paragraphs
     into <pre class="ascii-diagram"> blocks, preserving math spans inside.
-
+ 
     Rules:
       - <table> always ends the current ASCII group.
       - Clearly prose paragraphs end the ASCII group.
@@ -876,11 +990,11 @@ def _group_and_wrap_ascii(html_parts: list) -> list:
       - Math <span class="math inline"> elements are preserved as HTML inside <pre>.
     """
     from bs4 import BeautifulSoup as _BS
-
+ 
     result     = []
     pre_buffer = []
     in_ascii   = False
-
+ 
     def _flush():
         nonlocal in_ascii
         if pre_buffer:
@@ -891,31 +1005,31 @@ def _group_and_wrap_ascii(html_parts: list) -> list:
             )
             pre_buffer.clear()
         in_ascii = False
-
+ 
     for html_str in html_parts:
         frag = _BS(html_str, 'html.parser')
         elem = next((c for c in frag.children if hasattr(c, 'name')), None)
-
+ 
         if elem is None:
             _flush()
             result.append(html_str)
             continue
-
+ 
         if elem.name == 'table':
             _flush()
             result.append(html_str)
             continue
-
+ 
         if elem.name != 'p':
             _flush()
             result.append(html_str)
             continue
-
+ 
         text     = elem.get_text(separator='', strip=False)
         inner    = elem.decode_contents()
         is_asc   = _is_ascii_para(text)
         is_prose = _para_is_prose(text)
-
+ 
         if is_asc:
             in_ascii = True
             pre_buffer.append(inner)
@@ -924,20 +1038,19 @@ def _group_and_wrap_ascii(html_parts: list) -> list:
         else:
             _flush()
             result.append(html_str)
-
+ 
     _flush()
     return result
-
-
-
+ 
+ 
 def _resolve_sitting(s):
     s = s.lower()
     for key, val in _SITTING_MAP.items():
         if key and key in s:
             return val
     return 'MAY_JUNE'
-
-
+ 
+ 
 def _split_para_into_lines(elem):
     """
     Split a <p> element into lines at <br/> boundaries.
@@ -946,7 +1059,7 @@ def _split_para_into_lines(elem):
     lines        = []
     current_html = ''
     current_text = ''
-
+ 
     for child in elem.children:
         if child.name == 'br':
             if current_text.strip():
@@ -959,13 +1072,13 @@ def _split_para_into_lines(elem):
         else:
             current_html += str(child)
             current_text += child.get_text()
-
+ 
     if current_text.strip():
         lines.append((current_text.strip(), current_html.strip()))
-
+ 
     return lines
-
-
+ 
+ 
 def _is_choice_block(elem):
     """Return True if the paragraph begins with a choice label (A. / A))."""
     _choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
@@ -973,8 +1086,8 @@ def _is_choice_block(elem):
     if not lines:
         return False
     return bool(_choice_label_re.match(lines[0][0]))
-
-
+ 
+ 
 def _parse_choices(elem):
     """
     Extract choices from a <p> element.
@@ -985,7 +1098,7 @@ def _parse_choices(elem):
     lines   = _split_para_into_lines(elem)
     choices = []
     seen    = set()
-
+ 
     for plain, html in lines:
         m = _choice_label_re.match(plain)
         if m and m.group(1).upper() not in seen:
@@ -997,34 +1110,30 @@ def _parse_choices(elem):
                 'text':       choice_html,
                 'is_correct': False,
             })
-
+ 
     return choices
-
-
-def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re):
+ 
+ 
+def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re, difficulty_re):
     """
     Parse objective (MCQ) question blocks from a pre-built raw_blocks dict.
-
+ 
     raw_blocks : {question_number: [BeautifulSoup elements]}
-
-    Explanation handling
-    ────────────────────
-    Each question block may contain a multi-paragraph explanation section
-    between "Explanation: ..." and "Topic: ...":
-
+ 
+    Block structure per question:
         Answer: C
-        Explanation: First line of explanation.    ← explanation_re matches here
-        More prose continuation...                 ← in_explanation accumulates
-        | table row | ...  |                       ← tables also accumulated
-        Topic: Some Topic                          ← resets in_explanation, saves
-
-    The full explanation text is stored in q['explanation'] and attached to the
-    correct Choice dict as c['explanation'].  It is NEVER appended to
-    content_parts / question.content.
+        Explanation: First line of explanation.
+        More prose / table / ASCII continuation...
+        Difficulty: Medium                         ← extracted, not shown to student
+        Topic: Some Topic                          ← resets explanation, saves
+ 
+    difficulty is stored in q['difficulty'] and written to Question.difficulty.
+    explanation is stored in q['explanation'] and attached to the correct Choice.
+    Neither leaks into content_parts / question.content.
     """
     questions       = []
     choice_label_re = re.compile(r'^([A-E])[.\)]\s*')
-
+ 
     for number, block in sorted(raw_blocks.items()):
         q = {
             'number':              number,
@@ -1035,6 +1144,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
             'choices':             [],
             'answer':              '',
             'explanation':         '',   # populated from explanation block; never from content
+            'difficulty':          None, # EASY / MEDIUM / HARD — from Difficulty: line
             'topics':              [],
         }
         content_parts     = []
@@ -1044,16 +1154,15 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
         in_explanation    = False   # True while consuming explanation body paragraphs
         expl_parts        = []      # accumulates multi-paragraph explanation text
         seen_labels       = set()
-
+ 
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
-
+ 
             # ── First element: question stem ──────────────────────────────────
             if elem is block[0]:
                 m = q_inline_re.match(text)
                 if m:
-                    # Strip leading "N. " from HTML and keep the rest
                     elem_html = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
@@ -1064,7 +1173,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     continue
                 else:
                     continue
-
+ 
             # ── Image ─────────────────────────────────────────────────────────
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 image_seen = True
@@ -1076,7 +1185,7 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
-
+ 
             # ── Alpha <ol type="A"> choices ───────────────────────────────────
             if tag == 'ol' and elem.get('type') == 'A':
                 in_choices     = True
@@ -1091,10 +1200,8 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             'is_correct': False,
                         })
                 continue
-
+ 
             # ── <p> with <br/> — split and route each line ────────────────────
-            # Explanation continuation within a <br/>-split paragraph is handled
-            # line-by-line using the same in_explanation state.
             if tag == 'p' and elem.find('br'):
                 lines          = _split_para_into_lines(elem)
                 question_lines = []
@@ -1114,6 +1221,10 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                             q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                             expl_parts       = []
                             q['topics'].append(' '.join(mt.group(1).split()))
+                        elif difficulty_re.match(plain):
+                            # Difficulty: line appears inside the explanation block
+                            md = difficulty_re.match(plain)
+                            q['difficulty'] = _normalise_difficulty(md.group(1).strip())
                         elif plain:
                             expl_parts.append(html_str)
                         continue
@@ -1149,21 +1260,18 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     else:
                         content_parts.append(chunk)
                 continue
-
+ 
             # ── Explanation — standalone <p>, no <br/> ────────────────────────
             me = explanation_re.match(text)
             if me:
-                in_explanation = True       # enter explanation-accumulation mode
+                in_explanation = True
                 in_choices     = False
                 first_line     = me.group(1).strip()
                 if first_line:
                     expl_parts.append(re.sub(r"Explanation\s*:\s*", "", str(elem), count=1, flags=re.IGNORECASE))
                 continue
-
-            # ── Explanation continuation ───────────────────────────────────────
-            # Any element between Explanation: and Topic: belongs to the
-            # explanation body — prose paragraphs, ASCII art, tables, etc.
-            # Topic: is intercepted here to cleanly finalise expl_parts.
+ 
+            # ── Explanation continuation (prose, tables, ASCII, Difficulty:) ──
             if in_explanation:
                 mt = topic_re.match(text)
                 if mt:
@@ -1172,29 +1280,32 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                     q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                     q['topics'].append(' '.join(mt.group(1).split()))
+                elif difficulty_re.match(text):
+                    # Difficulty: appears after Explanation: body, before Topic:
+                    md = difficulty_re.match(text)
+                    q['difficulty'] = _normalise_difficulty(md.group(1).strip())
                 elif text:
                     expl_parts.append(str(elem))
                 continue
-
+ 
             # ── Answer ────────────────────────────────────────────────────────
             ma = answer_re.match(text)
             if ma:
                 q['answer']    = ma.group(1).upper()
                 in_choices     = False
-                in_explanation = False   # guard: Answer: should not appear inside explanation
+                in_explanation = False
                 continue
-
+ 
             # ── Topic ─────────────────────────────────────────────────────────
             mt = topic_re.match(text)
             if mt:
-                # Finalise any accumulated explanation before recording topic
                 if in_explanation:
                     in_explanation   = False
                     q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
-
+ 
             # ── Individual choice <p> (no <br/>) ─────────────────────────────
             if tag == 'p' and _is_choice_block(elem):
                 in_choices     = True
@@ -1213,42 +1324,42 @@ def _parse_obj_blocks_numbered(raw_blocks, img_map, q_inline_re, topic_re, answe
                                 'is_correct': False,
                             })
                 continue
-
+ 
             # ── Regular content (catch-all) ───────────────────────────────────
-            # Guard: in_explanation ensures explanation body never lands here.
             if not in_choices and not in_explanation and tag in ('p', 'table'):
                 if image_seen:
                     after_image_parts.append(str(elem))
                 else:
                     content_parts.append(str(elem))
-
+ 
         # ── Flush any trailing explanation not terminated by Topic: ──────────
         if expl_parts and not q['explanation']:
             q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
-
+ 
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()
-
+ 
         # Mark correct choice and attach explanation to it
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct']  = True
                     c['explanation'] = q.get('explanation', '')
-
+ 
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
-
+ 
     return questions
-
-
-def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re, explanation_re):
+ 
+ 
+def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_re, explanation_re, difficulty_re=None):
     """
     Parse objective (MCQ) question blocks — legacy path kept for compatibility.
     Applies the same in_explanation state machine as _parse_obj_blocks_numbered.
+    difficulty_re defaults to None for callers that don't pass it.
     """
     questions = []
-
+ 
     for block in blocks:
         q = {
             'number':              None,
@@ -1259,6 +1370,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
             'choices':             [],
             'answer':              '',
             'explanation':         '',
+            'difficulty':          None,
             'topics':              [],
         }
         content_parts     = []
@@ -1267,11 +1379,11 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
         in_choices        = False
         in_explanation    = False
         expl_parts        = []
-
+ 
         for elem in block:
             tag  = elem.name
             text = elem.get_text(separator='\n', strip=True)
-
+ 
             # Question number
             if tag == 'p' and q['number'] is None:
                 standalone = q_num_re.match(text)
@@ -1284,7 +1396,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                     elem_html   = re.sub(r'(<p[^>]*>)\s*\d+[.\)]\s*', r'\1', str(elem))
                     content_parts.append(elem_html)
                     continue
-
+ 
             # Image
             if tag in ('figure', 'img') or (tag == 'p' and elem.find('img')):
                 image_seen = True
@@ -1296,7 +1408,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                         q['image_bytes'] = img_map[fname]
                         q['image_ext']   = fname.split('.')[-1].lower()
                 continue
-
+ 
             # Explanation first line
             me = explanation_re.match(text)
             if me:
@@ -1306,7 +1418,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                 if first_line:
                     expl_parts.append(re.sub(r"Explanation\s*:\s*", "", str(elem), count=1, flags=re.IGNORECASE))
                 continue
-
+ 
             # Explanation continuation
             if in_explanation:
                 mt = topic_re.match(text)
@@ -1315,10 +1427,13 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                     q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
                     expl_parts       = []
                     q['topics'].append(' '.join(mt.group(1).split()))
+                elif difficulty_re and difficulty_re.match(text):
+                    md = difficulty_re.match(text)
+                    q['difficulty'] = _normalise_difficulty(md.group(1).strip())
                 elif text:
                     expl_parts.append(str(elem))
                 continue
-
+ 
             # Answer key
             ma = answer_re.match(text)
             if ma:
@@ -1326,7 +1441,7 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                 in_choices     = False
                 in_explanation = False
                 continue
-
+ 
             # Topic
             mt = topic_re.match(text)
             if mt:
@@ -1336,54 +1451,54 @@ def _parse_obj_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re, answer_r
                     expl_parts       = []
                 q['topics'].append(' '.join(mt.group(1).split()))
                 continue
-
+ 
             # Choices
             if tag == 'p' and _is_choice_block(elem):
                 in_choices     = True
                 in_explanation = False
                 q['choices']   = _parse_choices(elem)
                 continue
-
+ 
             # Regular content
             if not in_choices and not in_explanation and tag in ('p', 'table'):
                 if image_seen:
                     after_image_parts.append(str(elem))
                 else:
                     content_parts.append(str(elem))
-
+ 
         # Flush trailing explanation
         if expl_parts and not q['explanation']:
             q['explanation'] = ''.join(_group_and_wrap_ascii(expl_parts)).strip()
-
+ 
         q['content']             = '\n'.join(content_parts).strip()
         q['content_after_image'] = '\n'.join(after_image_parts).strip()
-
+ 
         if q['answer']:
             for c in q['choices']:
                 if c['label'] == q['answer']:
                     c['is_correct']  = True
                     c['explanation'] = q.get('explanation', '')
-
+ 
         if q['number'] and (q['content'] or q['choices']):
             questions.append(q)
-
+ 
     return questions
-
-
+ 
+ 
 def _parse_docx(file_bytes):
     """
     Parse a DOCX file using pandoc → HTML → BeautifulSoup.
-
+ 
     Handles paragraph-based (typed numbers), list-based (Word numbering),
     and mixed-format files in a unified two-pass block collection.
-
+ 
     Returns:
         (header, questions)
-
+ 
     header    : dict — subject, exam, year, sitting, paper_type
     questions : list of dicts — number, content (HTML), image_bytes,
-                image_ext, topics, choices, answer, explanation (OBJ)
-                              — theory_answer, marking_guide (THEORY)
+                image_ext, topics, choices, answer, explanation, difficulty (OBJ)
+                              — theory_answer, marking_guide, difficulty (THEORY)
     """
     q_num_re               = re.compile(r'^\s*(\d+)[.\)]\s*$')
     q_inline_re            = re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL)
@@ -1393,12 +1508,13 @@ def _parse_docx(file_bytes):
     marking_guide_re       = re.compile(r'^marking\s*guide\s*:\s*(.*)$',   re.IGNORECASE | re.DOTALL)
     choice_label_re        = re.compile(r'^([A-E])[.\)]\s*')
     explanation_re         = re.compile(r'^\s*explanation\s*:\s*(.*)',       re.IGNORECASE | re.DOTALL)
-
+    difficulty_re          = re.compile(r'^\s*difficulty\s*:\s*(.*)',        re.IGNORECASE)
+ 
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, 'input.docx')
         with open(docx_path, 'wb') as f:
             f.write(file_bytes)
-
+ 
         result = subprocess.run(
             ['pandoc', docx_path, '-t', 'html', '--mathjax',
              f'--extract-media={tmpdir}'],
@@ -1406,11 +1522,10 @@ def _parse_docx(file_bytes):
         )
         if result.returncode != 0:
             raise ValueError(f'pandoc conversion failed: {result.stderr}')
-
+ 
         html = result.stdout
-        # Escape bare currency $ signs before MathJax interprets them
         html = re.sub(r'\$(?=\s*\d)', r'&#36;', html)
-
+ 
         img_map    = {}
         media_path = os.path.join(tmpdir, 'media')
         if os.path.exists(media_path):
@@ -1418,10 +1533,9 @@ def _parse_docx(file_bytes):
                 fpath = os.path.join(media_path, fname)
                 with open(fpath, 'rb') as f:
                     img_map[fname] = f.read()
-
+ 
     soup = BeautifulSoup(html, 'html.parser')
-
-    # ── Header parser ─────────────────────────────────────────────────────────
+ 
     def _parse_header(header_elems):
         header = {
             'subject':    '',
@@ -1450,8 +1564,7 @@ def _parse_docx(file_bytes):
                     else 'OBJ'
                 )
         return header
-
-    # ── Locate where questions begin ──────────────────────────────────────────
+ 
     first_ol      = soup.find('ol', type='1')
     first_p_match = None
     for p in soup.find_all('p'):
@@ -1459,26 +1572,24 @@ def _parse_docx(file_bytes):
         if q_num_re.match(t) or q_inline_re.match(t):
             first_p_match = p
             break
-
+ 
     header_elems = []
     for p in soup.find_all('p'):
         if (first_ol and p == first_ol) or (first_p_match and p == first_p_match):
             break
         header_elems.append(p)
     header = _parse_header(header_elems)
-
-    # ── Two-pass block collection ─────────────────────────────────────────────
-    raw_blocks = {}  # {question_number: [elements]}
-
-    # Pass 1 — list-based questions from <ol type="1">
+ 
+    raw_blocks = {}
+ 
     for ol in soup.find_all('ol', type='1'):
         lis   = ol.find_all('li', recursive=False)
         start = int(ol.get('start', 1))
-
+ 
         for idx, li in enumerate(lis):
             number = start + idx
             elems  = list(li.find_all(['p', 'img', 'figure', 'table', 'ol']))
-
+ 
             if li == lis[-1]:
                 next_sib = ol.find_next_sibling()
                 while next_sib and not hasattr(next_sib, 'name'):
@@ -1499,20 +1610,18 @@ def _parse_docx(file_bytes):
                         next_sib = next_sib.find_next_sibling()
                     else:
                         break
-
+ 
             raw_blocks[number] = elems
-
-    # Pass 2 — paragraph-based questions (typed "N." numbers)
-    # Only adds questions not already captured in Pass 1
+ 
     all_elements = list(soup.find_all(['p', 'img', 'table', 'figure']))
     current_num  = None
     current      = []
-
+ 
     for elem in all_elements:
         text       = elem.get_text(separator='\n', strip=True)
         standalone = q_num_re.match(text)
         inline     = q_inline_re.match(text)
-
+ 
         if standalone or inline:
             if current_num is not None and current_num not in raw_blocks:
                 raw_blocks[current_num] = current
@@ -1520,27 +1629,26 @@ def _parse_docx(file_bytes):
             current     = [elem]
         elif current_num is not None:
             current.append(elem)
-
+ 
     if current_num is not None and current_num not in raw_blocks:
         raw_blocks[current_num] = current
-
-    # ── Dispatch to correct parser ────────────────────────────────────────────
+ 
     if header['paper_type'] == 'THEORY':
         questions = _parse_theory_blocks(
             soup, img_map, q_num_re, q_inline_re, topic_re,
-            theory_answer_start_re, marking_guide_re
+            theory_answer_start_re, marking_guide_re, difficulty_re
         )
     else:
         questions = _parse_obj_blocks_numbered(
-            raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re
+            raw_blocks, img_map, q_inline_re, topic_re, answer_re, explanation_re, difficulty_re
         )
-
+ 
     return header, questions
-
-
+ 
+ 
 import os
 from bs4 import Tag
-
+ 
 _TH_Q_TYPED_RE = re.compile(r'^\s*(\d+)[.)]\s*(.*)', re.DOTALL)
 _TH_ANSWER_RE  = re.compile(r'^(answer|solution)\s*:\s*(.*)', re.IGNORECASE | re.DOTALL)
 _TH_MARKING_RE = re.compile(r'^marking\s*guide\s*:\s*(.*)',   re.IGNORECASE | re.DOTALL)
@@ -1553,26 +1661,23 @@ _TH_SUBPART_RE = re.compile(
 )
 _TH_IMG_W_RE = re.compile(r'width\s*:\s*([\d.]+)in',  re.IGNORECASE)
 _TH_IMG_H_RE = re.compile(r'height\s*:\s*([\d.]+)in', re.IGNORECASE)
-
-
+ 
+ 
 def _th_text(elem) -> str:
     return elem.get_text(separator=' ', strip=True).replace('\n', ' ')
-
-
+ 
+ 
 def _th_is_topic(elem) -> bool:
     return bool(_TH_TOPIC_RE.match(_th_text(elem)))
-
-
+ 
+ 
 def _th_topic_name(elem) -> str:
     m = _TH_TOPIC_RE.match(_th_text(elem))
     return ' '.join(m.group(1).split()) if m else ''
-
-
+ 
+ 
 def _th_img_info(img_tag, img_map: dict):
-    """
-    Return (bytes, ext, width_px, height_px) or (None, None, None, None).
-    96 dpi: px = inches × 96.
-    """
+    """Return (bytes, ext, width_px, height_px) or (None, None, None, None). 96 dpi."""
     src   = img_tag.get('src', '')
     fname = os.path.basename(src)
     data  = img_map.get(fname)
@@ -1585,13 +1690,10 @@ def _th_img_info(img_tag, img_map: dict):
     w_px  = round(float(wm.group(1)) * 96) if wm else None
     h_px  = round(float(hm.group(1)) * 96) if hm else None
     return data, ext, w_px, h_px
-
-
+ 
+ 
 def _th_ol_to_html(ol_elem, lv: int) -> str:
-    """
-    Render <ol type="a"|"i"> into sq-lv{N} indent blocks.
-    Nested <ol> recurse one level deeper (capped at lv3).
-    """
+    """Render <ol type="a"|"i"> into sq-lv{N} indent blocks."""
     parts = []
     for li in ol_elem.find_all('li', recursive=False):
         nested_ols = li.find_all('ol', recursive=False)
@@ -1603,13 +1705,10 @@ def _th_ol_to_html(ol_elem, lv: int) -> str:
         for nol in nested_ols:
             parts.append(_th_ol_to_html(nol, min(lv + 1, 3)))
     return '\n'.join(parts)
-
-
+ 
+ 
 def _th_blockquote_html(bq_elem, img_map: dict, set_img_fn) -> list:
-    """
-    Walk a <blockquote> and return list of HTML strings.
-    Skips Topic: paragraphs. Calls set_img_fn for any images found.
-    """
+    """Walk a <blockquote> and return list of HTML strings."""
     parts = []
     for child in bq_elem.find_all(
         ['p', 'ol', 'table', 'img', 'blockquote'], recursive=False
@@ -1636,30 +1735,23 @@ def _th_blockquote_html(bq_elem, img_map: dict, set_img_fn) -> list:
             if inner:
                 parts.append('<div class="sq-lv1"><p>%s</p></div>' % inner)
     return parts
-
-
+ 
+ 
 def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
-                          theory_answer_start_re, marking_guide_re):
+                          theory_answer_start_re, marking_guide_re, difficulty_re=None):
     """
     Parse theory/essay questions from pandoc-generated HTML.
-
-    Args:
-        blocks   — BeautifulSoup soup object (repurposed arg name for compatibility)
-        img_map  — {filename: bytes} from pandoc --extract-media
-
-    Returns list of question dicts:
-        number, content (HTML), image_bytes, image_ext,
-        image_width_px, image_height_px, topics (list[str]),
-        theory_answer (HTML), marking_guide (HTML), video_url (str|None)
-
-    Section markers (place after question content, before Topic:):
-        Answer: / Solution:  → theory_answer
-        Marking Guide:       → marking_guide
-        Video: https://...   → video_url (first occurrence wins)
-        Topic:               → closes the question record
+ 
+    difficulty_re is passed from _parse_docx. Difficulty: lines appearing after
+    Answer:/Marking Guide: and before Topic: are extracted and stored on the
+    question dict as 'difficulty'. The value is normalised via _normalise_difficulty().
     """
     soup = blocks
-
+ 
+    # Compile locally if not passed (backwards-compat guard)
+    if difficulty_re is None:
+        difficulty_re = re.compile(r'^\s*difficulty\s*:\s*(.*)', re.IGNORECASE)
+ 
     def _new_q(number):
         return {
             'number':          number,
@@ -1673,8 +1765,9 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             'marking_guide':   '',
             'video_url':       None,
             'marks':           1,
+            'difficulty':      None,   # EASY / MEDIUM / HARD
         }
-
+ 
     questions     = []
     current_q     = None
     content_parts = []
@@ -1683,7 +1776,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
     section       = 'content'
     last_q_number = 0
     used_numbers  = set()
-
+ 
     def _flush():
         nonlocal current_q, content_parts, answer_parts
         nonlocal marking_parts, section, last_q_number
@@ -1701,41 +1794,41 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
         answer_parts  = []
         marking_parts = []
         section       = 'content'
-
+ 
     def _open(number):
         nonlocal current_q, section
         _flush()
         current_q = _new_q(number)
         section   = 'content'
-
+ 
     def _append(html):
         if not html:
             return
         if   section == 'content': content_parts.append(html)
         elif section == 'answer':  answer_parts.append(html)
         elif section == 'marking': marking_parts.append(html)
-
+ 
     def _set_image(b, ext, w, h):
         if current_q and current_q['image_bytes'] is None and b:
             current_q['image_bytes']     = b
             current_q['image_ext']       = ext
             current_q['image_width_px']  = w
             current_q['image_height_px'] = h
-
+ 
     def _try_section_switch(text) -> bool:
         nonlocal section
-
+ 
         mm = _TH_MARKS_RE.match(text.strip())
         if mm and current_q is not None:
             current_q['marks'] = int(mm.group(1))
             return True
-
+ 
         mv = _TH_VIDEO_RE.match(text)
         if mv and current_q is not None:
             if current_q['video_url'] is None:
                 current_q['video_url'] = mv.group(1).strip()
             return True
-
+ 
         mg = _TH_MARKING_RE.match(text)
         if mg:
             section = 'marking'
@@ -1743,7 +1836,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             if inline:
                 _append('<p>%s</p>' % inline)
             return True
-
+ 
         ans = _TH_ANSWER_RE.match(text)
         if ans:
             section = 'answer'
@@ -1751,24 +1844,28 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
             if inline:
                 _append('<p>%s</p>' % inline)
             return True
-
+ 
+        # Difficulty: — appears after answer/marking guide, before Topic:
+        md = difficulty_re.match(text)
+        if md and current_q is not None:
+            current_q['difficulty'] = _normalise_difficulty(md.group(1).strip())
+            return True
+ 
         return False
-
+ 
     top_elems = [e for e in soup.children if isinstance(e, Tag)]
-
+ 
     for elem in top_elems:
         tag  = elem.name
         text = _th_text(elem)
-
-        # Topic → close question
+ 
         if _th_is_topic(elem):
             tn = _th_topic_name(elem)
             if tn and current_q is not None:
                 current_q['topics'].append(tn)
             _flush()
             continue
-
-        # Topic wrapped in <blockquote>
+ 
         if tag == 'blockquote':
             topic_p = next(
                 (c for c in elem.find_all('p', recursive=True) if _th_is_topic(c)),
@@ -1780,28 +1877,26 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     current_q['topics'].append(tn)
                 _flush()
                 continue
-
-        # Section switches at top level
+ 
         if current_q is not None and _try_section_switch(text):
             continue
-
-        # <ol type="1"> — list-based questions
+ 
         if tag == 'ol' and elem.get('type') == '1':
             start_attr = elem.get('start')
             q_num      = int(start_attr) if start_attr else (last_q_number + 1)
-
+ 
             for li in elem.find_all('li', recursive=False):
                 _open(q_num)
                 q_num += 1
-
+ 
                 for child in li.children:
                     if not isinstance(child, Tag):
                         continue
                     child_text = _th_text(child)
-
+ 
                     if _try_section_switch(child_text):
                         continue
-
+ 
                     if child.name == 'p':
                         img_t = child.find('img')
                         if img_t:
@@ -1819,8 +1914,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     elif child.name == 'table':
                         _append(str(child))
             continue
-
-        # <p>N. text — typed-number question
+ 
         if tag == 'p':
             m_typed = _TH_Q_TYPED_RE.match(text)
             if m_typed:
@@ -1835,56 +1929,51 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                     b, ext, w, h = _th_img_info(img_t, img_map)
                     _set_image(b, ext, w, h)
                 continue
-
-            # Orphan sub-part after a topic flush
+ 
             if current_q is None and _TH_SUBPART_RE.match(text):
                 synthetic = last_q_number + 1
                 while synthetic in used_numbers:
                     synthetic += 1
                 _open(synthetic)
-
+ 
             if current_q is None:
                 continue
-
+ 
             if _try_section_switch(text):
                 continue
-
+ 
             img_t = elem.find('img')
             if img_t:
                 b, ext, w, h = _th_img_info(img_t, img_map)
                 _set_image(b, ext, w, h)
                 if not text.strip():
                     continue
-
+ 
             inner = elem.decode_contents().strip()
             if inner:
                 _append('<p>%s</p>' % inner)
             continue
-
-        # <blockquote> — lv1 indented continuation
+ 
         if tag == 'blockquote':
             if current_q is None:
                 continue
             for html in _th_blockquote_html(elem, img_map, _set_image):
                 _append(html)
             continue
-
-        # <ol type="a"|"i"> at top level
+ 
         if tag == 'ol' and elem.get('type', '').lower() in ('a', 'i'):
             if current_q is None:
                 continue
             lv = 2 if elem.get('type', 'a').lower() == 'a' else 3
             _append(_th_ol_to_html(elem, lv))
             continue
-
-        # <table>
+ 
         if tag == 'table':
             if current_q is None:
                 continue
             _append(str(elem))
             continue
-
-        # Bare <figure> or <img>
+ 
         if tag in ('figure', 'img'):
             if current_q is None:
                 continue
@@ -1893,10 +1982,9 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                 b, ext, w, h = _th_img_info(img_t, img_map)
                 _set_image(b, ext, w, h)
             continue
-
+ 
     _flush()
     return questions
-
 
 @admin_required
 @feature_required('docx_upload')
@@ -1986,7 +2074,9 @@ def upload_docx(request):
                     existing.content_after_image = q_data.get('content_after_image') or ''
                     existing.question_type       = paper_type
                     existing.marks               = q_data.get('marks') or existing.marks
-                    existing.save(update_fields=['content', 'content_after_image', 'question_type', 'marks'])
+                    if q_data.get('difficulty'):
+                        existing.difficulty = q_data['difficulty']
+                    existing.save(update_fields=['content', 'content_after_image', 'question_type', 'marks', 'difficulty'])
                     question = existing
                     question.choices.all().delete()
                     question.topics.clear()
@@ -1999,6 +2089,7 @@ def upload_docx(request):
                         content=q_data['content'],
                         content_after_image=q_data.get('content_after_image') or '',
                         marks=q_data.get('marks') or 1,
+                        difficulty=q_data.get('difficulty') or None,
                     )
 
                 # Image
@@ -2065,7 +2156,7 @@ def upload_docx(request):
 
     SITTING_DISPLAY = {
         'MAY_JUNE': 'May/June', 'NOV_DEC': 'Nov/Dec',
-        'MOCK': 'Mock',         'OTHER':   'Other',
+        'MOCK_SERIES': 'Mock Series',         'OTHER':   'Other',
     }
 
     context = {

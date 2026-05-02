@@ -274,6 +274,7 @@ class PastPaper(models.Model):
 class Question(models.Model):
     QUESTION_TYPES = [
         ('OBJ',    'Objective'),
+        ('ORAL_OBJ', 'Oral Objective'),
         ('THEORY', 'Theory'),
     ]
 
