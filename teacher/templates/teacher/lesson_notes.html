@@ -254,7 +254,6 @@
   vertical-align: top;
   color: var(--text);
 }
-
 .ai-content table thead tr {
   background-color: #0B2D72;
   color: #ffffff;
@@ -730,6 +729,15 @@ function renderMarkdown(raw) {
   // Restore math blocks
   html = html.replace(/%%MATH_DISPLAY_(\d+)%%/g, (_, i) => mathBlocks[parseInt(i)])
   html = html.replace(/%%MATH_INLINE_(\d+)%%/g,  (_, i) => mathBlocks[parseInt(i)])
+
+  // Inject inline styles on <th> elements so no external stylesheet can override
+  // the navy header appearance. CSS cascade and specificity battles are
+  // unpredictable across dynamically-loaded stylesheets; inline styles always win.
+  html = html.replace(
+    /<th(\s[^>]*)?>/gi,
+    '<th$1 style="background-color:#0B2D72;color:#ffffff;font-weight:600;'
+    + 'padding:10px 14px;text-align:left;vertical-align:top;border:1px solid #d1d9e6;">'
+  )
 
   // Safety net: decode SVG accidentally wrapped in a code fence
   html = html.replace(
