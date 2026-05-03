@@ -55,6 +55,7 @@
             <a href="{% url 'Users:dashboard' %}" class="nav-link">Dashboard</a>
             <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
             <a href="{% url 'past_papers:past_papers_boards' %}" class="nav-link">Past Papers</a>
+            <a href="{% url 'lessonnotes:lesson_notes' %}" class="nav-link">Revision Notes</a>
             {% if user.role == 'TEACHER' %}
               <a href="{% url 'teacher:dashboard' %}" class="nav-link">Teacher Portal</a>
             {% endif %}

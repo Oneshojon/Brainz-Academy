@@ -238,13 +238,23 @@
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-.ai-content table th,
+.ai-content table th {
+  border: 1px solid #d1d9e6;
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+  color: #ffffff;
+  background-color: #0B2D72;
+  font-weight: 600;
+}
 .ai-content table td {
   border: 1px solid #d1d9e6;
   padding: 10px 14px;
   text-align: left;
   vertical-align: top;
+  color: var(--text);
 }
+
 .ai-content table thead tr {
   background-color: #0B2D72;
   color: #ffffff;
@@ -328,6 +338,7 @@
   .ai-content h3 { font-size: 11pt !important; }
   .ai-content table th,
   .ai-content table td { border: 1px solid #aaa !important; }
+  .ai-content table td { color: var(--text) !important; }
   .ai-content table thead tr {
     background-color: #0B2D72 !important;
     -webkit-print-color-adjust: exact;
