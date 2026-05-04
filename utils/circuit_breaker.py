@@ -73,9 +73,9 @@ SERVICE_CONFIGS: dict[str, CircuitConfig] = {
         call_timeout=15,       # generous — Paystack can legitimately be slow
     ),
     "anthropic": CircuitConfig(
-        failure_threshold=2,
+        failure_threshold=3,
         recovery_timeout=120,  # AI outages tend to last longer
-        call_timeout=25,       # generative calls take real time
+        call_timeout=60,       # generative calls take real time
     ),
 }
 
