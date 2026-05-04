@@ -129,13 +129,6 @@
     document.getElementById('btnStudent').classList.toggle('active', role === 'STUDENT');
     document.getElementById('btnTeacher').classList.toggle('active', role === 'TEACHER');
   }
-  {% if not new_user %}
-  document.getElementById('otp').addEventListener('input', function() {
-    if (this.value.length === 6) {
-      setTimeout(() => document.getElementById('verifyForm').submit(), 200);
-    }
-  });
-  {% endif %}
 </script>
 
 {% endblock %}

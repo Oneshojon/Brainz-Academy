@@ -342,3 +342,75 @@ LOGGING = {
         'level': 'ERROR',
     },
 }
+
+# ── Anymail request timeout (matches Brevo call_timeout in circuit breaker) ───
+# This tells anymail's underlying requests session to time out after 8s,
+# which is the same value as CircuitConfig("brevo").call_timeout.
+ANYMAIL = {
+    **locals().get('ANYMAIL', {}),   # preserve existing BREVO_API_KEY entry
+    'REQUESTS_TIMEOUT': 8,
+}
+
+# ── Cloudflare R2 / boto3 timeouts ───────────────────────────────────────────
+# These control how long django-storages waits for R2 on upload/download.
+# No circuit breaker for R2 — django-storages + boto3 handle retries internally.
+AWS_S3_CONNECT_TIMEOUT = 10   # seconds to establish TCP connection
+AWS_S3_READ_TIMEOUT    = 20   # seconds to wait for data after connection
+
+# ── Logging — surgical circuit breaker logger only ────────────────────────────
+# Root stays at ERROR (existing behaviour).
+# utils.circuit_breaker gets its own handler at WARNING so breaker events
+# (trips, probes, resets) appear in Railway logs without noise from the rest.
+LOGGING = {
+    'version':                  1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style':  '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class':     'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        # Circuit breaker — WARNING and above (trips, probes, resets, failures)
+        'utils.circuit_breaker': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': False,
+        },
+        # Service layer — WARNING and above (delivery failures, API errors)
+        'services.email_service': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': False,
+        },
+        'services.payment_service': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': False,
+        },
+        'services.ai_service': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': False,
+        },
+        # Payments view — WARNING and above
+        'payments.views': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level':    'ERROR',   # unchanged — no extra noise from Django internals
+    },
+}
+ 
+# ── Site URL (used by payment_service callback_url helper) ────────────────────
+SITE_URL = os.environ.get('SITE_URL', 'https://brainzacademy.com')

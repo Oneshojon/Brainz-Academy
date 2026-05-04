@@ -1,9 +1,21 @@
-import hashlib
-import hmac
-import json
+"""
+payments/views.py
 
-import requests
-from django.conf import settings
+Paystack payment flow for BrainzAcademy.
+
+All outbound Paystack calls go through services.payment_service — never
+call requests or the Paystack API directly from here.
+
+Flow
+----
+1. initialize_payment  — POST from pricing page; redirects to Paystack checkout
+2. payment_callback    — Paystack redirects back; verify and activate subscription
+3. paystack_webhook    — server-to-server backup confirmation from Paystack
+"""
+
+import json
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -12,18 +24,28 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from catalog.models import SubscriptionPlan, UserSubscription
+from services.payment_service import (
+    PaystackError,
+    PaystackUnavailableError,
+    initialize_transaction,
+    verify_transaction,
+    verify_webhook_signature,
+)
 
-PAYSTACK_SECRET = settings.PAYSTACK_SECRET_KEY
-PAYSTACK_BASE   = 'https://api.paystack.co'
+logger = logging.getLogger(__name__)
 
 
 # ── STEP 1: Initialize payment ────────────────────────────────────────────────
+
 @login_required
 def initialize_payment(request):
     """
     POST { plan_id: <int> }
     Calls Paystack /transaction/initialize and redirects user to the
     Paystack-hosted checkout page.
+
+    On circuit OPEN or timeout, renders pricing page with a clear message
+    rather than raising an unhandled exception.
     """
     if request.method != 'POST':
         return redirect('Users:pricing')
@@ -34,85 +56,115 @@ def initialize_payment(request):
     except SubscriptionPlan.DoesNotExist:
         return redirect('Users:pricing')
 
-    # Amount in kobo (Paystack requires smallest currency unit)
-    amount_kobo = int(plan.price * 100)
-
-    # Build callback URL — Paystack redirects here after payment
     callback_url = request.build_absolute_uri('/payments/callback/')
 
-    payload = {
-        'email':        request.user.email,
-        'amount':       amount_kobo,
-        'currency':     'NGN',
-        'callback_url': callback_url,
-        'metadata': {
-            'user_id': request.user.id,
-            'plan_id': plan.id,
-            'plan_type': plan.plan_type,
-            'duration': plan.duration,
-        },
-    }
+    try:
+        authorization_url = initialize_transaction(
+            email        = request.user.email,
+            amount_kobo  = int(plan.price * 100),
+            callback_url = callback_url,
+            metadata     = {
+                'user_id':   request.user.id,
+                'plan_id':   plan.id,
+                'plan_type': plan.plan_type,
+                'duration':  plan.duration,
+            },
+        )
+        return redirect(authorization_url)
 
-    response = requests.post(
-        f'{PAYSTACK_BASE}/transaction/initialize',
-        headers={
-            'Authorization': f'Bearer {PAYSTACK_SECRET}',
-            'Content-Type':  'application/json',
-        },
-        json=payload,
-        timeout=15,
-    )
-    data = response.json()
+    except PaystackUnavailableError as exc:
+        logger.warning(
+            "Payment initialization unavailable for user %s: %s",
+            request.user.id, exc,
+        )
+        return render(request, 'Users/pricing.html', {
+            'error':       str(exc),
+            'default_tab': 'teacher' if request.user.role == 'TEACHER' else 'student',
+        })
 
-    if data.get('status'):
-        # Redirect user to Paystack-hosted payment page
-        return redirect(data['data']['authorization_url'])
-
-    # Something went wrong
-    return render(request, 'Users/pricing.html', {
-        'error': 'Could not initialize payment. Please try again.',
-        'default_tab': 'student',
-    })
+    except PaystackError as exc:
+        logger.error(
+            "Payment initialization error for user %s: %s",
+            request.user.id, exc,
+        )
+        return render(request, 'Users/pricing.html', {
+            'error':       'Could not initialize payment. Please try again.',
+            'default_tab': 'teacher' if request.user.role == 'TEACHER' else 'student',
+        })
 
 
 # ── STEP 2: Callback (user returns from Paystack) ─────────────────────────────
+
 @login_required
 def payment_callback(request):
     """
-    Paystack redirects here with ?reference=xxx after the user pays.
-    We verify the transaction and activate the subscription.
+    Paystack redirects here with ?reference=xxx after the user completes payment.
+    Verify the transaction and activate the subscription.
+
+    On circuit OPEN, show a holding page — the webhook will activate the
+    subscription server-to-server as a reliable backup.
     """
     reference = request.GET.get('reference')
     if not reference:
         return redirect('Users:pricing')
 
-    # Verify with Paystack
-    response = requests.get(
-        f'{PAYSTACK_BASE}/transaction/verify/{reference}',
-        headers={'Authorization': f'Bearer {PAYSTACK_SECRET}'},
-        timeout=15,
-    )
-    data = response.json()
+    try:
+        tx = verify_transaction(reference)
 
-    if not data.get('status') or data['data']['status'] != 'success':
-        return render(request, 'payments/payment_failed.html', {
-            'reason': data.get('message', 'Payment was not successful.')
+    except PaystackUnavailableError as exc:
+        # Paystack circuit is OPEN — the webhook backup will activate the
+        # subscription. Reassure the user rather than showing an error.
+        logger.warning(
+            "Payment callback verification unavailable for ref %s: %s",
+            reference, exc,
+        )
+        return render(request, 'payments/payment_pending.html', {
+            'message': (
+                'Your payment was received but we could not confirm it immediately. '
+                'Your subscription will be activated within a few minutes. '
+                'If it is not active after 10 minutes, please contact support.'
+            ),
         })
 
-    tx       = data['data']
+    except PaystackError as exc:
+        logger.error(
+            "Payment callback verification failed for ref %s: %s",
+            reference, exc,
+        )
+        return render(request, 'payments/payment_failed.html', {
+            'reason': str(exc),
+        })
+
+    # Payment verified — extract plan and activate
     metadata = tx.get('metadata', {})
     plan_id  = metadata.get('plan_id')
 
     try:
         plan = SubscriptionPlan.objects.get(id=plan_id)
     except SubscriptionPlan.DoesNotExist:
+        logger.error("Plan %s not found after successful payment ref %s", plan_id, reference)
         return redirect('Users:dashboard')
 
     _activate_subscription(
         user      = request.user,
         plan      = plan,
         reference = reference,
-        amount    = tx['amount'] / 100,   # convert kobo → naira
+        amount    = tx['amount'] / 100,
+    )
+
+    # Send confirmation email (best-effort — non-critical)
+    from services.email_service import send_subscription_confirmation
+    from dateutil.relativedelta import relativedelta
+
+    expiry = timezone.now() + (
+        relativedelta(years=1) if plan.duration == 'YEARLY'
+        else relativedelta(months=1)
+    )
+    send_subscription_confirmation(
+        to_email   = request.user.email,
+        user_name  = request.user.first_name or request.user.email,
+        plan_name  = plan.name if hasattr(plan, 'name') else plan.plan_type,
+        expiry_date= expiry.strftime('%d %B %Y'),
     )
 
     return render(request, 'payments/payment_success.html', {
@@ -122,28 +174,32 @@ def payment_callback(request):
 
 
 # ── STEP 3: Webhook (server-to-server confirmation) ───────────────────────────
+
 @csrf_exempt
 @require_POST
 def paystack_webhook(request):
     """
     Paystack calls this endpoint directly to confirm events.
-    Used as a reliable backup to the callback (e.g. if user closes browser).
-    Webhook URL to set in Paystack dashboard:
-        https://yourdomain.com/payments/webhook/
-    """
-    # Verify the request is genuinely from Paystack
-    paystack_signature = request.headers.get('X-Paystack-Signature', '')
-    computed = hmac.new(
-        PAYSTACK_SECRET.encode('utf-8'),
-        request.body,
-        hashlib.sha512,
-    ).hexdigest()
+    Reliable backup to the callback — fires even if user closes their browser.
 
-    if not hmac.compare_digest(computed, paystack_signature):
+    Webhook URL to configure in Paystack dashboard:
+        https://brainzacademy.com/payments/webhook/
+
+    Note: webhook receives Paystack's server call — no outbound API call needed,
+    so no circuit breaker is applied here.
+    """
+    paystack_signature = request.headers.get('X-Paystack-Signature', '')
+
+    if not verify_webhook_signature(request.body, paystack_signature):
+        logger.warning("Paystack webhook received with invalid signature.")
         return HttpResponse(status=401)
 
-    payload = json.loads(request.body)
-    event   = payload.get('event')
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponse(status=400)
+
+    event = payload.get('event')
 
     if event == 'charge.success':
         tx       = payload['data']
@@ -158,37 +214,49 @@ def paystack_webhook(request):
             user = User.objects.get(id=user_id)
             plan = SubscriptionPlan.objects.get(id=plan_id)
         except (User.DoesNotExist, SubscriptionPlan.DoesNotExist):
-            return HttpResponse(status=200)   # acknowledge but skip
+            logger.error(
+                "Webhook charge.success: user %s or plan %s not found.",
+                user_id, plan_id,
+            )
+            return HttpResponse(status=200)
 
-        # Only activate if not already active (webhook may fire twice)
-        if not UserSubscription.objects.filter(
-    user=user, 
-    paystack_reference=tx['reference'], status='ACTIVE'
-    ).exists():
-            
+        # Idempotency guard — webhook may fire more than once
+        already_active = UserSubscription.objects.filter(
+            user                = user,
+            paystack_reference  = tx['reference'],
+            status              = 'ACTIVE',
+        ).exists()
+
+        if not already_active:
             _activate_subscription(
                 user      = user,
                 plan      = plan,
                 reference = tx['reference'],
                 amount    = tx['amount'] / 100,
             )
+            logger.info(
+                "Subscription activated via webhook for user %s, ref %s.",
+                user_id, tx['reference'],
+            )
 
-    # Always return 200 — Paystack retries if it doesn't get a 200
+    # Always return 200 — Paystack retries on non-200
     return HttpResponse(status=200)
 
 
-# ── SHARED HELPER ─────────────────────────────────────────────────────────────
-def _activate_subscription(user, plan, reference, amount):
+# ── Shared helper ─────────────────────────────────────────────────────────────
+
+def _activate_subscription(user, plan, reference: str, amount: float) -> None:
+    """
+    Deactivate any current subscription and create a new ACTIVE one.
+    Pure DB logic — no external calls.
+    """
     from dateutil.relativedelta import relativedelta
 
-    # Deactivate current subscription if any
+    # Expire existing active subscription
     UserSubscription.objects.filter(user=user, status='ACTIVE').update(status='EXPIRED')
 
-    # Calculate end date based on plan duration
     now = timezone.now()
-    if plan.duration == 'MONTHLY':
-        expires_at = now + relativedelta(months=1)
-    elif plan.duration == 'YEARLY':
+    if plan.duration == 'YEARLY':
         expires_at = now + relativedelta(years=1)
     else:
         expires_at = now + relativedelta(months=1)
@@ -201,4 +269,8 @@ def _activate_subscription(user, plan, reference, amount):
         expires_at         = expires_at,
         paystack_reference = reference,
         amount_paid        = amount,
+    )
+    logger.info(
+        "Subscription created: user=%s plan=%s expires=%s ref=%s",
+        user.id, plan.id, expires_at.date(), reference,
     )

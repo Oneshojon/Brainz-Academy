@@ -23,6 +23,8 @@ def redirect_with_rest(new_prefix):
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    path('admin/health/', include('teacher.health_urls')),
+
     # ── Auth & public pages ───────────────────────────────────────
     path('', include('Users.urls')),
 

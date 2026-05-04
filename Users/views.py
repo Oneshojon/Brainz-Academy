@@ -61,48 +61,54 @@ def test_builder_landing(request):
 def request_otp(request):
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
-        ref = request.POST.get('ref', '').strip() 
+        ref   = request.POST.get('ref', '').strip()
 
         if not email:
-            return render(request, 'Users/login.html', {'error': 'Please enter your email address.'})
+            return render(request, 'Users/login.html', {
+                'error': 'Please enter your email address.',
+                'ref':   ref,
+            })
 
         from django.core.validators import validate_email
         from django.core.exceptions import ValidationError
         try:
             validate_email(email)
         except ValidationError:
-            return render(request, 'Users/login.html', {'error': 'Please enter a valid email address.'})
+            return render(request, 'Users/login.html', {
+                'error': 'Please enter a valid email address.',
+                'ref':   ref,
+            })
 
-        # Generate and store OTP
+        # Generate OTP and store in session
         otp = str(random.randint(100000, 999999))
-        request.session['otp'] = otp
-        request.session['otp_email'] = email
+        request.session['otp']            = otp
+        request.session['otp_email']      = email
         request.session['otp_created_at'] = timezone.now().isoformat()
         if ref:
             request.session['ref_code'] = ref
 
-        # Send OTP email
-        from django.core.mail import send_mail
-        from django.core.mail import EmailMultiAlternatives
+        # Send OTP via email service (circuit-breaker-protected)
+        from services.email_service import send_otp_email
+        delivered = send_otp_email(to_email=email, otp_code=otp)
 
-        msg = EmailMultiAlternatives(
-            subject='BrainzAcademy Login Code',
-            body=f'Your login code is: {otp}\n\nThis code expires in 10 minutes.',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email],
-        )
-        msg.attach_alternative(
-            f'<p>Your BrainzAcademy login code is: <strong>{otp}</strong></p><p>This code expires in 10 minutes.</p>',
-            "text/html"
-        )
-        msg.send(fail_silently=False)
+        if not delivered:
+            # Brevo circuit is OPEN or delivery failed — clear session and
+            # show a clear message so the user knows to try again later.
+            for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
+                request.session.pop(key, None)
+            return render(request, 'Users/login.html', {
+                'error': (
+                    'We could not send your login code right now due to an email '
+                    'delivery issue. Please try again in a few minutes.'
+                ),
+                'ref': ref,
+            })
 
         return redirect('Users:verify_otp')
 
-    # GET - check for ?ref= in URL
+    # GET — pass ?ref= through to template
     ref = request.GET.get('ref', '')
     return render(request, 'Users/login.html', {'ref': ref})
-
 
 def verify_otp(request):
     email = request.session.get('otp_email')
