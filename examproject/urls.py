@@ -21,9 +21,10 @@ def redirect_with_rest(new_prefix):
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-
+    # ── Health dashboard (must be before admin.site.urls) ─────────
     path('admin/health/', include('teacher.health_urls')),
+
+    path('admin/', admin.site.urls),
 
     # ── Auth & public pages ───────────────────────────────────────
     path('', include('Users.urls')),
