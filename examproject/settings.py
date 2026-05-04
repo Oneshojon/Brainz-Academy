@@ -232,6 +232,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
 PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY')
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 INTERNAL_IPS = [
     # ...
     "127.0.0.1",
@@ -297,7 +298,10 @@ BREVO_API_KEY = os.environ.get('ANYMAIL_BREVO_API_KEY') or os.environ.get('BREVO
 
 if BREVO_API_KEY:
     EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
-    ANYMAIL = {'BREVO_API_KEY': BREVO_API_KEY}
+    ANYMAIL = {
+        'BREVO_API_KEY':    BREVO_API_KEY,
+        'REQUESTS_TIMEOUT': 8,
+    }
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -327,29 +331,6 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 if DEBUG:
     INSTALLED_APPS += ['debug_toolbar']
     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
-
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'ERROR',
-    },
-}
-
-# ── Anymail request timeout (matches Brevo call_timeout in circuit breaker) ───
-# This tells anymail's underlying requests session to time out after 8s,
-# which is the same value as CircuitConfig("brevo").call_timeout.
-ANYMAIL = {
-    **locals().get('ANYMAIL', {}),   # preserve existing BREVO_API_KEY entry
-    'REQUESTS_TIMEOUT': 8,
-}
 
 # ── Cloudflare R2 / boto3 timeouts ───────────────────────────────────────────
 # These control how long django-storages waits for R2 on upload/download.
