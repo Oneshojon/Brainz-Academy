@@ -75,7 +75,7 @@ SERVICE_CONFIGS: dict[str, CircuitConfig] = {
     "anthropic": CircuitConfig(
         failure_threshold=3,
         recovery_timeout=120,  # AI outages tend to last longer
-        call_timeout=60,       # generative calls take real time
+        call_timeout=90,       # generative calls take real time
     ),
 }
 
