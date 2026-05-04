@@ -57,7 +57,7 @@ def _call_claude(
     """
     client  = _get_client()
     message = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-opus-4-6",
         max_tokens=max_tokens,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
@@ -95,7 +95,7 @@ def generate_lesson_note(topic_name: str, subject_name: str, prompt: str) -> str
                 f"writing WAEC, NECO, or JAMB."
             ),
             user_prompt=prompt,
-            max_tokens=8000,
+            max_tokens=6000,
         )
         logger.info(
             "Lesson note generated for '%s › %s'.", subject_name, topic_name
