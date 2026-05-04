@@ -655,25 +655,121 @@ Include ONLY for subjects requiring calculation or step-by-step application:
 Mathematics, Physics, Chemistry, Economics, Further Mathematics.
 Skip entirely for purely factual topics. Do NOT include this heading if skipping.
 
+Format every solution as:
+**Example N — [descriptive title]**
+[Problem statement]
+
+**Step 1: [Action heading]** — show full workings on this line
+**Step 2: [Action heading]** — show full workings on this line
+...continue steps as needed...
+**Answer: [final answer with units in bold]**
+
+Requirements:
+- Include 2–5 examples of increasing difficulty
+- Show every step — no skipped algebra
+- Always include unit conversion as an explicit step if needed
+- Final answer must always be on its own bold line with correct units
+
 ## 5. Diagrams
-[Full diagram instructions as per original prompt — preserved unchanged]
+
+### GRAPHS — Description only (for topics examined with a plotted graph)
+
+Graphs apply across ALL subjects. Common examined graphs include:
+- Physics: force-extension, velocity-time, distance-time, I-V characteristics, cooling curves
+- Mathematics: quadratic curves, straight lines, cumulative frequency, histograms, sine/cosine
+- Chemistry: reaction rate curves, Maxwell-Boltzmann distribution, titration curves
+- Economics: supply/demand curves, PPC curves, average/marginal cost curves
+- Biology: population growth curves, enzyme activity vs pH/temperature
+- Geography: population pyramids, climate graphs, hydrographs
+
+When a graph is commonly examined for this topic, produce a structured graph description
+block using this exact format — do NOT attempt to draw or generate SVG or any code:
+
+📈 **Graph — [Descriptive title of the graph]**
+> **Axes:** X-axis — [label with units]; Y-axis — [label with units]
+> **Shape:** [Precise description of the curve/line shape e.g. "starts at origin, rises steeply then levels off as an asymptote", "straight line through origin", "bell-shaped curve peaking at T_max"]
+> **Key points:** [Every landmark point a student must know — intercepts, maxima, minima, inflection points, labelled regions — with their exam significance]
+> **Exam relevance:** [Specific WAEC/NECO/JAMB question types this graph appears in]
+> **Search term:** [Exact search phrase a teacher can use to find a reference image]
+
+Rules for graph descriptions:
+- Include a description block for every graph type commonly examined for this topic
+- Be precise about shape — "increases linearly" not just "goes up"
+- Name every point or region students are asked to identify in past papers
+- A teacher will use this description to source or draw the actual graph
+- Do NOT produce any SVG, HTML, code, or inline graphics — description only
+- Maximum 5 graph description blocks per note
+
+### IMAGE DESCRIPTIONS — Physical Diagrams (for topics examined with a labelled diagram)
+
+For topics where students are asked to draw or label a physical diagram in exams 
+(anatomy, cells, apparatus, circuits, ecosystems, maps, cross-sections), produce a 
+structured image description block using this exact format:
+
+📷 **Image Required — [Descriptive title of the diagram]**
+> **Exam relevance:** [Specific WAEC/NECO/JAMB question types this diagram appears in]
+> **Must show:** [Comma-separated list of every part that must be visible and labelled]
+> **Key labels for exam:** [The 5–8 parts students are most frequently asked to identify or label]
+> **Search term:** [Exact search phrase a teacher can use to find a suitable diagram image]
+
+Rules for image descriptions:
+- Include an image description for EVERY diagram type that commonly appears in WAEC/NECO/JAMB for this topic
+- Be specific about what must be labelled
+- Include multiple image descriptions if the topic has multiple examined diagrams
+- A teacher will source and upload the actual image — your job is to specify it precisely
+
+### MERMAID FLOWCHARTS — Computer Science only
+Mermaid is STRICTLY FORBIDDEN for all subjects except Computer Science.
+For Computer Science, use only for: algorithms, sorting, program flow, data structures, 
+network topologies, decision trees.
+Use a fenced code block tagged ```mermaid when permitted.
+
+### LIMITS
+- Maximum 5 graph description blocks per note
+- Maximum 8 image description blocks per note
+- Omit the entire Diagrams section including its heading if neither graphs nor image 
+  descriptions apply to this topic
 
 ## 6. Likely Exam Questions
 Provide 5–8 specific questions that are highly likely to appear in WAEC/NECO/JAMB 
-for this topic.
+for this topic. Format strictly as:
+
+**Q[N] ([marks]):** [Question as it would appear in an exam paper]
+**A[N]:** [Complete model answer — full sentences, all steps shown for calculations]
+
+Requirements:
+- Include the mark allocation in brackets e.g. (2 marks), (4 marks)
+- Mix question types: definition, explain, calculate, sketch/draw, compare, state
+- Model answers must be complete — examiner-standard responses
+- Include at least one calculation question for science/maths topics
+- Include at least one "sketch/draw" question for topics with examined diagrams
 
 ## 7. Exam Tips & Common Mistakes
-Provide 4–6 points that directly address how students lose marks on this topic.
+Provide 4–6 points that directly address how students lose marks on this topic in WAEC/NECO/JAMB.
+Format each point strictly as:
+
+> ⚠️ **Mistake:** [Specific error students make and exactly why it loses marks]
+> 💡 **Tip:** [Precise corrective strategy, memory aid, or examiner expectation]
+
+Each ⚠️ must be paired with a 💡 on the next line. Mix mistakes and tips as needed.
+Focus on errors that actually cost marks in past papers — not generic advice.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GLOBAL RULES
+GLOBAL RULES — apply throughout the entire note
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Accuracy first — every fact must be correct for WAEC/NECO/JAMB level
-- Nigerian context — use Nigerian examples, currency (₦), institutions
-- No filler — no introductions, conclusions, or meta-commentary
-- LaTeX for ALL math — \\( ... \\) for inline, \\[ ... \\] for display
+- Nigerian context — use Nigerian examples, currency (₦), institutions, and 
+  environments wherever relevant (e.g. Lagos traffic for motion, River Niger for 
+  ecosystems, Dangote Cement for industrial chemistry)
+- No filler — no introductions, conclusions, motivational sentences, or 
+  meta-commentary about the note itself
+- No repetition — state each fact exactly once in the most appropriate section
+- LaTeX for ALL math — every expression, variable, equation, formula, and unit 
+  must use \\( ... \\) for inline and \\[ ... \\] for display math
+- TABLES: genuine comparisons only — never for definitions, features, or lists
 - CURRENCY: always ₦ or NGN — never bare $ signs
-- OMIT empty sections — if a section has no content, omit its heading entirely"""
+- OMIT empty sections — if a section has no content, omit its heading entirely
+- FORMAT: markdown throughout"""
 
     # Call AI via service layer (circuit-breaker-protected)
     try:
