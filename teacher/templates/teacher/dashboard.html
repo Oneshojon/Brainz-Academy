@@ -27,6 +27,7 @@
         <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
         <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
         <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+        <a href="{% url 'health:dashboard' %}">⚡ System Health</a>
         <a href="{% url 'teacher:referral_analytics' %}">📊 Referral Analytics</a>
       {% endif %}
       <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
@@ -77,6 +78,14 @@
           <div class="quick-action-desc">See how students are doing</div>
         </div>
       </a>
+
+      <a href="{% url 'health:dashboard' %}" class="quick-action">
+      <span class="quick-action-icon">⚡</span>
+      <div>
+        <div class="quick-action-label">System Health</div>
+        <div class="quick-action-desc">Circuit breaker status &amp; controls</div>
+      </div>
+    </a>
       {% endif %}
       <a href="{% url 'lessonnotes:lesson_notes' %}" class="quick-action">
         <span class="quick-action-icon">📝</span>
