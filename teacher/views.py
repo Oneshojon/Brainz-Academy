@@ -1527,10 +1527,12 @@ def _parse_docx(file_bytes):
                 header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
             elif tl.startswith('paper type:'):
                 raw = text.split(':', 1)[1].strip().upper()
-                header['paper_type'] = (
-                    'THEORY' if any(k in raw for k in ('THEORY', 'ESSAY', 'PAPER 2'))
-                    else 'OBJ'
-                )
+                if any(k in raw for k in ('THEORY', 'ESSAY', 'PAPER 2')):
+                    header['paper_type'] = 'THEORY'
+                elif any(k in raw for k in ('ORAL', 'LISTENING')):
+                    header['paper_type'] = 'ORAL_ENG_OBJ'
+                else:
+                    header['paper_type'] = 'OBJ'
         return header
  
     first_ol      = soup.find('ol', type='1')
@@ -2072,7 +2074,7 @@ def upload_docx(request):
                         question.save(update_fields=['image'])
 
                 # Choices — bulk_create: single INSERT regardless of choice count
-                if paper_type == 'OBJ' and q_data['choices']:
+                if paper_type in ('OBJ', 'ORAL_ENG_OBJ') and q_data['choices']:
                     seen_labels       = set()
                     choices_to_create = []
                     for c in q_data['choices']:

@@ -66,6 +66,7 @@ def practice_home(request):
         'exam_boards':     exam_boards,
         'recent_sessions': recent_sessions,
         'access':          access,
+        'oral_subject_ids': {s.id for s in subjects if s.name.strip().lower() == 'english language'}
     }
     return render(request, 'practice/practice_home.html', context)
 

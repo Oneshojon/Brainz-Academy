@@ -1,27 +1,49 @@
 const data = document.getElementById('practice-data');
-const TOPICS_URL = data.dataset.topicsUrl;
-const YEARS_URL = data.dataset.yearsUrl;
+const TOPICS_URL   = data.dataset.topicsUrl;
+const YEARS_URL    = data.dataset.yearsUrl;
 const SITTINGS_URL = data.dataset.sittingsUrl;
 
-// ── SESSION TYPE ──
+// ── SESSION TYPE ──────────────────────────────────────────────────────────────
 function setSessionType(type) {
   document.querySelectorAll('.session-type-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`stype-${type}`).classList.add('active');
   document.getElementById('session_type_input').value = type;
 
-  // Show/hide topic section for TOPIC mode
   const topicSection = document.getElementById('topic-section');
   topicSection.style.display = (type === 'TOPIC') ? 'block' : 'none';
 }
 
-// ── QUESTION TYPE ──
+// ── QUESTION TYPE ─────────────────────────────────────────────────────────────
 function setQType(val) {
   document.querySelectorAll('.qtype-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.qtype-btn[data-val="${val}"]`).classList.add('active');
+  const target = document.querySelector(`.qtype-btn[data-val="${val}"]`);
+  if (target) target.classList.add('active');
   document.getElementById('question_type_input').value = val;
+  updateSummary();
 }
 
-// ── QUICK NUM ──
+/**
+ * Show or hide the Oral (MCQ) button based on whether the selected subject
+ * is English Language. Resets question type to OBJ if ORAL_ENG_OBJ was
+ * selected and subject is no longer oral-eligible.
+ *
+ * @param {HTMLSelectElement} selectEl - The subject <select> element.
+ */
+function syncQTypeBar(selectEl) {
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const isOral         = selectedOption && selectedOption.dataset.oral === 'true';
+  const oralBtn        = document.getElementById('qtype-oral-btn');
+  const currentType    = document.getElementById('question_type_input').value;
+
+  oralBtn.style.display = isOral ? '' : 'none';
+
+  // If oral button was active but subject no longer supports it, reset to OBJ
+  if (!isOral && currentType === 'ORAL_ENG_OBJ') {
+    setQType('OBJ');
+  }
+}
+
+// ── QUICK NUM ─────────────────────────────────────────────────────────────────
 function setNum(n) {
   document.querySelectorAll('.quick-num').forEach(b => b.classList.remove('active'));
   document.querySelector(`.quick-num[data-val="${n}"]`)?.classList.add('active');
@@ -35,7 +57,7 @@ document.getElementById('num_questions').addEventListener('input', function () {
   updateSummary();
 });
 
-// ── LOAD TOPICS ──
+// ── LOAD TOPICS ───────────────────────────────────────────────────────────────
 function loadTopics(subjectId) {
   const container = document.getElementById('topics-container');
   if (!subjectId) {
@@ -68,21 +90,21 @@ function toggleTopicLabel(id, el) {
   updateSummary();
 }
 
-// ── LOAD YEARS ──
+// ── LOAD YEARS ────────────────────────────────────────────────────────────────
 function loadYears() {
-  const subjectId = document.getElementById('subject').value;
-  const boardId = document.getElementById('exam_board').value;
+  const subjectId  = document.getElementById('subject').value;
+  const boardId    = document.getElementById('exam_board').value;
   const yearSelect = document.getElementById('year');
 
   if (!subjectId && !boardId) {
     yearSelect.innerHTML = '<option value="">— Select subject/board first —</option>';
-    yearSelect.disabled = true;
+    yearSelect.disabled  = true;
     return;
   }
 
   const params = new URLSearchParams();
   if (subjectId) params.set('subject', subjectId);
-  if (boardId) params.set('exam_board', boardId);
+  if (boardId)   params.set('exam_board', boardId);
 
   fetch(`${YEARS_URL}?${params}`)
     .then(r => r.json())
@@ -90,11 +112,11 @@ function loadYears() {
       const years = res.years || [];
       if (!years.length) {
         yearSelect.innerHTML = '<option value="">No years available</option>';
-        yearSelect.disabled = true;
+        yearSelect.disabled  = true;
         return;
       }
-      yearSelect.disabled = false;
-      yearSelect.innerHTML = '<option value="">— Any Year —</option>' +
+      yearSelect.disabled   = false;
+      yearSelect.innerHTML  = '<option value="">— Any Year —</option>' +
         years.map(y => `<option value="${y}">${y}</option>`).join('');
     })
     .catch(() => {
@@ -102,9 +124,9 @@ function loadYears() {
     });
 }
 
-// ── LOAD SITTINGS ──
+// ── LOAD SITTINGS ─────────────────────────────────────────────────────────────
 let sittingsController = null;
-const sittingsCache = {};
+const sittingsCache    = {};
 
 function loadSittings() {
   const subjectId = document.getElementById('subject').value;
@@ -114,7 +136,7 @@ function loadSittings() {
 
   if (!subjectId) {
     sittingEl.innerHTML = '<option value="">— Any Sitting —</option>';
-    sittingEl.disabled = true;
+    sittingEl.disabled  = true;
     return;
   }
 
@@ -141,7 +163,7 @@ function loadSittings() {
     .catch(err => {
       if (err.name !== 'AbortError') {
         sittingEl.innerHTML = '<option value="">— Any Sitting —</option>';
-        sittingEl.disabled = true;
+        sittingEl.disabled  = true;
       }
     });
 }
@@ -154,42 +176,46 @@ function renderSittings(sittings) {
     return;
   }
   sittings.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.value;
+    const opt       = document.createElement('option');
+    opt.value       = s.value;
     opt.textContent = s.label;
     sittingEl.appendChild(opt);
   });
   sittingEl.disabled = false;
 }
 
-// ── SUBJECT CHANGE ──
+// ── SUBJECT CHANGE ────────────────────────────────────────────────────────────
 document.getElementById('subject').addEventListener('change', function () {
+  syncQTypeBar(this);   // ← show/hide oral button, reset type if needed
   loadTopics(this.value);
   loadYears();
-   loadSittings();
+  loadSittings();
   updateSummary();
 });
 
 document.getElementById('exam_board').addEventListener('change', function () {
   loadYears();
-  loadSittings(); 
+  loadSittings();
   updateSummary();
 });
 
 document.getElementById('year').addEventListener('change', function () {
-  loadSittings();   // ← add
+  loadSittings();
   updateSummary();
 });
 
 document.getElementById('sitting').addEventListener('change', updateSummary);
 
-// ── SUMMARY ──
+// ── SUMMARY ───────────────────────────────────────────────────────────────────
 function updateSummary() {
-  const subject = document.getElementById('subject').options[document.getElementById('subject').selectedIndex]?.text || '—';
-  const board   = document.getElementById('exam_board').options[document.getElementById('exam_board').selectedIndex]?.text || 'Any board';
-  const year    = document.getElementById('year').value || 'Any year';
-  const sitting = document.getElementById('sitting').options[document.getElementById('sitting').selectedIndex]?.text || '';
-  const num     = document.getElementById('num_questions').value || 40;
+  const subjectEl  = document.getElementById('subject');
+  const boardEl    = document.getElementById('exam_board');
+  const subject    = subjectEl.options[subjectEl.selectedIndex]?.text || '—';
+  const board      = boardEl.options[boardEl.selectedIndex]?.text     || 'Any board';
+  const year       = document.getElementById('year').value            || 'Any year';
+  const sittingEl  = document.getElementById('sitting');
+  const sitting    = sittingEl.options[sittingEl.selectedIndex]?.text || '';
+  const num        = document.getElementById('num_questions').value   || 40;
 
   const sittingPart = sitting && sitting !== '— Any Sitting —' ? ` · ${sitting}` : '';
 
@@ -197,14 +223,14 @@ function updateSummary() {
     `<strong>${num} questions</strong> · ${subject} · ${board} · ${year}${sittingPart}`;
 }
 
-// ── TOPIC CHECKBOX STYLE SYNC ──
+// ── TOPIC CHECKBOX STYLE SYNC ─────────────────────────────────────────────────
 document.addEventListener('change', function (e) {
   if (e.target.type === 'checkbox' && e.target.name === 'topics') {
     e.target.closest('.topic-check-label')?.classList.toggle('checked', e.target.checked);
   }
 });
 
-// ── INIT ──
+// ── INIT ──────────────────────────────────────────────────────────────────────
 setSessionType('EXAM');
 setQType('OBJ');
 setNum(40);

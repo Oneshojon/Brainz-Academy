@@ -274,7 +274,7 @@ class PastPaper(models.Model):
 class Question(models.Model):
     QUESTION_TYPES = [
         ('OBJ',    'Objective'),
-        ('ORAL_OBJ', 'Oral Objective'),
+        ('ORAL_ENG_OBJ','Oral Objective'),
         ('THEORY', 'Theory'),
     ]
 
@@ -291,7 +291,7 @@ class Question(models.Model):
                           null=True, blank=True, related_name='questions'
                       )
     question_number = models.PositiveIntegerField()
-    question_type   = models.CharField(max_length=10, choices=QUESTION_TYPES, default='OBJ')
+    question_type   = models.CharField(max_length=12, choices=QUESTION_TYPES, default='OBJ')
     content         = models.TextField()
     content_after_image = models.TextField(
                         blank=True, default='',
