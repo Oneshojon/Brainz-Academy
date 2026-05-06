@@ -39,7 +39,7 @@
       <div class="review-q-full">{{ question.content_after_image|render_content }}</div>
     {% endif %}
 
-    {% if question.question_type == 'OBJ' %}
+    {% if question.question_type == 'OBJ' or question.question_type == 'ORAL_ENG_OBJ' %}
       <ul class="review-choices">
         {% for choice in question.choices.all %}
         <li class="review-choice

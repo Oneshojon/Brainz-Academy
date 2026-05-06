@@ -71,8 +71,10 @@
 
       <div class="q-meta">
         <span class="q-num-badge">Q{{ forloop.counter }}</span>
-        <span class="q-type-badge {% if question.question_type == 'OBJ' %}obj{% else %}theory{% endif %}">
-          {% if question.question_type == 'OBJ' %}Objective{% else %}Theory{% endif %}
+        <span class="q-type-badge {% if question.question_type == 'OBJ' or question.question_type == 'ORAL_ENG_OBJ' %}obj{% else %}theory{% endif %}">
+          {% if question.question_type == 'OBJ' %}Objective
+          {% elif question.question_type == 'ORAL_ENG_OBJ' %}Oral (MCQ)
+          {% else %}Theory{% endif %}
         </span>
         <span class="q-marks">{{ question.marks }} mark{% if question.marks != 1 %}s{% endif %}</span>
       </div>
@@ -86,7 +88,7 @@
           {{ question.content_after_image|render_content }}
         {% endif %}
       </div> <br>
-      {% if question.question_type == 'OBJ' %}
+      {% if question.question_type == 'OBJ' or question.question_type == 'ORAL_ENG_OBJ' %}
       <ul class="choices" id="choices-{{ question.id }}">
         {% for choice in question.choices.all %}
         <li class="choice-item" data-choice-id="{{ choice.id }}"

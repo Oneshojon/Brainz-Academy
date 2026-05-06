@@ -242,7 +242,7 @@ def submit_answer(request):
     is_correct = None
     selected_choice = None
 
-    if question.question_type == 'OBJ' and choice_id:
+    if question.question_type in ('OBJ', 'ORAL_ENG_OBJ') and choice_id:
         from catalog.models import Choice
         selected_choice = get_object_or_404(Choice, id=choice_id, question=question)
         is_correct = selected_choice.is_correct
@@ -396,7 +396,7 @@ def results_page(request, session_id):
         choices   = list(q.choices.all())  # already prefetched
  
         correct_choice = next((c for c in choices if c.is_correct), None) \
-                         if q.question_type == 'OBJ' else None
+                         if q.question_type in ('OBJ', 'ORAL_ENG_OBJ') else None
  
         # First topic that has a lesson note → used to build the note link
         note_topic_id = next(
@@ -482,7 +482,7 @@ def question_comments(request, question_id):
         # Fetch explanation from the correct choice (pinned system entry)
         # Only for OBJ questions
         explanation = None
-        if question.question_type == 'OBJ':
+        if question.question_type in ('OBJ', 'ORAL_ENG_OBJ'):
             correct = (
                 Choice.objects
                 .filter(question=question, is_correct=True)

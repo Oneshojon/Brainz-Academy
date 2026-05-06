@@ -115,7 +115,7 @@
       {% with answer=item.answer question=item.question %}
 
         {# Resolve video URL: OBJ uses correct_choice.video_url, THEORY uses theory_answer.video_url #}
-        {% if question.question_type == 'OBJ' %}
+        {% if question.question_type == 'OBJ' or question.question_type == 'ORAL_ENG_OBJ' %}
           {% with video_url=item.correct_choice.video_url %}
             {% include "practice/partials/_review_card.html" with item=item answer=answer question=question video_url=video_url %}
           {% endwith %}
