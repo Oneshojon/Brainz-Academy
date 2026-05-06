@@ -1549,6 +1549,8 @@ def _parse_docx(file_bytes):
             break
         header_elems.append(p)
     header = _parse_header(header_elems)
+    print("HEADER ELEMS:", [e.get_text(strip=True) for e in header_elems])
+    print("PARSED HEADER:", header)
  
     raw_blocks = {}
  
