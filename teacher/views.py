@@ -1513,28 +1513,33 @@ def _parse_docx(file_bytes):
             'paper_type': 'OBJ',
         }
         for elem in header_elems:
-            text = elem.get_text(separator='\n', strip=True)
-            tl   = text.lower()
-            if tl.startswith('subject:'):
-                header['subject'] = text.split(':', 1)[1].strip()
-            elif tl.startswith('exam:'):
-                header['exam'] = text.split(':', 1)[1].strip()
-            elif tl.startswith('year:'):
-                year_raw   = text.split(':', 1)[1].strip()
-                year_match = re.search(r'\d{4}', year_raw)
-                header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
-            elif tl.startswith('sitting:'):
-                header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
-            elif tl.startswith('paper type:'):
-                raw = text.split(':', 1)[1].strip().upper()
-                if any(k in raw for k in ('THEORY', 'ESSAY', 'PAPER 2')):
-                    header['paper_type'] = 'THEORY'
-                elif any(k in raw for k in ('ORAL', 'LISTENING')):
-                    header['paper_type'] = 'ORAL_ENG_OBJ'
-                else:
-                    header['paper_type'] = 'OBJ'
+            # Split on newlines so <br/>-joined lines are each processed independently
+            lines = elem.get_text(separator='\n', strip=True).splitlines()
+            for text in lines:
+                text = text.strip()
+                if not text:
+                    continue
+                tl = text.lower()
+                if tl.startswith('subject:'):
+                    header['subject'] = text.split(':', 1)[1].strip()
+                elif tl.startswith('exam:'):
+                    header['exam'] = text.split(':', 1)[1].strip()
+                elif tl.startswith('year:'):
+                    year_raw   = text.split(':', 1)[1].strip()
+                    year_match = re.search(r'\d{4}', year_raw)
+                    header['year'] = year_match.group(0) if year_match else year_raw.split()[0]
+                elif tl.startswith('sitting:'):
+                    header['sitting'] = _resolve_sitting(text.split(':', 1)[1].strip())
+                elif tl.startswith('paper type:'):
+                    raw = text.split(':', 1)[1].strip().upper()
+                    if any(k in raw for k in ('THEORY', 'ESSAY', 'PAPER 2')):
+                        header['paper_type'] = 'THEORY'
+                    elif any(k in raw for k in ('ORAL', 'LISTENING')):
+                        header['paper_type'] = 'ORAL_ENG_OBJ'
+                    else:
+                        header['paper_type'] = 'OBJ'
         return header
- 
+    
     first_ol      = soup.find('ol', type='1')
     first_p_match = None
     for p in soup.find_all('p'):
@@ -1549,8 +1554,6 @@ def _parse_docx(file_bytes):
             break
         header_elems.append(p)
     header = _parse_header(header_elems)
-    logger.warning("HEADER ELEMS: %s", [e.get_text(strip=True) for e in header_elems])
-    logger.warning("PARSED HEADER: %s", header)
  
     raw_blocks = {}
  
