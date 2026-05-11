@@ -582,7 +582,6 @@ def history(request):
 
 
 # ── ANALYTICS ─────────────────────────────────────────────────────────────────
-
 @student_required
 def analytics(request):
     """Performance charts and weak topics."""
@@ -640,10 +639,8 @@ def leaderboard(request):
     """Rankings by subject."""
     subject_id = request.GET.get('subject')
     subjects = Subject.objects.all().order_by('name')
-
     rankings = []
     selected_subject = None
-
     if subject_id:
         selected_subject = get_object_or_404(Subject, id=subject_id)
         rankings = PracticeSession.objects.filter(
@@ -686,7 +683,6 @@ def bookmarks(request):
         if subject_name not in grouped:
             grouped[subject_name] = []
         grouped[subject_name].append(bm)
-
     context = {'grouped_bookmarks': grouped}
     return render(request, 'practice/bookmarks.html', context)
 
@@ -698,7 +694,6 @@ def toggle_bookmark(request):
     """POST (AJAX): add or remove a bookmark."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -763,7 +758,6 @@ def revision(request):
     }
     return render(request, 'practice/revision.html', context)
 
-
 # ── REFERRAL ──────────────────────────────────────────────────────────────────
 
 @student_required
@@ -790,4 +784,3 @@ def referral(request):
     return render(request, 'practice/referral.html', context)
 
 # Add to practice/views.py (or a new past_papers app)
-
