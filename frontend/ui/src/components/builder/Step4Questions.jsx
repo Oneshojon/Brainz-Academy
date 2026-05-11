@@ -6,17 +6,17 @@ const styles = `
 .q4-year-bar {
   display: flex; gap: 0.4rem; flex-wrap: nowrap;
   overflow-x: auto; margin-bottom: 0.65rem;
-  padding-bottom: 0.2rem; /* room for scrollbar on some OS */
+  padding-bottom: 0.2rem;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
 }
-.q4-year-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+.q4-year-bar::-webkit-scrollbar { display: none; }
 
 .q4-year-pill {
   padding: 0.25rem 0.65rem; border-radius: 100px; font-size: 0.72rem; font-weight: 700;
   border: 1.5px solid #C2D4EC; background: #ffffff; color: #6B7FA3;
   cursor: pointer; transition: all 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
-  flex-shrink: 0; /* prevent pills from squishing */
+  flex-shrink: 0;
 }
 .q4-year-pill.active { background: #0B2D72; color: #ffffff; border-color: #0B2D72; }
 .q4-year-pill:hover:not(.active) { border-color: #0B2D72; color: #0B2D72; }
@@ -55,7 +55,6 @@ const styles = `
 .q4-cap-banner a { color: #0992C2; font-weight: 700; text-decoration: none; }
 .q4-cap-banner a:hover { text-decoration: underline; }
 
-/* Disabled add button */
 .q4-add-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
 
   .q4-layout { display: grid; grid-template-columns: 400px 1fr; gap: 1.25rem; align-items: start; }
@@ -89,12 +88,9 @@ const styles = `
   .q4-search:focus { border-color: #0992C2; }
   .q4-search::placeholder { color: #6B7FA3; }
 
-  /* Desktop: scrollable list */
   .q4-question-rows { display: flex; flex-direction: column; gap: 0.4rem; max-height: 560px; overflow-y: auto; padding-right: 4px; }
   .q4-question-rows::-webkit-scrollbar { width: 4px; }
   .q4-question-rows::-webkit-scrollbar-thumb { background: #C2D4EC; border-radius: 2px; }
-
-  /* Mobile: no max-height, natural scroll */
   @media (max-width: 900px) {
     .q4-question-rows { max-height: none; overflow-y: visible; padding-right: 0; }
   }
@@ -109,7 +105,6 @@ const styles = `
   .q4-row:active { transform: scale(0.99); }
   .q4-row.previewing { border-color: #0B2D72; background: rgba(11,45,114,0.05); border-left: 4px solid #0B2D72; }
   .q4-row.added { border-color: #15803D; background: #DCFCE7; border-left: 4px solid #15803D; }
-  /* On mobile, previewing row gets bottom border only when expanded */
   @media (max-width: 900px) {
     .q4-row.previewing { border-radius: 10px 10px 0 0; border-bottom-color: #C2D4EC; }
     .q4-row.previewing.added { border-radius: 10px 10px 0 0; }
@@ -126,6 +121,7 @@ const styles = `
   .q4-tag.year   { background: #EDF1F8; color: #6B7FA3; border: 1px solid #C2D4EC; }
   .q4-tag.marks  { background: #EDF1F8; color: #6B7FA3; border: 1px solid #C2D4EC; }
   .q4-tag.obj    { background: rgba(9,146,194,0.1); color: #0992C2; }
+  .q4-tag.oral   { background: rgba(9,146,194,0.12); color: #0778A0; border: 1px solid rgba(9,146,194,0.25); }
   .q4-tag.theory { background: #FEF3C7; color: #B8860B; }
   .q4-tag.easy   { background: #DCFCE7; color: #15803D; }
   .q4-tag.medium { background: #FEF3C7; color: #B8860B; }
@@ -146,20 +142,12 @@ const styles = `
   .q4-add-btn.remove:hover { background: #FEE2E2; color: #DC2626; border-color: rgba(220,38,38,0.3); }
 
   /* ── Mobile inline preview accordion ── */
-  .q4-mobile-accordion {
-    display: none;
-  }
+  .q4-mobile-accordion { display: none; }
   @media (max-width: 900px) {
     .q4-mobile-accordion {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.28s ease;
-      border: 1.5px solid #0B2D72;
-      border-top: none;
-      border-radius: 0 0 10px 10px;
-      background: #ffffff;
-      margin-top: -2px; /* overlap the row's bottom border */
-      margin-bottom: 0.4rem;
+      display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s ease;
+      border: 1.5px solid #0B2D72; border-top: none; border-radius: 0 0 10px 10px;
+      background: #ffffff; margin-top: -2px; margin-bottom: 0.4rem;
     }
     .q4-mobile-accordion.open { grid-template-rows: 1fr; }
     .q4-mobile-accordion-inner { overflow: hidden; }
@@ -187,23 +175,32 @@ const styles = `
     padding: 4rem 2rem; text-align: center; color: #6B7FA3; gap: 0.75rem;
     font-size: 0.875rem;
   }
-  .q4-preview-content { font-size: 0.925rem; line-height: 1.75; margin-bottom: 1.25rem; color: #0D1B3E; }
+  .q4-preview-content {
+    font-size: 0.925rem; line-height: 1.75; margin-bottom: 1.25rem; color: #0D1B3E;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
   .q4-preview-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #C2D4EC; display: block; }
 
   .q4-preview-choices { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; padding: 0; }
   .q4-preview-choice {
     display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.9rem;
     border-radius: 10px; border: 1.5px solid #C2D4EC; background: #F7FAFD; font-size: 0.875rem;
-    color: #0D1B3E;
+    color: #0D1B3E; font-family: 'Plus Jakarta Sans', sans-serif;
   }
-  .q4-preview-choice.correct { border-color: rgba(21,128,61,0.35); background: #DCFCE7; color: #0D1B3E;}
   .q4-choice-label {
     width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.72rem;
     background: #ffffff; border: 1.5px solid #C2D4EC; color: #6B7FA3;
   }
-  .q4-choice-label.correct { background: #15803D; color: #fff; border-color: #15803D; }
+
+  /* Preview note for theory/answers — shown in place of hidden content */
+  .q4-preview-note {
+    margin-top: 1rem; padding: 0.75rem 1rem;
+    background: #F7FAFD; border: 1px dashed #C2D4EC; border-radius: 8px;
+    font-size: 0.78rem; color: #6B7FA3; font-family: 'Plus Jakarta Sans', sans-serif;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
 
   .q4-preview-add-btn {
     width: 100%; padding: 0.75rem; margin-top: 1.25rem;
@@ -219,30 +216,57 @@ const styles = `
   .q4-preview-add-btn.added:hover { background: #FEE2E2; color: #DC2626; border-color: rgba(220,38,38,0.3); }
 
   /* ── Table styles ── */
-.q4-preview-content table,
-.q4-preview-body table {
-  border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
-}
-.q4-preview-content table th,
-.q4-preview-content table td,
-.q4-preview-body table th,
-.q4-preview-body table td {
-  border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
-  text-align: left; vertical-align: top;
-}
-.q4-preview-content table th,
-.q4-preview-body table th {
-  background: #EDF1F8; font-weight: 700; color: #0B2D72;
-}
-.q4-preview-content table tr:nth-child(even),
-.q4-preview-body table tr:nth-child(even) { background: #F7FAFD; }
+  .q4-preview-content table,
+  .q4-preview-body table {
+    border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
+  }
+  .q4-preview-content table th,
+  .q4-preview-content table td,
+  .q4-preview-body table th,
+  .q4-preview-body table td {
+    border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
+    text-align: left; vertical-align: top;
+  }
+  .q4-preview-content table th,
+  .q4-preview-body table th {
+    background: #EDF1F8; font-weight: 700; color: #0B2D72;
+  }
+  .q4-preview-content table tr:nth-child(even),
+  .q4-preview-body table tr:nth-child(even) { background: #F7FAFD; }
 `;
 
-/* ── Shared preview content (used in both desktop panel and mobile accordion) ── */
+/**
+ * Returns the CSS class and display label for a question_type value.
+ * Centralised so Step 4 row tags, preview tags, and toggle buttons are consistent.
+ */
+function qTypeDisplay(questionType) {
+  switch (questionType) {
+    case 'OBJ':         return { cls: 'obj',    label: 'OBJ' };
+    case 'ORAL_ENG_OBJ': return { cls: 'oral',   label: 'Oral' };
+    case 'THEORY':      return { cls: 'theory',  label: 'Theory' };
+    default:            return { cls: 'obj',    label: questionType };
+  }
+}
+
+/**
+ * Returns true when the question type uses MCQ choices (A–E).
+ * Both OBJ and ORAL_ENG_OBJ share the same multiple-choice structure.
+ */
+const isMCQ = (questionType) =>
+  questionType === 'OBJ' || questionType === 'ORAL_ENG_OBJ';
+
+/**
+ * PreviewBody — renders the question content for both the desktop panel
+ * and the mobile accordion.
+ *
+ * Intentionally DOES NOT show:
+ *   - Theory model answers (not relevant when browsing to add questions)
+ *   - Choice explanations (teacher-facing info, not part of the question itself)
+ * This keeps the preview focused on what students will see.
+ */
 function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
   const ref = useRef(null);
 
-  // Trigger KaTeX after content mounts or question changes
   useEffect(() => {
     if (ref.current && window.renderMath) {
       window.renderMath(ref.current);
@@ -251,57 +275,50 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
 
   if (!q) return null;
 
+  const { cls, label } = qTypeDisplay(q.question_type);
+
   return (
     <div ref={ref}>
+      {/* Meta tags */}
       <div className="q4-row-tags" style={{ marginBottom: '1rem', flexWrap: 'wrap', display: 'flex', gap: '0.35rem' }}>
         {q.exam_year && (
           <span className="q4-tag year">{q.exam_year} · {q.exam_board}</span>
         )}
-        <span className={`q4-tag ${q.question_type === 'OBJ' ? 'obj' : 'theory'}`}>
-          {q.question_type === 'OBJ' ? 'Objective' : 'Theory'}
-        </span>
+        <span className={`q4-tag ${cls}`}>{label}</span>
         <span className="q4-tag marks">{q.marks ?? 1} mark{(q.marks ?? 1) !== 1 ? 's' : ''}</span>
         {q.difficulty && (
           <span className={`q4-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>
         )}
       </div>
 
-      {/* Question content — rendered as HTML with KaTeX */}
+      {/* Question content */}
       <div className="q4-preview-content" dangerouslySetInnerHTML={{ __html: q.content }} />
 
       {q.image && (
-        <img src={q.image} alt="Question" className="q4-preview-img" />
+        <img src={q.image} alt="Question diagram" className="q4-preview-img" />
       )}
 
       {q.content_after_image && (
         <div className="q4-preview-content"
-            dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
+          dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
       )}
 
-      {q.question_type === 'OBJ' && q.choices?.length > 0 && (
+      {/* MCQ choices — shown without correct-answer highlighting or explanations */}
+      {isMCQ(q.question_type) && q.choices?.length > 0 && (
         <ul className="q4-preview-choices">
           {q.choices.map(c => (
-            <li key={c.id} className={`q4-preview-choice ${c.is_correct ? 'correct' : ''}`}>
-              <span className={`q4-choice-label ${c.is_correct ? 'correct' : ''}`}>{c.label}</span>
-              {/* Choice text — rendered as HTML with KaTeX */}
+            <li key={c.id} className="q4-preview-choice">
+              <span className="q4-choice-label">{c.label}</span>
               <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
             </li>
           ))}
         </ul>
       )}
 
-      {q.question_type === 'THEORY' && q.theory_answer && (
-        <div style={{
-          marginTop: '1rem', padding: '0.85rem', background: '#FEF3C7',
-          borderRadius: '10px', border: '1px solid rgba(184,134,11,0.2)',
-          fontSize: '0.85rem', lineHeight: 1.7,
-        }}>
-          <strong style={{
-            color: '#B8860B', display: 'block', marginBottom: '0.4rem',
-            fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.07em',
-          }}>Model Answer</strong>
-          {/* Theory answer — rendered as HTML with KaTeX */}
-          <span dangerouslySetInnerHTML={{ __html: q.theory_answer.content }} />
+      {/* Theory placeholder — answers not shown in preview */}
+      {q.question_type === 'THEORY' && (
+        <div className="q4-preview-note">
+          📋 Model answer available in the mark scheme download.
         </div>
       )}
 
@@ -321,10 +338,26 @@ function PreviewBody({ q, isAdded, onAdd, onRemove, atLimit, maxQ }) {
   );
 }
 
+/**
+ * The type filter options shown in the topic bar.
+ * When isOralSubject is true, inserts the Oral option between OBJ and THEORY.
+ */
+function buildTypeOptions(isOralSubject) {
+  const base = [
+    { val: '',            label: 'All'    },
+    { val: 'OBJ',        label: 'OBJ'    },
+  ];
+  if (isOralSubject) {
+    base.push({ val: 'ORAL_ENG_OBJ', label: 'Oral' });
+  }
+  base.push({ val: 'THEORY', label: 'Theory' });
+  return base;
+}
+
 export default function Step4Questions({
   board, subject, theme, savedQuestions,
   onAdd, onRemove, onBack, onDone, onChangeTheme,
-  access, qTypeFilter, onQTypeFilter, 
+  access, qTypeFilter, onQTypeFilter, isOralSubject,
 }) {
   const topic     = theme?.selectedTopic;
   const maxQ      = access?.max_questions ?? Infinity;
@@ -338,6 +371,9 @@ export default function Step4Questions({
   const [previewId, setPreviewId]           = useState(null);
   const [availableYears, setAvailableYears] = useState([]);
   const [selectedYears, setSelectedYears]   = useState([]);
+
+  // Type options depend on whether the subject supports oral questions
+  const typeOptions = buildTypeOptions(isOralSubject);
 
   useEffect(() => {
     if (!topic) return;
@@ -363,7 +399,6 @@ export default function Step4Questions({
   };
 
   const handlePreview = (q) => {
-    // Toggle: clicking same row collapses it
     if (previewId === q.id) {
       setPreviewId(null);
       setPreviewQ(null);
@@ -402,36 +437,37 @@ export default function Step4Questions({
       <button className="btn-back-sm" onClick={onBack}>← Back</button>
 
       <div className="q4-topic-bar">
-      <span className="q4-topic-label">Topic:</span>
-      <span className="q4-topic-name">{topic?.name}</span>
+        <span className="q4-topic-label">Topic:</span>
+        <span className="q4-topic-name">{topic?.name}</span>
 
-      {/* Question type filter */}
-      {onQTypeFilter && (
-        <>
-          <span style={{
-            fontSize: '0.7rem', fontWeight: 700, color: '#0AC4E0',
-            textTransform: 'uppercase', letterSpacing: '0.08em',
-            fontFamily: 'Plus Jakarta Sans, sans-serif', flexShrink: 0,
-          }}>
-            Choose Type:
-          </span>
+        {/* Question type filter toggle */}
+        {onQTypeFilter && (
+          <>
+            <span style={{
+              fontSize: '0.7rem', fontWeight: 700, color: '#0AC4E0',
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              fontFamily: 'Plus Jakarta Sans, sans-serif', flexShrink: 0,
+            }}>
+              Choose Type:
+            </span>
+            <div className="q4-type-toggle">
+              {typeOptions.map(({ val, label }) => (
+                <button
+                  key={val}
+                  className={`q4-type-btn ${(qTypeFilter ?? '') === val ? 'active' : ''}`}
+                  onClick={() => onQTypeFilter(val)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-          <div className="q4-type-toggle">
-          {[['', 'All'], ['OBJ', 'OBJ'], ['THEORY', 'Theory']].map(([val, label]) => (
-            <button
-              key={val}
-              className={`q4-type-btn ${(qTypeFilter ?? '') === val ? 'active' : ''}`}
-              onClick={() => onQTypeFilter(val)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        </>
-      )}
-
-      <button className="q4-topic-btn" style={{ marginLeft: '30px' }} onClick={onChangeTheme}>Change Topic</button>
-    </div>
+        <button className="q4-topic-btn" style={{ marginLeft: '30px' }} onClick={onChangeTheme}>
+          Change Topic
+        </button>
+      </div>
 
       <div className="q4-layout">
         {/* ── Left: question list ── */}
@@ -447,7 +483,6 @@ export default function Step4Questions({
             )}
           </div>
 
-          {/* Cap reached banner */}
           {atLimit && access && (
             <div className="q4-cap-banner">
               <span>⚠️</span>
@@ -479,6 +514,7 @@ export default function Step4Questions({
             {filtered.map((q, i) => {
               const added    = isAdded(q.id);
               const expanded = previewId === q.id;
+              const { cls, label } = qTypeDisplay(q.question_type);
               return (
                 <div key={q.id}>
                   {/* Row header */}
@@ -492,9 +528,7 @@ export default function Step4Questions({
                       </div>
                       <div className="q4-row-tags">
                         {q.exam_year && <span className="q4-tag year">{q.exam_year}</span>}
-                        <span className={`q4-tag ${q.question_type === 'OBJ' ? 'obj' : 'theory'}`}>
-                          {q.question_type === 'OBJ' ? 'OBJ' : 'Theory'}
-                        </span>
+                        <span className={`q4-tag ${cls}`}>{label}</span>
                         <span className="q4-tag marks">{q.marks ?? 1} mark</span>
                         {q.difficulty && <span className={`q4-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>}
                       </div>

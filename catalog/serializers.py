@@ -1,16 +1,27 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Full replacement for catalog/serializers.py
+# catalog/serializers.py
 # ══════════════════════════════════════════════════════════════════════════════
 from rest_framework import serializers
 from .models import Subject, Topic, Theme, ExamBoard, ExamSeries, Question, Choice, TheoryAnswer
 
 
 class SubjectSerializer(serializers.ModelSerializer):
-    question_count = serializers.IntegerField(read_only=True, default=0)
+    question_count    = serializers.IntegerField(read_only=True, default=0)
+    # True only for English Language subjects — drives ORAL_ENG_OBJ toggle
+    # in the test builder without any JS string-matching.
+    is_oral_eligible  = serializers.SerializerMethodField()
 
     class Meta:
         model  = Subject
-        fields = ['id', 'name', 'question_count']
+        fields = ['id', 'name', 'question_count', 'is_oral_eligible']
+
+    def get_is_oral_eligible(self, obj):
+        """
+        Returns True when the subject is English Language.
+        Case-insensitive, strip-safe. Data-driven — survives renames if the
+        admin updates the subject name without touching code.
+        """
+        return obj.name.strip().lower() == 'english language'
 
 
 class ThemeSerializer(serializers.ModelSerializer):
@@ -47,7 +58,7 @@ class QuestionListSerializer(serializers.ModelSerializer):
     sitting      = serializers.CharField(source='exam_series.sitting',                read_only=True, allow_null=True)
     subject_name = serializers.CharField(source='subject.name',                       read_only=True, allow_null=True)
     topic_names  = serializers.SerializerMethodField()
- 
+
     class Meta:
         model  = Question
         fields = [
@@ -56,11 +67,10 @@ class QuestionListSerializer(serializers.ModelSerializer):
             'exam_year', 'exam_board', 'sitting', 'subject_name',
             'topic_names',
         ]
- 
+
     def get_topic_names(self, obj):
         # topics already prefetched — no extra query
         return [t.name for t in obj.topics.all()]
-
 
 
 class ExamBoardSerializer(serializers.ModelSerializer):

@@ -140,6 +140,11 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
 
   const isPopState = useRef(false);
 
+  // ── Derived: is the selected subject English Language? ────────────────────
+  // Drives the ORAL_ENG_OBJ toggle in Step 4 and Step 5.
+  // Uses the is_oral_eligible flag from the API — no JS string matching.
+  const isOralSubject = subject?.is_oral_eligible ?? false;
+
   // ── Browser history ────────────────────────────────────────────────────────
   useEffect(() => {
     window.history.replaceState({ step: 1 }, '', window.location.pathname);
@@ -169,14 +174,23 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
     return () => window.removeEventListener('popstate', handlePop);
   }, [onChangeMode]);
 
+  // ── Reset qTypeFilter when subject changes ─────────────────────────────────
+  // If teacher switches to a non-English subject, any ORAL_ENG_OBJ filter
+  // must be cleared so it doesn't silently return 0 results.
+  useEffect(() => {
+    if (!isOralSubject && qTypeFilter === 'ORAL_ENG_OBJ') {
+      setQTypeFilter('');
+    }
+  }, [isOralSubject]);
+
   // ── Derived values ─────────────────────────────────────────────────────────
   const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
 
   // ── Question management ────────────────────────────────────────────────────
-  const handleBoardSelect    = (b) => { setBoard(b);   setStep(2); };
-  const handleSubjectSelect  = (s) => { setSubject(s); setStep(3); };
-  const handleThemeSelect    = (t) => { setTheme(t);   setStep(4); };
-  const handleAddQuestion    = (q) => {
+  const handleBoardSelect   = (b) => { setBoard(b);   setStep(2); };
+  const handleSubjectSelect = (s) => { setSubject(s); setStep(3); };
+  const handleThemeSelect   = (t) => { setTheme(t);   setStep(4); };
+  const handleAddQuestion   = (q) => {
     if (savedQuestions.find(s => s.id === q.id)) return;
     setSavedQuestions(p => [...p, { ...q, customMarks: q.marks ?? 1 }]);
   };
@@ -184,6 +198,16 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
   const handleUpdateMarks    = (id, m) => setSavedQuestions(p => p.map(q => q.id === id ? { ...q, customMarks: m } : q));
   const handleReorder        = (order) => setSavedQuestions(order);
   const goBack               = ()      => setStep(s => Math.max(1, s - 1));
+
+  /**
+   * Advance from Step 4 → Step 5.
+   * Resets qTypeFilter to 'All' so Step 5 always opens showing every question,
+   * regardless of what type filter was active during selection.
+   */
+  const goToExport = () => {
+    setQTypeFilter('');
+    setStep(5);
+  };
 
   const stepLabels = ['Exam Board', 'Subject', 'Theme & Topic', 'Select Questions', 'Review & Export'];
 
@@ -210,7 +234,7 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
           builder_mode:  'manual',
           custom_marks:  customMarksMap,
           total_marks:   totalMarks,
-          saved_test_id: savedTestId ?? null,  // null = create new, int = update existing
+          saved_test_id: savedTestId ?? null,
         },
         { responseType: 'blob' }
       );
@@ -228,7 +252,6 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
       URL.revokeObjectURL(url);
 
     } catch (err) {
-      // Try to parse error message from blob response
       try {
         const text = await err.response?.data?.text?.();
         const parsed = JSON.parse(text || '{}');
@@ -241,7 +264,7 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
     }
   };
 
-  // Reset savedTestId when starting a completely new test
+  /** Reset all builder state and start a new test from scratch. */
   const handleNewTest = () => {
     setStep(1);
     setBoard(null);
@@ -249,7 +272,8 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
     setTheme(null);
     setSavedQuestions([]);
     setTestTitle('');
-    setSavedTestId(null);  // ← next download will create a fresh record
+    setQTypeFilter('');
+    setSavedTestId(null);
   };
 
   const anyDownloading = !!downloading;
@@ -363,14 +387,15 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
           )}
         </div>
 
-        {/* Saved questions bar */}
+        {/* Saved questions bar — shown in steps 3 & 4 when questions are saved */}
         {(step === 3 || step === 4) && savedQuestions.length > 0 && (
           <div className="saved-count-bar">
             <div className="saved-count-bar-left">
               ✅ <strong>{savedQuestions.length}</strong> question{savedQuestions.length !== 1 ? 's' : ''}
               &nbsp;·&nbsp; <strong style={{ color: '#B8860B' }}>{totalMarks}</strong> total marks
             </div>
-            <button className="btn-continue" onClick={() => setStep(5)}>
+            {/* goToExport resets qTypeFilter before entering Step 5 */}
+            <button className="btn-continue" onClick={goToExport}>
               Review & Export →
             </button>
           </div>
@@ -381,23 +406,39 @@ export default function BuilderLayout({ access, onChangeMode, onOpenMyTests, res
         {step === 2 && <Step2Subject board={board} onSelect={handleSubjectSelect} selected={subject} onBack={goBack} />}
         {step === 3 && <Step3Theme board={board} subject={subject} onSelect={handleThemeSelect} selected={theme} onBack={goBack} onNext={() => setStep(4)} />}
         {step === 4 && (
-          <Step4Questions board={board} subject={subject} theme={theme}
+          <Step4Questions
+            board={board}
+            subject={subject}
+            theme={theme}
             qTypeFilter={qTypeFilter}
             onQTypeFilter={setQTypeFilter}
-            savedQuestions={savedQuestions} onAdd={handleAddQuestion} onRemove={handleRemoveQuestion}
-            onBack={goBack} onDone={() => setStep(5)}
-            onChangeTheme={() => setStep(3)} access={access} />
+            isOralSubject={isOralSubject}
+            savedQuestions={savedQuestions}
+            onAdd={handleAddQuestion}
+            onRemove={handleRemoveQuestion}
+            onBack={goBack}
+            onDone={goToExport}      // resets filter before Step 5
+            onChangeTheme={() => setStep(3)}
+            access={access}
+          />
         )}
         {step === 5 && (
           <Step5Export
-            savedQuestions={savedQuestions} testTitle={testTitle || 'My Test'}
-            access={access} onUpdateMarks={handleUpdateMarks} onRemove={handleRemoveQuestion}
-            onReorder={handleReorder} onBack={goBack} qTypeFilter={qTypeFilter}
+            savedQuestions={savedQuestions}
+            testTitle={testTitle || 'My Test'}
+            access={access}
+            onUpdateMarks={handleUpdateMarks}
+            onRemove={handleRemoveQuestion}
+            onReorder={handleReorder}
+            onBack={goBack}
+            qTypeFilter={qTypeFilter}
             onQTypeFilter={setQTypeFilter}
+            isOralSubject={isOralSubject}
             downloading={downloading}
             onDownload={downloadFile}
             onOpenMyTests={onOpenMyTests}
-            onNewTest={handleNewTest} />
+            onNewTest={handleNewTest}
+          />
         )}
       </div>
     </>

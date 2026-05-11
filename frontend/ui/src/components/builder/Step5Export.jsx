@@ -65,6 +65,21 @@ const styles = `
     display: flex; align-items: center; justify-content: space-between; color: #0B2D72;
     background: #EDF1F8;
   }
+
+  /* ── Type filter toggle (Step 5 left panel head) ── */
+  .s5-type-toggle {
+    display: flex; gap: 0.15rem;
+    background: #ffffff; border: 1px solid #C2D4EC; padding: 0.12rem; border-radius: 6px;
+  }
+  .s5-type-btn {
+    padding: 0.15rem 0.5rem; border-radius: 4px; border: none;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.65rem;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .s5-type-btn.active  { background: #0B2D72; color: #ffffff; }
+  .s5-type-btn:not(.active) { background: transparent; color: #6B7FA3; }
+  .s5-type-btn:not(.active):hover { color: #0B2D72; }
+
   .s5-q-scroll { overflow-y: auto; flex: 1; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.35rem; }
   .s5-q-scroll::-webkit-scrollbar { width: 7px; }
   .s5-q-scroll::-webkit-scrollbar-track { background: #EDF1F8; border-radius: 4px; }
@@ -90,7 +105,8 @@ const styles = `
   .s5-q-title { font-size: 0.82rem; font-weight: 700; color: #0B2D72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.8rem; }
   .s5-q-tags { display: flex; gap: 0.25rem; margin-top: 0.15rem; }
   .s5-q-tag { font-size: 0.68rem; font-weight: 700; padding: 0.18rem 0.45rem; border-radius: 100px; text-transform: uppercase; }
-  .s5-q-tag.obj    { background: rgba(9,146,194,0.1); color: #0992C2;}
+  .s5-q-tag.obj    { background: rgba(9,146,194,0.1);  color: #0992C2; }
+  .s5-q-tag.oral   { background: rgba(9,146,194,0.12); color: #0778A0; border: 1px solid rgba(9,146,194,0.25); }
   .s5-q-tag.theory { background: #FEF3C7; color: #B8860B; }
   .s5-q-tag.year   { background: #EDF1F8; color: #6B7FA3; border: 1px solid #C2D4EC; }
   .s5-q-tag.easy   { background: #DCFCE7; color: #15803D; }
@@ -137,10 +153,17 @@ const styles = `
   .s5-paper-q:last-child { border-bottom: none; }
   .s5-paper-q-header { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.75rem; }
   .s5-paper-q-num { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.9rem; color: #0B2D72; flex-shrink: 0; min-width: 28px; }
-  .s5-paper-q-content { font-size: 1rem; line-height: 1.75; color: #0D1B3E; flex: 1; }
+  .s5-paper-q-content {
+    font-size: 1rem; line-height: 1.75; color: #0D1B3E; flex: 1;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
   .s5-paper-q-img { max-width: 100%; max-height: 220px; border-radius: 6px; margin: 0.5rem 0 0.75rem; border: 1px solid #C2D4EC; display: block; }
   .s5-paper-choices { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin-left: 1.6rem; padding: 0; }
-  .s5-paper-choice { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.825rem; line-height: 1.5; color: #6B7FA3; }
+  .s5-paper-choice {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    font-size: 0.825rem; line-height: 1.5; color: #6B7FA3;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
   .s5-paper-choice-label { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.75rem; flex-shrink: 0; color: #6B7FA3; min-width: 20px; }
   .s5-paper-marks { text-align: right; font-size: 0.72rem; color: #B8860B; font-weight: 700; margin-top: 0.6rem; font-family: 'Plus Jakarta Sans', sans-serif; }
   .s5-paper-total { text-align: right; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.9rem; color: #0B2D72; padding-top: 0.75rem; border-top: 2px solid #C2D4EC; margin-top: 0.5rem; }
@@ -157,10 +180,9 @@ const styles = `
   }
   @keyframes s5spin { to { transform: rotate(360deg); } }
 
-  /* ── Mobile export bar (hidden on desktop) ── */
+  /* ── Mobile export bar ── */
   .s5-mobile-export {
-    display: none;
-    margin-top: 1.25rem;
+    display: none; margin-top: 1.25rem;
     background: #ffffff; border: 1.5px solid #C2D4EC; border-radius: 14px;
     padding: 1rem; box-shadow: 0 2px 10px rgba(11,45,114,0.07);
   }
@@ -186,27 +208,27 @@ const styles = `
   .s5-mobile-dl-divider { grid-column: 1 / -1; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7FA3; margin: 0.35rem 0 0.1rem; }
   .s5-pdf-only-note { grid-column: 1 / -1; font-size: 0.72rem; color: #B8860B; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.35rem; }
 
-/* ── Table styles ── */
-.s5-paper-q-content table {
-  border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
-}
-.s5-paper-q-content table th,
-.s5-paper-q-content table td {
-  border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
-  text-align: left; vertical-align: top;
-}
-.s5-paper-q-content table th {
-  background: #EDF1F8; font-weight: 700; color: #0B2D72;
-}
-.s5-paper-q-content table tr:nth-child(even) { background: #F7FAFD; }
+  /* ── Table styles ── */
+  .s5-paper-q-content table {
+    border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem;
+  }
+  .s5-paper-q-content table th,
+  .s5-paper-q-content table td {
+    border: 1.5px solid #C2D4EC; padding: 0.45rem 0.7rem;
+    text-align: left; vertical-align: top;
+  }
+  .s5-paper-q-content table th {
+    background: #EDF1F8; font-weight: 700; color: #0B2D72;
+  }
+  .s5-paper-q-content table tr:nth-child(even) { background: #F7FAFD; }
 `;
 
-/* ── Reusable spinner icon ── */
+/** Spinner icon — reused across download buttons. */
 function Spinner({ dark }) {
   return <span className={`s5-dl-spinner${dark ? ' dark' : ''}`} />;
 }
 
-/* ── Download button with built-in spinner ── */
+/** Download button with integrated loading spinner. */
 function DlBtn({ fmt, copyType, label, icon, downloading, disabled, onClick, className, style }) {
   const key     = `${fmt}-${copyType}`;
   const loading = downloading === key;
@@ -223,30 +245,68 @@ function DlBtn({ fmt, copyType, label, icon, downloading, disabled, onClick, cla
   );
 }
 
+/**
+ * Returns CSS class and display label for a question_type.
+ * Kept in sync with Step4Questions so tags look identical across steps.
+ */
+function qTypeDisplay(questionType) {
+  switch (questionType) {
+    case 'OBJ':          return { cls: 'obj',   label: 'MCQ'   };
+    case 'ORAL_ENG_OBJ': return { cls: 'oral',  label: 'Oral'  };
+    case 'THEORY':       return { cls: 'theory', label: 'Theory' };
+    default:             return { cls: 'obj',   label: questionType };
+  }
+}
+
+/**
+ * True when the question type uses MCQ choices (A–E).
+ * Both OBJ and ORAL_ENG_OBJ share the same multiple-choice structure.
+ */
+const isMCQ = (questionType) =>
+  questionType === 'OBJ' || questionType === 'ORAL_ENG_OBJ';
+
+/**
+ * Builds the type filter options for the Step 5 question list panel.
+ * Includes the Oral option only when the subject is English Language.
+ */
+function buildTypeOptions(isOralSubject) {
+  const opts = [
+    { val: '',     label: 'All'    },
+    { val: 'OBJ',  label: 'OBJ'   },
+  ];
+  if (isOralSubject) opts.push({ val: 'ORAL_ENG_OBJ', label: 'Oral' });
+  opts.push({ val: 'THEORY', label: 'Theory' });
+  return opts;
+}
+
 export default function Step5Export({
   savedQuestions, testTitle, access,
   onUpdateMarks, onRemove, onReorder,
   onBack, onNewTest, qTypeFilter, onQTypeFilter,
+  isOralSubject,
   downloading, onDownload, onOpenMyTests,
 }) {
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
 
-  // Ref for the paper preview scroll container — KaTeX runs on its contents
   const previewScrollRef = useRef(null);
 
-  // Trigger KaTeX whenever savedQuestions changes (questions added, removed, reordered)
+  // Re-render KaTeX over the paper preview whenever the question list changes
   useEffect(() => {
     if (previewScrollRef.current && window.renderMath) {
       window.renderMath(previewScrollRef.current);
     }
   }, [savedQuestions]);
 
-  const total       = savedQuestions.length;
-  const totalMarks  = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
-  const objCount    = savedQuestions.filter(q => q.question_type === 'OBJ').length;
-  const theoryCount = total - objCount;
+  const total      = savedQuestions.length;
+  const totalMarks = savedQuestions.reduce((s, q) => s + (q.customMarks ?? q.marks ?? 1), 0);
+
+  // MCQ count includes both OBJ and ORAL_ENG_OBJ (same structure, same export format)
+  const mcqCount    = savedQuestions.filter(q => isMCQ(q.question_type)).length;
+  const theoryCount = total - mcqCount;
   const isPdfOnly   = access?.pdf_only;
+
+  const typeOptions = buildTypeOptions(isOralSubject);
 
   const diffCounts = { EASY: 0, MEDIUM: 0, HARD: 0, null: 0 };
   savedQuestions.forEach(q => { diffCounts[q.difficulty || 'null']++; });
@@ -277,13 +337,12 @@ export default function Step5Export({
         <div className="s5-stats-row">
           <div className="s5-stat"><div className="s5-stat-val accent">{total}</div><div className="s5-stat-label">Questions</div></div>
           <div className="s5-stat"><div className="s5-stat-val gold">{totalMarks}</div><div className="s5-stat-label">Total Marks</div></div>
-          <div className="s5-stat"><div className="s5-stat-val accent">{objCount}</div><div className="s5-stat-label">Objective</div></div>
+          {/* MCQ stat covers both OBJ and ORAL_ENG_OBJ */}
+          <div className="s5-stat"><div className="s5-stat-val accent">{mcqCount}</div><div className="s5-stat-label">Objective</div></div>
           <div className="s5-stat"><div className="s5-stat-val green">{theoryCount}</div><div className="s5-stat-label">Theory</div></div>
         </div>
         <div className="s5-actions-row">
-          <button className="s5-test-btn my"
-            onClick={onOpenMyTests}
-            style={onOpenMyTests ? { cursor: 'pointer', opacity: 1 } : {}}>
+          <button className="s5-test-btn my" onClick={onOpenMyTests}>
             📂 My Tests
           </button>
           <button className="s5-test-btn new" onClick={onNewTest}>+ New Test</button>
@@ -315,47 +374,64 @@ export default function Step5Export({
         <div className="s5-q-panel">
           <div className="s5-q-panel-head">
             <span>Questions</span>
-            <span style={{ fontSize: '0.65rem' }}>{displayed.length} shown</span>
+            {/* Type filter toggle — inline in the panel header */}
+            <div className="s5-type-toggle">
+              {typeOptions.map(({ val, label }) => (
+                <button
+                  key={val}
+                  className={`s5-type-btn ${(qTypeFilter ?? '') === val ? 'active' : ''}`}
+                  onClick={() => onQTypeFilter(val)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="s5-q-scroll">
             {displayed.length === 0 ? (
               <div style={{ color: '#6B7FA3', padding: '1.5rem', textAlign: 'center', fontSize: '0.78rem' }}>
                 {total === 0 ? 'No questions added.' : 'No questions match filter.'}
               </div>
-            ) : displayed.map((q, i) => (
-              <div key={q.id}
-                className={`s5-q-row ${dragIdx === i ? 'dragging' : ''} ${overIdx === i ? 'drag-over' : ''}`}
-                draggable onDragStart={() => handleDragStart(i)}
-                onDragOver={e => handleDragOver(e, i)} onDrop={() => handleDrop(i)}
-                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
-              >
-                <span className="s5-drag-handle">⠿</span>
-                <div className="s5-q-num">{i + 1}</div>
-                <div className="s5-q-info">
-                  <div className="s5-q-title">{q.topic_names?.length > 0 ? q.topic_names[0] : q.subject_name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                    <span className={`s5-q-tag ${q.question_type === 'OBJ' ? 'obj' : 'theory'}`}>
-                      {q.question_type === 'OBJ' ? 'MCQ' : 'Theory'}
-                    </span>
-                    {q.exam_year && (
-                      <span className="s5-q-tag year">
-                        {q.sitting ? q.sitting.replace('MAY_JUNE', 'May/Jun').replace('NOV_DEC', 'Nov/Dec').replace('MOCK', 'Mock') + ' · ' : ''}
-                        {String(q.exam_year).slice(-2)}
-                      </span>
-                    )}
-                    {q.difficulty
-                      ? <span className={`s5-q-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>
-                      : <span className="s5-q-tag unrated">Unrated</span>
-                    }
-                    <input className="s5-marks-input" type="number" min={1} max={50}
-                      value={q.customMarks ?? q.marks ?? 1}
-                      onChange={e => onUpdateMarks(q.id, parseInt(e.target.value) || 1)} />
-                    <span className="s5-marks-label">marks</span>
+            ) : displayed.map((q, i) => {
+              const { cls, label } = qTypeDisplay(q.question_type);
+              return (
+                <div key={q.id}
+                  className={`s5-q-row ${dragIdx === i ? 'dragging' : ''} ${overIdx === i ? 'drag-over' : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={e => handleDragOver(e, i)}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+                >
+                  <span className="s5-drag-handle">⠿</span>
+                  <div className="s5-q-num">{i + 1}</div>
+                  <div className="s5-q-info">
+                    <div className="s5-q-title">
+                      {q.topic_names?.length > 0 ? q.topic_names[0] : q.subject_name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                      {/* Type badge — uses shared qTypeDisplay helper */}
+                      <span className={`s5-q-tag ${cls}`}>{label}</span>
+                      {q.exam_year && (
+                        <span className="s5-q-tag year">
+                          {q.sitting ? q.sitting.replace('MAY_JUNE', 'May/Jun').replace('NOV_DEC', 'Nov/Dec').replace('MOCK', 'Mock') + ' · ' : ''}
+                          {String(q.exam_year).slice(-2)}
+                        </span>
+                      )}
+                      {q.difficulty
+                        ? <span className={`s5-q-tag ${q.difficulty.toLowerCase()}`}>{q.difficulty}</span>
+                        : <span className="s5-q-tag unrated">Unrated</span>
+                      }
+                      <input className="s5-marks-input" type="number" min={1} max={50}
+                        value={q.customMarks ?? q.marks ?? 1}
+                        onChange={e => onUpdateMarks(q.id, parseInt(e.target.value) || 1)} />
+                      <span className="s5-marks-label">marks</span>
+                    </div>
                   </div>
+                  <button className="s5-remove-btn" onClick={() => onRemove(q.id)}>✕</button>
                 </div>
-                <button className="s5-remove-btn" onClick={() => onRemove(q.id)}>✕</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -366,7 +442,6 @@ export default function Step5Export({
             <span style={{ fontSize: '0.65rem' }}>{total} question{total !== 1 ? 's' : ''} · {totalMarks} marks</span>
           </div>
 
-          {/* ref attached here so KaTeX scans all rendered question content */}
           <div className="s5-preview-scroll" ref={previewScrollRef}>
             {savedQuestions.length === 0 ? (
               <div style={{ color: '#6B7FA3', padding: '2rem', textAlign: 'center', fontSize: '0.82rem' }}>
@@ -378,34 +453,37 @@ export default function Step5Export({
                   <div key={q.id} className="s5-paper-q">
                     <div className="s5-paper-q-header">
                       <span className="s5-paper-q-num">{i + 1}.</span>
-                      {/* Question content — rendered as HTML with KaTeX */}
                       <div
                         className="s5-paper-q-content"
                         dangerouslySetInnerHTML={{ __html: q.content }}
                       />
                     </div>
-                    {q.image && <img src={q.image} alt="" className="s5-paper-q-img" />}
-                      {q.content_after_image && (
-                        <div className="s5-paper-q-content"
-                            dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
-                      )}
-                      {q.question_type === 'OBJ' && q.choices?.length > 0 && (
+
+                    {q.image && (
+                      <img src={q.image} alt="" className="s5-paper-q-img" />
+                    )}
+
+                    {q.content_after_image && (
+                      <div className="s5-paper-q-content"
+                        dangerouslySetInnerHTML={{ __html: q.content_after_image }} />
+                    )}
+
+                    {/* MCQ choices — both OBJ and ORAL_ENG_OBJ */}
+                    {isMCQ(q.question_type) && q.choices?.length > 0 && (
                       <ul className="s5-paper-choices">
                         {q.choices.map(c => (
                           <li key={c.id} className="s5-paper-choice">
                             <span className="s5-paper-choice-label">{c.label}.</span>
-                            {/* Choice text — rendered as HTML with KaTeX */}
                             <span dangerouslySetInnerHTML={{ __html: c.choice_text }} />
                           </li>
                         ))}
                       </ul>
                     )}
-                    {q.question_type === 'THEORY' && (
-                      <div className="s5-paper-marks">[{q.customMarks ?? q.marks ?? 1} mark{(q.customMarks ?? q.marks ?? 1) !== 1 ? 's' : ''}]</div>
-                    )}
-                    {q.question_type === 'OBJ' && (
-                      <div className="s5-paper-marks" style={{ color: '#6B7FA3' }}>[{q.customMarks ?? q.marks ?? 1} mark{(q.customMarks ?? q.marks ?? 1) !== 1 ? 's' : ''}]</div>
-                    )}
+
+                    {/* Marks line */}
+                    <div className="s5-paper-marks" style={{ color: isMCQ(q.question_type) ? '#6B7FA3' : '#B8860B' }}>
+                      [{q.customMarks ?? q.marks ?? 1} mark{(q.customMarks ?? q.marks ?? 1) !== 1 ? 's' : ''}]
+                    </div>
                   </div>
                 ))}
                 <div className="s5-paper-total">Total: {totalMarks} mark{totalMarks !== 1 ? 's' : ''}</div>
@@ -415,7 +493,7 @@ export default function Step5Export({
         </div>
       </div>
 
-      {/* ══ Mobile export bar (below preview on small screens) ══ */}
+      {/* ══ Mobile export bar ══ */}
       <div className="s5-mobile-export">
         <div className="s5-mobile-export-title">Export</div>
         <div className="s5-mobile-export-grid">
