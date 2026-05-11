@@ -91,7 +91,8 @@ const styles = `
   }
   .q-card.obj::before    { background: var(--mid); }
   .q-card.oral::before   { background: #0778A0; }
-  .q-card.theory::before { background: var(--gold); }
+  /* Theory stripe uses cyan — gold is not part of the BrainzAcademy palette */
+  .q-card.theory::before { background: #0992C2; }
   .q-card:hover { border-color: var(--border-hover); }
 
   .q-card-header {
@@ -109,7 +110,8 @@ const styles = `
   }
   .q-badge.obj    { background: var(--mid-dim);            color: var(--accent); }
   .q-badge.oral   { background: rgba(7,120,160,0.12);      color: #0778A0; border: 1px solid rgba(7,120,160,0.2); }
-  .q-badge.theory { background: var(--gold-dim);           color: var(--gold);   }
+  /* Theory badge uses cyan to match the card stripe — consistent with palette */
+  .q-badge.theory { background: rgba(9,146,194,0.10);      color: #0992C2; border: 1px solid rgba(9,146,194,0.2); }
   .q-badge.easy   { background: rgba(0,232,122,0.12);      color: var(--accent); }
   .q-badge.medium { background: var(--gold-dim);           color: var(--gold);   }
   .q-badge.hard   { background: rgba(248,113,113,0.12);    color: var(--red);    }
