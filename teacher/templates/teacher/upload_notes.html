@@ -1,254 +1,500 @@
 {% extends 'Users/layout.html' %}
 {% load static %}
+{% block title %}Upload Notes & Worksheets{% endblock %}
+
 {% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
 <link rel="stylesheet" href="{% static 'teacher/dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'teacher/upload.css' %}">
 
+<style>
+  /* ── Two-column form layout ───────────────────────────────────────────── */
+  .upload-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .upload-split { grid-template-columns: 1fr; } }
+
+  /* ── Field rows inside left column ───────────────────────────────────── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .field-row.full { grid-template-columns: 1fr; }
+  @media (max-width: 500px) { .field-row { grid-template-columns: 1fr; } }
+
+  .field-group { display: flex; flex-direction: column; gap: 0.35rem; }
+
+  .field-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+  .field-label span {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.72rem;
+  }
+
+  .field-select,
+  .field-input {
+    background: #ffffff;
+    border: 1.5px solid #C4CDD6;
+    border-radius: 8px;
+    color: var(--navy, #0B2D72);
+    font-size: 0.875rem;
+    font-family: inherit;
+    padding: 0.6rem 0.85rem;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+  }
+  .field-select:focus,
+  .field-input:focus  {
+    border-color: var(--blue, #0992C2);
+    box-shadow: 0 0 0 3px rgba(9,146,194,0.12);
+  }
+  .field-select:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .field-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    min-height: 1em;
+  }
+
+  /* ── Section separator ────────────────────────────────────────────────── */
+  .section-sep {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.25rem 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .section-sep::before,
+  .section-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Overwrite checkbox ───────────────────────────────────────────────── */
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+  }
+  .check-row input[type="checkbox"] {
+    width: 15px; height: 15px;
+    accent-color: var(--navy, #0B2D72);
+    flex-shrink: 0;
+  }
+  .check-row label {
+    font-size: 0.82rem;
+    color: var(--navy, #0B2D72);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Results table ────────────────────────────────────────────────────── */
+  .results-tbl { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-size: 0.85rem; }
+  .results-tbl th {
+    text-align: left; padding: 0.4rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted); font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700;
+  }
+  .results-tbl td {
+    padding: 0.55rem 0.65rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .results-tbl tr:last-child td { border-bottom: none; }
+
+  .badge-created { color: var(--green, #15803D); font-weight: 700; font-size: 0.75rem; }
+  .badge-updated { color: var(--blue, #0992C2);  font-weight: 700; font-size: 0.75rem; }
+  .badge-skipped { color: var(--muted);           font-size: 0.75rem; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
 <div class="page-body">
 
+  <!-- ── Page header ──────────────────────────────────────────────────── -->
   <div class="page-header-row">
     <div>
       <div class="page-eyebrow">Teacher Portal</div>
-      <h1 class="page-title">Upload Notes & Worksheets</h1>
+      <h1 class="page-title">Upload Notes &amp; Worksheets</h1>
       <p class="page-sub" style="margin-bottom:0">
-        Upload revision notes and worksheets as PDFs. Each topic must start on a new page.
+        Upload a revision note PDF and/or a worksheet PDF for a specific topic.
       </p>
     </div>
   </div>
 
-     <nav class="teacher-nav">
+  <!-- ── Nav ──────────────────────────────────────────────────────────── -->
+  <nav class="teacher-nav">
     <a href="{% url 'teacher:dashboard' %}">Dashboard</a>
     <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
-    <a href="{% url 'past_papers:past_papers' %}" class="nav-link">Past Papers</a>
+    <a href="{% url 'past_papers:past_papers' %}">Past Papers</a>
     {% if user.is_admin %}
       <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
       <a href="{% url 'teacher:students' %}">Students</a>
       <a href="{% url 'teacher:upload' %}">Upload CSV</a>
       <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
-      <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
-      <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+      <a href="{% url 'teacher:upload_notes' %}" class="active">Upload Notes</a>
+      <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
       <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
     {% endif %}
     <a href="{% url 'lessonnotes:lesson_notes' %}">Lesson Notes</a>
   </nav>
 
+  <!-- ── Global error ──────────────────────────────────────────────────── -->
   {% if error %}
-  <div style="background:var(--red-bg,#FEE2E2); border:1px solid rgba(220,38,38,0.2); border-radius:10px; padding:1rem; margin-bottom:1.5rem; color:var(--red,#DC2626); font-size:0.875rem;">
+  <div style="background:var(--red-bg,#FEE2E2); border:1px solid rgba(220,38,38,0.2);
+              border-radius:10px; padding:1rem; margin-bottom:1.5rem;
+              color:var(--red,#DC2626); font-size:0.875rem;">
     ⚠️ {{ error }}
   </div>
   {% endif %}
 
+  <!-- ── Success results ───────────────────────────────────────────────── -->
   {% if success %}
-  <!-- Results -->
-  {% if note_results %}
-  <div class="upload-card" style="margin-bottom:1rem;">
-    <div class="upload-card-title">📄 Revision Notes — {{ note_results|length }} topic{{ note_results|length|pluralize }}</div>
-    <table style="width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem;">
-      <thead>
-        <tr>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Topic</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Subject</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Video</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in note_results %}
-        <tr>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--navy);">{{ r.topic }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted);">{{ r.subject }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.78rem;">{{ r.video }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border);">
-            {% if r.status == 'created' %}
-              <span style="color:var(--green,#15803D); font-weight:700; font-size:0.75rem;">✓ Created</span>
-            {% elif r.status == 'updated' %}
-              <span style="color:var(--blue,#0992C2); font-weight:700; font-size:0.75rem;">↺ Updated</span>
-            {% else %}
-              <span style="color:var(--muted); font-size:0.75rem;">— Skipped</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  {% if worksheet_results %}
-  <div class="upload-card" style="margin-bottom:1rem;">
-    <div class="upload-card-title">📝 Worksheets — {{ worksheet_results|length }} topic{{ worksheet_results|length|pluralize }}</div>
-    <table style="width:100%; border-collapse:collapse; margin-top:0.75rem; font-size:0.85rem;">
-      <thead>
-        <tr>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Topic</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Subject</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Video</th>
-          <th style="text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.07em;">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in worksheet_results %}
-        <tr>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--navy);">{{ r.topic }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted);">{{ r.subject }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border); color:var(--muted); font-size:0.78rem;">{{ r.video }}</td>
-          <td style="padding:0.5rem 0.6rem; border-bottom:1px solid var(--border);">
-            {% if r.status == 'created' %}
-              <span style="color:var(--green,#15803D); font-weight:700; font-size:0.75rem;">✓ Created</span>
-            {% elif r.status == 'updated' %}
-              <span style="color:var(--blue,#0992C2); font-weight:700; font-size:0.75rem;">↺ Updated</span>
-            {% else %}
-              <span style="color:var(--muted); font-size:0.75rem;">— Skipped</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  {% if errors %}
-  <div class="upload-card" style="margin-bottom:1rem; border-left:4px solid var(--red,#DC2626);">
-    <div class="upload-card-title" style="color:var(--red,#DC2626);">⚠️ Errors ({{ errors|length }})</div>
-    <div class="error-list" style="margin-top:0.5rem;">
-      {% for e in errors %}<div class="error-item">{{ e }}</div>{% endfor %}
+    <div class="success-box" style="margin-bottom:1.5rem;">
+      <div class="success-box-title">✅ Upload processed</div>
+      <div class="success-box-sub">{{ results|length }} item{{ results|length|pluralize }} processed.</div>
     </div>
-  </div>
+
+    {% if results %}
+    <div class="upload-card" style="margin-bottom:1rem;">
+      <div class="upload-card-title">Results</div>
+      <table class="results-tbl">
+        <thead>
+          <tr>
+            <th>Topic</th>
+            <th>Subject</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Video</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr>
+            <td style="color:var(--navy);">{{ r.topic }}</td>
+            <td style="color:var(--muted);">{{ r.subject }}</td>
+            <td style="color:var(--muted);">{{ r.type }}</td>
+            <td>
+              {% if r.status == 'created' %}
+                <span class="badge-created">✓ Created</span>
+              {% elif r.status == 'updated' %}
+                <span class="badge-updated">↺ Updated</span>
+              {% else %}
+                <span class="badge-skipped">— Skipped{% if r.reason %} · {{ r.reason }}{% endif %}</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:0.78rem;">{{ r.video }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if errors %}
+    <div class="upload-card" style="margin-bottom:1rem; border-left:4px solid var(--red,#DC2626);">
+      <div class="upload-card-title" style="color:var(--red,#DC2626);">⚠️ Errors ({{ errors|length }})</div>
+      <div class="error-list" style="margin-top:0.5rem;">
+        {% for e in errors %}<div class="error-item">{{ e }}</div>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'teacher:upload_notes' %}"
+       style="display:inline-block; margin-bottom:2rem; font-size:0.85rem;
+              color:var(--blue); font-weight:600; text-decoration:none;">
+      ← Upload more files
+    </a>
   {% endif %}
 
-  <a href="{% url 'teacher:upload_notes' %}"
-     style="display:inline-block; margin-bottom:2rem; font-size:0.85rem; color:var(--blue); font-weight:600; text-decoration:none;">
-    ← Upload more files
-  </a>
-  {% endif %}
-
+  <!-- ── Upload form ───────────────────────────────────────────────────── -->
   {% if not success %}
-  <!-- Upload form -->
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" id="uploadForm" novalidate>
     {% csrf_token %}
 
-    <!-- PDF format reminder -->
-    <div class="upload-card" style="margin-bottom:1.5rem; background:var(--offwhite,#F3F6FA);">
-      <div class="upload-card-title">📋 Required PDF Format</div>
-      <div class="upload-card-sub">Each topic must start on a new page with these headers:</div>
-      <div class="csv-spec">
-        <pre>CHEMISTRY REVISION NOTE
-Introduction to Chemistry
-
-Topics:
-- Meaning of Chemistry
-- Measurement of physical quantities
-- Scientific Methods
-
-[Each topic starts on a new page with its name as a bold underlined ALL CAPS heading]</pre>
+    <!-- ════════════════════ SECTION A — REVISION NOTE ═══════════════════ -->
+    <div class="upload-card" style="margin-bottom:1.5rem;">
+      <div class="upload-card-title">
+        📄 Revision Note
+        <span style="font-size:0.65rem; font-weight:700; letter-spacing:0.07em;
+                     text-transform:uppercase; padding:0.2rem 0.55rem; border-radius:20px;
+                     background:rgba(9,146,194,0.12); color:var(--blue,#0992C2); margin-left:0.4rem;">
+          Note
+        </span>
       </div>
-      <div style="margin-top:0.75rem; font-size:0.8rem; color:var(--muted); line-height:1.7;">
-        • YouTube links are automatically converted to embed format<br>
-        • Topic names must match exactly what's in the database<br>
-        • VIDEO line is optional — leave it out if no video available
-      </div>
-    </div>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+      <div class="upload-split">
 
-      <!-- Revision Notes -->
-      <div class="upload-card">
-        <div class="upload-card-title">📄 Revision Notes PDF</div>
-        <div class="upload-card-sub">Contains lesson notes for one or more topics.</div>
-        <div class="drop-zone" id="noteDropZone" onclick="document.getElementById('noteInput').click()">
-          <span class="drop-zone-icon">📄</span>
-          <div class="drop-zone-text">Click to select PDF</div>
-          <div class="drop-zone-sub">or drag and drop</div>
-          <div class="file-chosen" id="noteChosen"></div>
+        <!-- Left column: form fields -->
+        <div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="note_subject">Subject</label>
+              <select id="note_subject" name="note_subject" class="field-select"
+                      onchange="loadTopics('note_subject','note_topic','note_topic_hint')">
+                <option value="">Select subject…</option>
+                {% for s in subjects %}
+                  <option value="{{ s.id }}"
+                    {% if request.POST.note_subject == s.id|stringformat:"s" %}selected{% endif %}>
+                    {{ s.name }}
+                  </option>
+                {% endfor %}
+              </select>
+              <span class="field-hint">Verifies topic belongs to this subject.</span>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="note_topic">Topic</label>
+              <select id="note_topic" name="note_topic" class="field-select" disabled>
+                <option value="">Select subject first…</option>
+              </select>
+              <span class="field-hint" id="note_topic_hint"></span>
+            </div>
+          </div>
+
+          <div class="field-row full">
+            <div class="field-group">
+              <label class="field-label" for="note_video_url">
+                Video Summary URL <span>(optional)</span>
+              </label>
+              <input type="url" id="note_video_url" name="note_video_url"
+                     class="field-input" placeholder="https://youtube.com/embed/…"
+                     value="{{ request.POST.note_video_url|default:'' }}">
+            </div>
+          </div>
+
+          <div class="check-row">
+            <input type="checkbox" id="note_overwrite" name="note_overwrite"
+                   {% if request.POST.note_overwrite == 'on' %}checked{% endif %}>
+            <label for="note_overwrite">Overwrite existing note if one already exists</label>
+          </div>
         </div>
-        <input type="file" name="note_pdf" id="noteInput" accept=".pdf"
-               onchange="showFile(this, 'noteChosen', 'noteDropZone')">
-        <div style="margin-top:1rem;">
-        <label style="font-size:0.8rem; font-weight:600; color:var(--navy); display:block; margin-bottom:0.4rem;">
-          Video URL <span style="font-weight:400; color:var(--muted);">(optional)</span>
-        </label>
-        <input type="url" name="note_video_url" placeholder="https://youtube.com/..."
-              style="width:100%; padding:0.6rem 0.8rem; border:1.5px solid var(--border);
-                      border-radius:8px; font-size:0.85rem; font-family:inherit; color:var(--navy);
-                      outline:none; box-sizing:border-box;">
-      </div>
-      </div>
-      
 
-      <!-- Worksheets -->
-      <div class="upload-card">
-        <div class="upload-card-title">📝 Worksheet PDF <span style="font-size:0.75rem; color:var(--muted); font-weight:400;">(optional)</span></div>
-        <div class="upload-card-sub">Contains solved problems for one or more topics.</div>
-        <div class="drop-zone" id="wsDropZone" onclick="document.getElementById('wsInput').click()">
-          <span class="drop-zone-icon">📝</span>
-          <div class="drop-zone-text">Click to select PDF</div>
-          <div class="drop-zone-sub">or drag and drop</div>
-          <div class="file-chosen" id="wsChosen"></div>
+        <!-- Right column: PDF drop zone -->
+        <div>
+          <div class="field-label" style="margin-bottom:0.5rem;">Revision Note PDF</div>
+          <div class="drop-zone" id="noteDrop"
+               onclick="document.getElementById('note_pdf').click()">
+            <span class="drop-zone-icon">📄</span>
+            <div class="drop-zone-text">Click to select PDF</div>
+            <div class="drop-zone-sub">or drag and drop</div>
+            <div class="file-chosen" id="noteChosen"></div>
+          </div>
+          <input type="file" name="note_pdf" id="note_pdf"
+                 accept=".pdf" style="display:none;"
+                 onchange="showFile(this,'noteChosen','noteDrop')">
         </div>
-        <input type="file" name="worksheet_pdf" id="wsInput" accept=".pdf"
-               onchange="showFile(this, 'wsChosen', 'wsDropZone')">
-        <div style="margin-top:1rem;">
-        <label style="font-size:0.8rem; font-weight:600; color:var(--navy); display:block; margin-bottom:0.4rem;">
-          Video URL <span style="font-weight:400; color:var(--muted);">(optional)</span>
-        </label>
-        <input type="url" name="worksheet_video_url" placeholder="https://youtube.com/..."
-              style="width:100%; padding:0.6rem 0.8rem; border:1.5px solid var(--border);
-                      border-radius:8px; font-size:0.85rem; font-family:inherit; color:var(--navy);
-                      outline:none; box-sizing:border-box;">
-      </div>   
+
+      </div><!-- /upload-split note -->
+    </div><!-- /upload-card note -->
+
+    <div class="section-sep" aria-hidden="true">and / or</div>
+
+    <!-- ════════════════════ SECTION B — WORKSHEET ═══════════════════════ -->
+    <div class="upload-card" style="margin-bottom:1.5rem;">
+      <div class="upload-card-title">
+        📝 Worksheet
+        <span style="font-size:0.65rem; font-weight:700; letter-spacing:0.07em;
+                     text-transform:uppercase; padding:0.2rem 0.55rem; border-radius:20px;
+                     background:rgba(139,92,246,0.12); color:#8B5CF6; margin-left:0.4rem;">
+          Worksheet
+        </span>
       </div>
 
-    </div>
+      <div class="upload-split">
 
-    <!-- Overwrite option -->
-    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem;
-                background:#ffffff; border:1.5px solid var(--border); border-radius:10px; padding:1rem 1.25rem;">
-      <input type="checkbox" name="overwrite" id="overwrite" style="width:16px; height:16px; accent-color:var(--navy);">
-      <label for="overwrite" style="font-size:0.875rem; color:var(--navy); cursor:pointer; font-weight:600;">
-        Overwrite existing notes/worksheets for matched topics
-      </label>
-    </div>
+        <!-- Left column: form fields -->
+        <div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="ws_subject">Subject</label>
+              <select id="ws_subject" name="ws_subject" class="field-select"
+                      onchange="loadTopics('ws_subject','ws_topic','ws_topic_hint')">
+                <option value="">Select subject…</option>
+                {% for s in subjects %}
+                  <option value="{{ s.id }}"
+                    {% if request.POST.ws_subject == s.id|stringformat:"s" %}selected{% endif %}>
+                    {{ s.name }}
+                  </option>
+                {% endfor %}
+              </select>
+              <span class="field-hint">Can differ from the note section above.</span>
+            </div>
 
-    <button type="submit"
-            style="background:var(--navy,#0B2D72); color:#ffffff; border:none; border-radius:100px;
-                   padding:0.85rem 2.5rem; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
-                   font-size:0.95rem; cursor:pointer; transition:all 0.2s;
-                   box-shadow:0 4px 14px rgba(11,45,114,0.25);">
-      ⬆ Upload Files
+            <div class="field-group">
+              <label class="field-label" for="ws_topic">Topic</label>
+              <select id="ws_topic" name="ws_topic" class="field-select" disabled>
+                <option value="">Select subject first…</option>
+              </select>
+              <span class="field-hint" id="ws_topic_hint"></span>
+            </div>
+          </div>
+
+          <div class="field-row full">
+            <div class="field-group">
+              <label class="field-label" for="ws_video_url">
+                Worksheet Video URL <span>(optional — shown in Video tab)</span>
+              </label>
+              <input type="url" id="ws_video_url" name="ws_video_url"
+                     class="field-input" placeholder="https://youtube.com/embed/…"
+                     value="{{ request.POST.ws_video_url|default:'' }}">
+            </div>
+          </div>
+
+          <div class="check-row">
+            <input type="checkbox" id="ws_overwrite" name="ws_overwrite"
+                   {% if request.POST.ws_overwrite == 'on' %}checked{% endif %}>
+            <label for="ws_overwrite">Overwrite existing worksheet if one already exists</label>
+          </div>
+        </div>
+
+        <!-- Right column: PDF drop zone -->
+        <div>
+          <div class="field-label" style="margin-bottom:0.5rem;">Worksheet PDF</div>
+          <div class="drop-zone" id="wsDrop"
+               onclick="document.getElementById('ws_pdf').click()">
+            <span class="drop-zone-icon">📝</span>
+            <div class="drop-zone-text">Click to select PDF</div>
+            <div class="drop-zone-sub">or drag and drop</div>
+            <div class="file-chosen" id="wsChosen"></div>
+          </div>
+          <input type="file" name="ws_pdf" id="ws_pdf"
+                 accept=".pdf" style="display:none;"
+                 onchange="showFile(this,'wsChosen','wsDrop')">
+        </div>
+
+      </div><!-- /upload-split worksheet -->
+    </div><!-- /upload-card worksheet -->
+
+    <!-- ── Submit ──────────────────────────────────────────────────────── -->
+    <button type="submit" id="submitBtn"
+            style="background:var(--navy,#0B2D72); color:#fff; border:none;
+                   border-radius:100px; padding:0.85rem 2.5rem;
+                   font-family:'Plus Jakarta Sans',sans-serif; font-weight:700;
+                   font-size:0.95rem; cursor:pointer; transition:opacity 0.2s;
+                   box-shadow:0 4px 14px rgba(11,45,114,0.25);
+                   display:inline-flex; align-items:center; gap:0.5rem;">
+      <span id="submitSpinner"
+            style="display:none; width:15px; height:15px;
+                   border:2px solid rgba(255,255,255,0.3); border-top-color:#fff;
+                   border-radius:50%; animation:spin 0.7s linear infinite;"></span>
+      <span id="submitLabel">⬆ Upload Files</span>
     </button>
+
   </form>
   {% endif %}
 
-</div>
+</div><!-- /page-body -->
 
 <script>
-function showFile(input, labelId, zoneId) {
-  if (input.files[0]) {
-    document.getElementById(labelId).textContent = '📄 ' + input.files[0].name;
-    document.getElementById(zoneId).style.borderColor = 'var(--navy,#0B2D72)';
+/**
+ * Fetch topics for a subject via AJAX and populate the target <select>.
+ *
+ * @param {string} subjectSelectId  - ID of the subject <select>
+ * @param {string} topicSelectId    - ID of the topic <select> to populate
+ * @param {string} hintId           - ID of the hint <span>
+ */
+async function loadTopics(subjectSelectId, topicSelectId, hintId) {
+  const subjectVal  = document.getElementById(subjectSelectId).value;
+  const topicSelect = document.getElementById(topicSelectId);
+  const hint        = document.getElementById(hintId);
+
+  topicSelect.innerHTML = '<option value="">Loading…</option>';
+  topicSelect.disabled  = true;
+  hint.textContent      = '';
+
+  if (!subjectVal) {
+    topicSelect.innerHTML = '<option value="">Select subject first…</option>';
+    return;
+  }
+
+  try {
+    const res    = await fetch(`/teacher/topics-for-subject/${subjectVal}/`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const topics = await res.json();
+
+    if (!topics.length) {
+      topicSelect.innerHTML = '<option value="">No topics found</option>';
+      hint.textContent      = 'No topics exist for this subject yet.';
+      return;
+    }
+
+    topicSelect.innerHTML = '<option value="">Select topic…</option>'
+      + topics.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    topicSelect.disabled = false;
+    hint.textContent     = `${topics.length} topic${topics.length === 1 ? '' : 's'} available.`;
+
+  } catch (err) {
+    topicSelect.innerHTML = '<option value="">Failed to load — refresh and retry</option>';
+    console.error('Topic load error:', err);
   }
 }
 
-// Drag and drop for both zones
-['noteDropZone', 'wsDropZone'].forEach(zoneId => {
-  const zone  = document.getElementById(zoneId);
-  if (!zone) return;
-  const inputId = zoneId === 'noteDropZone' ? 'noteInput' : 'wsInput';
-  const labelId = zoneId === 'noteDropZone' ? 'noteChosen' : 'wsChosen';
+/** Update drop zone appearance with the chosen filename. */
+function showFile(input, labelId, zoneId) {
+  if (input.files[0]) {
+    document.getElementById(labelId).textContent = '📄 ' + input.files[0].name;
+    document.getElementById(zoneId).style.borderColor = 'var(--navy, #0B2D72)';
+  }
+}
 
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--blue)'; zone.style.background = 'rgba(9,146,194,0.05)'; });
-  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; zone.style.background = ''; });
+// Drag-and-drop wiring for both zones
+['noteDrop', 'wsDrop'].forEach(zoneId => {
+  const zone    = document.getElementById(zoneId);
+  const inputId = zoneId === 'noteDrop' ? 'note_pdf' : 'ws_pdf';
+  const labelId = zoneId === 'noteDrop' ? 'noteChosen' : 'wsChosen';
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.style.borderColor = 'var(--blue, #0992C2)';
+    zone.style.background  = 'rgba(9,146,194,0.04)';
+  });
+  zone.addEventListener('dragleave', () => {
+    zone.style.borderColor = '';
+    zone.style.background  = '';
+  });
   zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.style.borderColor = 'var(--navy)'; zone.style.background = '';
+    e.preventDefault();
+    zone.style.borderColor = 'var(--navy, #0B2D72)';
+    zone.style.background  = '';
     const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.pdf')) {
-      const dt = new DataTransfer(); dt.items.add(file);
+    if (file && file.name.toLowerCase().endsWith('.pdf')) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
       document.getElementById(inputId).files = dt.files;
-      document.getElementById(labelId).textContent = '📄 ' + file.name;
+      showFile(document.getElementById(inputId), labelId, zoneId);
+    } else {
+      alert('Only PDF files are accepted.');
     }
   });
 });
+
+// Show spinner and disable button on submit
+document.getElementById('uploadForm').addEventListener('submit', () => {
+  const btn     = document.getElementById('submitBtn');
+  const spinner = document.getElementById('submitSpinner');
+  btn.disabled          = true;
+  spinner.style.display = 'inline-block';
+  document.getElementById('submitLabel').textContent = 'Uploading…';
+});
 </script>
+
 {% endblock %}

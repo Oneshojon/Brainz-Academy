@@ -268,164 +268,192 @@ from catalog.models import LessonNote, Worksheet, Subject, Topic, Theme
 logger = logging.getLogger(__name__)
 
 
-def _build_topic_map(subject):
-    """
-    Fetch all topics for a subject into a dict keyed by lowercase name.
-    Prefetches lesson_note and worksheet to avoid reverse OneToOne queries later.
-    Returns: {lowercase_name: topic_instance}
-    """
-    qs = Topic.objects.filter(subject=subject).select_related('lesson_note', 'worksheet')
-    return {t.name.lower(): t for t in qs}
-
-
-def _resolve_topic(item, subject, topic_map):
-    """
-    Resolve a topic from the prefetched topic_map.
-    Falls back to fuzzy match in memory.
-    Never creates topics or themes — raises ValueError if not found.
-    """
-    name_raw   = item['topic'].strip()
-    name_lower = name_raw.lower()
-
-    # Exact match — O(1) dict lookup, case-insensitive
-    topic = topic_map.get(name_lower)
-    if topic:
-        return topic
-
-    # Fuzzy match — in memory, no extra DB query
-    matches = difflib.get_close_matches(name_lower, list(topic_map.keys()), n=1, cutoff=0.7)
-    if matches:
-        return topic_map[matches[0]]
-
-    raise ValueError(
-        f'Topic "{name_raw}" not found for subject "{subject.name}". '
-        f'Check spelling or add it to the curriculum first.'
-    )
-
-
-def _process_pdf_items(parsed, file_type, model_cls, subject_map,
-                        topic_map_cache, video_url, overwrite, user):
-    """
-    Process parsed PDF items for either LessonNote or Worksheet.
-
-    file_type      : 'Notes' or 'Worksheet' — used in error prefixes
-    model_cls      : LessonNote or Worksheet
-    subject_map    : {lowercase_name: subject} — prefetched before calling
-    topic_map_cache: {subject_id: topic_map} — shared cache across both PDF types
-    """
-    results      = []
-    errors       = []
-    is_note      = model_cls is LessonNote
-    prefix       = 'note' if is_note else 'ws'
-    title_suffix = 'Revision Notes' if is_note else 'Worksheet'
-    related_name = 'lesson_note' if is_note else 'worksheet'
-
-    for item in parsed:
-        try:
-            subject_key = item['subject'].strip().lower()
-            subject     = subject_map.get(subject_key)
-            if not subject:
-                errors.append(f'[{file_type}] Subject "{item["subject"]}" not found — skipped.')
-                continue
-
-            if subject.id not in topic_map_cache:
-                topic_map_cache[subject.id] = _build_topic_map(subject)
-            topic_map = topic_map_cache[subject.id]
-
-            topic    = _resolve_topic(item, subject, topic_map)
-            existing = getattr(topic, related_name, None)
-
-            if existing and not overwrite:
-                results.append({
-                    'topic': topic.name, 'subject': subject.name,
-                    'status': 'skipped', 'reason': 'already exists',
-                })
-                continue
-
-            safe_subject = subject.name.lower().replace(' ', '_')
-            safe_topic   = topic.name.lower().replace(' ', '_')
-            filename     = f"{prefix}_{safe_subject}_{safe_topic}.pdf"
-
-            obj, created = model_cls.objects.update_or_create(
-                topic=topic,
-                defaults={
-                    'title':           f"{topic.name} — {title_suffix}",
-                    'video_url':       video_url,
-                    'is_ai_generated': False,
-                    'uploaded_by':     user,
-                }
-            )
-            obj.pdf_file.save(filename, ContentFile(item['pdf_bytes']), save=True)
-
-            results.append({
-                'topic':   topic.name,
-                'subject': subject.name,
-                'status':  'created' if created else 'updated',
-                'video':   video_url or '—',
-            })
-
-        except Exception as e:
-            logger.exception(f'[{file_type}] Failed "{item.get("topic", "?")}"')
-            errors.append(f'[{file_type}] Failed "{item.get("topic", "?")}": {e}')
-
-    return results, errors
-
-
 @admin_required
 def upload_notes(request):
-    from catalog.note_pdf_parser import parse_note_pdf
-
+    """
+    Upload a revision note PDF and/or worksheet PDF for a specific topic.
+ 
+    GET  → renders the upload form with a subjects list.
+    POST → independently processes the note section and worksheet section.
+           Each section is skipped silently when its PDF field is empty.
+           Both sections may target different subjects and topics.
+ 
+    Query optimisation:
+    - Subjects fetched with .only('id', 'name') — no extra columns loaded.
+    - Topic resolved with select_related('lesson_note', 'worksheet') in a
+      single query — avoids two reverse OneToOne hits per section.
+    - update_or_create used for upsert — one query regardless of create/update.
+    - Cache invalidated once per affected subject after all writes.
+    """
     if request.method != 'POST':
         return render(request, 'teacher/upload_notes.html', {
             'subjects': Subject.objects.only('id', 'name').order_by('name'),
         })
-
-    note_file           = request.FILES.get('note_pdf')
-    worksheet_file      = request.FILES.get('worksheet_pdf')
-    overwrite           = request.POST.get('overwrite') == 'on'
+ 
+    # ── Collect POST data ────────────────────────────────────────────────────
+    note_subject_id     = request.POST.get('note_subject')
+    note_topic_id       = request.POST.get('note_topic')
     note_video_url      = request.POST.get('note_video_url', '').strip() or None
-    worksheet_video_url = request.POST.get('worksheet_video_url', '').strip() or None
-
-    if not note_file and not worksheet_file:
+    note_overwrite      = request.POST.get('note_overwrite') == 'on'
+    note_file           = request.FILES.get('note_pdf')
+ 
+    ws_subject_id       = request.POST.get('ws_subject')
+    ws_topic_id         = request.POST.get('ws_topic')
+    ws_video_url        = request.POST.get('ws_video_url', '').strip() or None
+    ws_overwrite        = request.POST.get('ws_overwrite') == 'on'
+    ws_file             = request.FILES.get('ws_pdf')
+ 
+    # Guard: at least one file must be present
+    if not note_file and not ws_file:
         return render(request, 'teacher/upload_notes.html', {
-            'error':    'Please upload at least one PDF file.',
             'subjects': Subject.objects.only('id', 'name').order_by('name'),
+            'error':    'Please upload at least one PDF file.',
         })
-
-    # Prefetch all subjects once — shared across both processing loops
-    subject_map     = {s.name.lower(): s for s in Subject.objects.only('id', 'name')}
-    topic_map_cache = {}
-    note_results    = []
-    ws_results      = []
-    all_errors      = []
-
+ 
+    results    = []   # list of result dicts shown in the success table
+    errors     = []
+    invalidate = set()   # subject IDs that need cache invalidation
+ 
+    # ── Helper: resolve and validate subject + topic ─────────────────────────
+    def _resolve(subject_id, topic_id, section_label):
+        """
+        Returns (subject, topic) or appends to errors and returns (None, None).
+        Topic is fetched with select_related to cover existence checks in one query.
+        """
+        if not subject_id or not topic_id:
+            errors.append(f'[{section_label}] Subject and topic are both required.')
+            return None, None
+ 
+        try:
+            subject = Subject.objects.only('id', 'name').get(id=subject_id)
+        except Subject.DoesNotExist:
+            errors.append(f'[{section_label}] Subject not found.')
+            return None, None
+ 
+        try:
+            topic = (
+                Topic.objects
+                .select_related('lesson_note', 'worksheet', 'subject')
+                .get(id=topic_id, subject=subject)
+            )
+        except Topic.DoesNotExist:
+            errors.append(
+                f'[{section_label}] Topic not found for subject "{subject.name}". '
+                f'Verify the subject matches the topic.'
+            )
+            return None, None
+ 
+        return subject, topic
+ 
+    # ── Helper: save one PDF section ─────────────────────────────────────────
+    def _save_section(subject, topic, pdf_file, video_url, overwrite,
+                       model_cls, related_name, file_prefix, title_suffix, section_label):
+        """
+        Upserts a LessonNote or Worksheet record and saves the uploaded PDF.
+ 
+        model_cls    : LessonNote or Worksheet
+        related_name : 'lesson_note' or 'worksheet' — reverse OneToOne accessor name
+        file_prefix  : 'note' or 'ws'  — used in filename construction
+        title_suffix : 'Revision Notes' or 'Worksheet'
+        """
+        existing = getattr(topic, related_name, None)
+ 
+        if existing and not overwrite:
+            results.append({
+                'topic':   topic.name,
+                'subject': subject.name,
+                'type':    section_label,
+                'status':  'skipped',
+                'reason':  'already exists — enable overwrite to replace',
+                'video':   '—',
+            })
+            return
+ 
+        safe_subject = subject.name.lower().replace(' ', '_')
+        safe_topic   = topic.name.lower().replace(' ', '_')
+        filename     = f"{file_prefix}_{safe_subject}_{safe_topic}.pdf"
+ 
+        obj, created = model_cls.objects.update_or_create(
+            topic=topic,
+            defaults={
+                'title':           f"{topic.name} — {title_suffix}",
+                'video_url':       video_url,
+                'is_ai_generated': False,
+                'uploaded_by':     request.user,
+            }
+        )
+        # Save file after upsert so the PK is guaranteed to exist
+        obj.pdf_file.save(filename, pdf_file, save=True)
+ 
+        results.append({
+            'topic':   topic.name,
+            'subject': subject.name,
+            'type':    section_label,
+            'status':  'created' if created else 'updated',
+            'reason':  '',
+            'video':   video_url or '—',
+        })
+        invalidate.add(subject.id)
+ 
+    # ── Process note section ─────────────────────────────────────────────────
     if note_file:
-        parsed, errors = parse_note_pdf(note_file.read())
-        all_errors.extend(errors)
-        results, errors = _process_pdf_items(
-            parsed, 'Notes', LessonNote, subject_map,
-            topic_map_cache, note_video_url, overwrite, request.user
-        )
-        note_results = results
-        all_errors.extend(errors)
-
-    if worksheet_file:
-        parsed, errors = parse_note_pdf(worksheet_file.read())
-        all_errors.extend(errors)
-        results, errors = _process_pdf_items(
-            parsed, 'Worksheet', Worksheet, subject_map,
-            topic_map_cache, worksheet_video_url, overwrite, request.user
-        )
-        ws_results = results
-        all_errors.extend(errors)
-
+        subject, topic = _resolve(note_subject_id, note_topic_id, 'Revision Note')
+        if subject and topic:
+            try:
+                _save_section(
+                    subject, topic, note_file, note_video_url, note_overwrite,
+                    LessonNote, 'lesson_note', 'note', 'Revision Notes', 'Revision Note',
+                )
+            except Exception as exc:
+                logger.exception('[Revision Note] Save failed for topic "%s"', topic.name)
+                errors.append(f'[Revision Note] "{topic.name}": {exc}')
+ 
+    # ── Process worksheet section ────────────────────────────────────────────
+    if ws_file:
+        subject, topic = _resolve(ws_subject_id, ws_topic_id, 'Worksheet')
+        if subject and topic:
+            try:
+                _save_section(
+                    subject, topic, ws_file, ws_video_url, ws_overwrite,
+                    Worksheet, 'worksheet', 'ws', 'Worksheet', 'Worksheet',
+                )
+            except Exception as exc:
+                logger.exception('[Worksheet] Save failed for topic "%s"', topic.name)
+                errors.append(f'[Worksheet] "{topic.name}": {exc}')
+ 
+    # ── Invalidate caches for every affected subject ─────────────────────────
+    if invalidate:
+        from catalog.cache_utils import invalidate_subject_caches
+        for sid in invalidate:
+            invalidate_subject_caches(sid)
+ 
     return render(request, 'teacher/upload_notes.html', {
-        'success':           True,
-        'note_results':      note_results,
-        'worksheet_results': ws_results,
-        'errors':            all_errors,
+        'subjects': Subject.objects.only('id', 'name').order_by('name'),
+        'success':  True,
+        'results':  results,
+        'errors':   errors,
     })
-
+ 
+ 
+@admin_required
+def topics_for_subject(request, subject_id):
+    """
+    AJAX endpoint — returns a JSON list of topics for a given subject.
+ 
+    Used by the upload-notes form to populate topic <select> elements
+    after a subject is chosen. Admin-only; no caching (infrequent call).
+ 
+    Response shape:
+        [{"id": 1, "name": "Cell Biology"}, ...]
+    """
+    topics = (
+        Topic.objects
+        .filter(subject_id=subject_id)
+        .only('id', 'name')
+        .order_by('name')
+    )
+    data = [{'id': t.id, 'name': t.name} for t in topics]
+    return JsonResponse(data, safe=False)
 
 @admin_required
 def feature_flags_page(request):
