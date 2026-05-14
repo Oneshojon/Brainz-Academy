@@ -439,3 +439,202 @@ class TestResultsPage:
                       kwargs={'session_id': completed_session.id})
         response = client.get(url)
         assert response.status_code == 404
+
+# ---------------------------------------------------------------------------
+# Download view — content_after_image rendering
+# ---------------------------------------------------------------------------
+
+import os
+import tempfile
+from unittest.mock import patch, MagicMock
+
+
+@pytest.mark.django_db
+class TestQuestionDownloadContentAfterImage:
+    """
+    Verify that content_after_image is included in the HTML document written
+    to disk before pandoc is invoked. Pandoc is mocked — no binary required.
+    """
+
+    URL = '/api/catalog/questions/download/'
+
+    def _make_teacher(self, db):
+        from tests.conftest import TeacherUserFactory, UserSubscriptionFactory, SubscriptionPlanFactory
+        teacher = TeacherUserFactory()
+        plan = SubscriptionPlanFactory(plan_type='TEACHER_PRO', duration='MONTHLY')
+        UserSubscriptionFactory(user=teacher, plan=plan)
+        return teacher
+
+    def _fake_pandoc(self, tmpdir, fmt):
+        """
+        Side-effect for subprocess.run that creates the expected output file
+        so the view doesn't raise ValueError('pandoc ... failed').
+        """
+        def run(*args, **kwargs):
+            ext = 'pdf' if fmt == 'pdf' else 'docx'
+            out = os.path.join(tmpdir, f'output.{ext}')
+            with open(out, 'wb') as f:
+                f.write(b'%fake')
+            mock = MagicMock()
+            mock.returncode = 0
+            mock.stderr = b''
+            return mock
+        return run
+
+    def _post_download(self, client, question_ids, fmt='pdf'):
+        import json
+        return client.post(
+            self.URL,
+            data=json.dumps({
+                'question_ids': question_ids,
+                'title': 'Test Paper',
+                'format': fmt,
+                'copy_type': 'student',
+            }),
+            content_type='application/json',
+        )
+
+    def _captured_html(self, mock_run_calls):
+        """
+        Extract the HTML written to disk from the args passed to subprocess.run.
+        The first positional arg is the pandoc command list; the HTML path is args[0][1].
+        """
+        cmd = mock_run_calls[0][0][0]   # first call, positional args, first element (the list)
+        html_path = cmd[1]              # pandoc <html_path> -o <output>
+        with open(html_path, encoding='utf-8') as f:
+            return f.read()
+
+    # ------------------------------------------------------------------
+
+    def test_content_after_image_appears_in_generated_html(self, client, db, subject, topic):
+        """
+        A question with content_after_image='Name the parts labelled A and B.'
+        must have that text in the HTML document fed to pandoc.
+        """
+        teacher = self._make_teacher(db)
+        client.force_login(teacher)
+
+        q = QuestionFactory(
+            subject=subject,
+            question_type='OBJ',
+            content='<p>Use the diagram below to answer.</p>',
+            content_after_image='<p>Name the parts labelled A and B.</p>',
+            topics=[topic],
+        )
+        ChoiceFactory(question=q, label='A', is_correct=True)
+        ChoiceFactory(question=q, label='B', is_correct=False)
+
+        captured = {}
+
+        def fake_run(*args, **kwargs):
+            # Read HTML NOW — temp dir is still alive inside this call.
+            html_path = args[0][1]
+            with open(html_path, encoding='utf-8') as f:
+                captured['html'] = f.read()
+            out = os.path.join(os.path.dirname(html_path), 'output.pdf')
+            with open(out, 'wb') as f:
+                f.write(b'%PDF-fake')
+            m = MagicMock()
+            m.returncode = 0
+            m.stderr = b''
+            return m
+
+        with patch('catalog.views.subprocess.run', side_effect=fake_run):
+            response = self._post_download(client, [q.id], fmt='pdf')
+
+        assert response.status_code == 200
+        assert 'html' in captured, "fake_run was never called — check patch target"
+        assert 'Name the parts labelled A and B.' in captured['html'], (
+            "content_after_image text must appear in the HTML sent to pandoc"
+        )
+
+    def test_question_without_content_after_image_renders_cleanly(
+        self, client, db, subject, topic
+    ):
+        """
+        A question with no content_after_image must still produce a valid
+        200 response — no AttributeError or KeyError regression.
+        """
+        teacher = self._make_teacher(db)
+        client.force_login(teacher)
+
+        q = QuestionFactory(
+            subject=subject,
+            question_type='OBJ',
+            content='<p>Which of these is a vector quantity?</p>',
+            content_after_image='',   # explicit empty — the common case
+            topics=[topic],
+        )
+        ChoiceFactory(question=q, label='A', is_correct=True)
+        ChoiceFactory(question=q, label='B', is_correct=False)
+
+        def fake_run(*args, **kwargs):
+            html_path = args[0][1]
+            out = os.path.join(os.path.dirname(html_path), 'output.pdf')
+            with open(out, 'wb') as f:
+                f.write(b'%PDF-fake')
+            m = MagicMock()
+            m.returncode = 0
+            m.stderr = b''
+            return m
+
+        with patch('catalog.views.subprocess.run', side_effect=fake_run):
+            response = self._post_download(client, [q.id], fmt='pdf')
+
+        assert response.status_code == 200
+
+    def test_content_after_image_position_is_after_image_before_choices(
+        self, client, db, subject, topic
+    ):
+        """
+        Rendering order in the HTML must be:
+          1. question content
+          2. content_after_image
+          3. choices
+        Verified by checking relative string positions.
+        """
+        teacher = self._make_teacher(db)
+        client.force_login(teacher)
+
+        q = QuestionFactory(
+            subject=subject,
+            question_type='OBJ',
+            content='<p>Study the diagram.</p>',
+            content_after_image='<p>What does arrow X represent?</p>',
+            topics=[topic],
+        )
+        ChoiceFactory(question=q, label='A', choice_text='Force',    is_correct=True)
+        ChoiceFactory(question=q, label='B', choice_text='Velocity', is_correct=False)
+
+        captured = {}
+
+        def fake_run(*args, **kwargs):
+            html_path = args[0][1]
+            with open(html_path, encoding='utf-8') as f:
+                captured['html'] = f.read()
+            out = os.path.join(os.path.dirname(html_path), 'output.pdf')
+            with open(out, 'wb') as f:
+                f.write(b'%PDF-fake')
+            m = MagicMock()
+            m.returncode = 0
+            m.stderr = b''
+            return m
+
+        with patch('catalog.views.subprocess.run', side_effect=fake_run):
+            self._post_download(client, [q.id], fmt='pdf')
+
+        html = captured.get('html', '')
+        assert html, "fake_run was never called — check patch target"
+
+        pos_content     = html.find('Study the diagram.')
+        pos_after_image = html.find('What does arrow X represent?')
+        pos_choice_a    = html.find('Force')
+
+        assert pos_content     != -1, "Main content missing from HTML"
+        assert pos_after_image != -1, "content_after_image missing from HTML"
+        assert pos_choice_a    != -1, "Choice A missing from HTML"
+
+        assert pos_content < pos_after_image, \
+            "content must appear before content_after_image"
+        assert pos_after_image < pos_choice_a, \
+            "content_after_image must appear before choices"

@@ -464,6 +464,14 @@ def _build_question_html(questions, title, include_answers=False, marks_map=None
                     f.write(img_bytes)
                 yield f'<p><img src="images/{img_filename}" style="max-width:400px"/></p>\n'
 
+            # ── Text that appears after the diagram image ─────────────────────
+            # Parsed from DOCX when a question's body wraps around an embedded
+            # image (e.g. "Use the diagram … <image> … Name the parts A, B, C.")
+            # Mirrors the Django template: {% if question.content_after_image %}
+            if getattr(q, 'content_after_image', ''):
+                yield _inject_table_styles(q.content_after_image.strip()) + '\n'
+
+
             if q.question_type == 'OBJ':
                 choices = list(q.choices.all())
                 for c in choices:
