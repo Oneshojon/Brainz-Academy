@@ -1,6 +1,6 @@
 from django.contrib import admin
 from catalog.models import Worksheet, LessonNote, FeatureFlag, SubscriptionPlan, UserSubscription
-from .models import Subject, Topic, ExamBoard, ExamSeries, Question, Choice, TheoryAnswer
+from .models import Subject, Theme, Topic, ExamBoard, ExamSeries, Question, Choice, TheoryAnswer
 from catalog.models import PastPaper
 from catalog.models import PlatformSettings
 
@@ -33,6 +33,24 @@ class TopicAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     ordering = ('subject', 'name')
 
+
+@admin.register(Theme)
+class ThemeAdmin(admin.ModelAdmin):
+    """
+    Admin for Theme — the grouping layer between Subject and Topic.
+    Supports inline ordering via the list_editable `order` field.
+    """
+    list_display  = ('name', 'subject', 'order', 'topic_count')
+    list_filter   = ('subject',)
+    search_fields = ('name', 'subject__name')
+    ordering      = ('subject', 'order', 'name')
+    list_editable = ('order',)
+
+    def topic_count(self, obj):
+        """Return the number of topics belonging to this theme."""
+        return obj.topics.count()
+    topic_count.short_description = 'Topics'
+    
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
