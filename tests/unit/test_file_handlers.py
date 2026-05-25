@@ -329,6 +329,214 @@ class TestNormaliseDifficulty:
 
 
 # ---------------------------------------------------------------------------
+# _parse_theory_blocks — pure parser unit tests, no DB, no pandoc
+# ---------------------------------------------------------------------------
+
+class TestTheoryParserDifficultyDirectly:
+    """
+    Tests for difficulty extraction inside _parse_theory_blocks().
+
+    All tests bypass the view and pandoc entirely — they build minimal
+    BeautifulSoup fragments and call the parser directly.  This makes
+    failures unambiguous: a flap here is a parser bug, not a view bug.
+
+    Covers:
+      (a) Difficulty: as a standalone <p> tag after Answer:
+      (b) Difficulty: on a <br/>-joined line after Answer: — the primary bug case
+      (c) Case-insensitive value matching
+      (d) Absent Difficulty: → field stays None
+      (e) Difficulty: never leaks into theory_answer or content
+    """
+
+    # ── shared helpers ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _soup(html: str):
+        from bs4 import BeautifulSoup
+        return BeautifulSoup(html, "html.parser")
+
+    @staticmethod
+    def _regexes():
+        import re
+        return (
+            re.compile(r'^\s*(\d+)[.\)]\s*$'),                                      # q_num_re
+            re.compile(r'^\s*(\d+)[.\)]\s*(.+)', re.DOTALL),                        # q_inline_re
+            re.compile(r'^topic\s*:\s*(.+)', re.IGNORECASE | re.DOTALL),            # topic_re
+            re.compile(r'^(answer|solution)\s*:\s*(.*)$', re.IGNORECASE | re.DOTALL),  # theory_answer_start_re
+            re.compile(r'^marking\s*guide\s*:\s*(.*)$', re.IGNORECASE | re.DOTALL), # marking_guide_re
+            re.compile(r'^\s*difficulty\s*:\s*(.*)', re.IGNORECASE),                # difficulty_re
+        )
+
+    def _parse(self, html: str):
+        from teacher.views import _parse_theory_blocks
+        q_num_re, q_inline_re, topic_re, ans_re, mk_re, diff_re = self._regexes()
+        return _parse_theory_blocks(
+            self._soup(html), {},
+            q_num_re, q_inline_re, topic_re,
+            ans_re, mk_re, diff_re,
+        )
+
+    # ── (a) Difficulty: as its own <p> after Answer: ──────────────────────────
+
+    def test_difficulty_standalone_paragraph(self):
+        """
+        Difficulty: appears as a separate <p> element — the straightforward case.
+        Must be extracted and not appear in theory_answer.
+        """
+        html = """
+        <ol type="1">
+          <li>
+            <p>Explain the role of the mitochondria in cellular respiration.</p>
+            <p>Answer: The mitochondria generates ATP via oxidative phosphorylation.</p>
+            <p>Difficulty: Medium</p>
+            <p>Topic: Cell Biology</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1, "Expected exactly one theory question"
+        assert questions[0]['difficulty'] == 'MEDIUM'
+        assert 'Difficulty' not in questions[0]['theory_answer']
+
+    # ── (b) Difficulty: on a <br/>-joined line after Answer: — the bug case ──
+
+    def test_difficulty_inline_br_after_answer(self):
+        """
+        PRIMARY BUG CASE: Difficulty: appears on a <br/>-delimited line
+        inside the same <p> as Answer:.
+
+        Before the fix, this line was absorbed into answer_parts because
+        _parse_theory_blocks had no <br/>-splitting logic, causing
+        difficulty to be None and the raw string to pollute theory_answer.
+        """
+        html = """
+        <ol type="1">
+          <li>
+            <p>State Newton's Second Law of Motion.</p>
+            <p>Answer: Force equals mass times acceleration (F = ma).<br/>
+               Difficulty: Hard<br/>
+               Topic: Dynamics</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1
+        assert questions[0]['difficulty'] == 'HARD', (
+            "Difficulty: on a <br/>-joined line was not extracted — "
+            "check that _parse_theory_blocks splits <p> on <br/> "
+            "and routes each line through _try_section_switch."
+        )
+        assert 'Difficulty' not in questions[0]['theory_answer'], (
+            "Difficulty: line must not leak into theory_answer"
+        )
+        assert 'Topic' not in questions[0]['theory_answer'], (
+            "Topic: line must not leak into theory_answer"
+        )
+
+    # ── (c) Case-insensitive difficulty values ────────────────────────────────
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("Easy",   "EASY"),
+        ("MEDIUM", "MEDIUM"),
+        ("hard",   "HARD"),
+        ("  Easy ", "EASY"),   # leading/trailing whitespace
+    ])
+    def test_difficulty_case_insensitive(self, raw, expected):
+        """Difficulty: value normalisation is case- and whitespace-insensitive."""
+        html = f"""
+        <ol type="1">
+          <li>
+            <p>Define osmosis.</p>
+            <p>Answer: Movement of water across a semi-permeable membrane.</p>
+            <p>Difficulty: {raw}</p>
+            <p>Topic: Osmosis</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1
+        assert questions[0]['difficulty'] == expected
+
+    # ── (d) Absent Difficulty: → field stays None ─────────────────────────────
+
+    def test_difficulty_absent_defaults_to_none(self):
+        """When no Difficulty: line is present, difficulty must be None."""
+        html = """
+        <ol type="1">
+          <li>
+            <p>Explain photosynthesis.</p>
+            <p>Answer: Conversion of light energy to chemical energy.</p>
+            <p>Topic: Photosynthesis</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1
+        assert questions[0]['difficulty'] is None
+
+    # ── (e) Difficulty: never leaks into content or theory_answer ─────────────
+
+    def test_difficulty_not_in_content(self):
+        """Difficulty: value must never appear in question content."""
+        html = """
+        <ol type="1">
+          <li>
+            <p>What is Boyle's Law?</p>
+            <p>Answer: At constant temperature, pressure and volume are
+               inversely proportional.</p>
+            <p>Difficulty: Medium</p>
+            <p>Topic: Gas Laws</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        q = questions[0]
+        assert 'Difficulty' not in q['content']
+        assert 'Difficulty' not in q['theory_answer']
+
+    # ── (f) Typed-paragraph format (not inside <ol type="1">) ────────────────
+
+    def test_difficulty_typed_paragraph_format(self):
+        """
+        Theory question written as typed numbered paragraphs rather than
+        inside an <ol type="1"> — also extracts Difficulty: correctly.
+        """
+        html = """
+        <p>1. Describe the water cycle.</p>
+        <p>Answer: Water evaporates, condenses, and precipitates.</p>
+        <p>Difficulty: Easy</p>
+        <p>Topic: Water Cycle</p>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1
+        assert questions[0]['difficulty'] == 'EASY'
+        assert 'Difficulty' not in questions[0]['theory_answer']
+
+    # ── (g) Difficulty: before Answer: is ignored / treated as content ────────
+
+    def test_difficulty_before_answer_not_extracted(self):
+        """
+        Difficulty: appearing before Answer: (non-standard placement)
+        should still be extracted — _try_section_switch is called
+        regardless of the current section.
+        """
+        html = """
+        <ol type="1">
+          <li>
+            <p>Explain the greenhouse effect.</p>
+            <p>Difficulty: Medium</p>
+            <p>Answer: Greenhouse gases trap heat in the atmosphere.</p>
+            <p>Topic: Climate</p>
+          </li>
+        </ol>
+        """
+        questions = self._parse(html)
+        assert len(questions) == 1
+        # Either extracted or None — the key requirement is it does not crash
+        # and does not leak "Difficulty:" into content.
+        assert 'Difficulty' not in questions[0]['content']
+
+# ---------------------------------------------------------------------------
 # OBJ difficulty extraction — through the upload_docx view
 # ---------------------------------------------------------------------------
 

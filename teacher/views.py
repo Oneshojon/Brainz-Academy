@@ -1895,11 +1895,34 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                 for child in li.children:
                     if not isinstance(child, Tag):
                         continue
+
+                    # <p> with <br/>: split into lines BEFORE calling
+                    # _try_section_switch so that metadata lines embedded
+                    # after Answer: (Difficulty:, Topic:) are each dispatched
+                    # individually rather than lost behind the Answer: match.
+                    if child.name == 'p' and child.find('br'):
+                        img_t = child.find('img')
+                        if img_t:
+                            b, ext, w, h = _th_img_info(img_t, img_map)
+                            _set_image(b, ext, w, h)
+                        for plain_line, html_line in _split_para_into_lines(child):
+                            if _try_section_switch(plain_line):
+                                continue
+                            # Topic: on a <br/>-joined line — register and skip,
+                            # do not route into answer/marking/content parts.
+                            mt = _TH_TOPIC_RE.match(plain_line)
+                            if mt and current_q is not None:
+                                current_q['topics'].append(' '.join(mt.group(1).split()))
+                                continue
+                            if html_line.strip():
+                                _append('<p>%s</p>' % html_line.strip())
+                        continue
+
                     child_text = _th_text(child)
- 
+
                     if _try_section_switch(child_text):
                         continue
- 
+
                     if child.name == 'p':
                         img_t = child.find('img')
                         if img_t:
@@ -1951,10 +1974,20 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
                 _set_image(b, ext, w, h)
                 if not text.strip():
                     continue
- 
-            inner = elem.decode_contents().strip()
-            if inner:
-                _append('<p>%s</p>' % inner)
+
+            # Split on <br/> so embedded Difficulty:/Topic:/Answer: lines
+            # are each routed through _try_section_switch.
+            br_lines = _split_para_into_lines(elem)
+            if br_lines:
+                for plain_line, html_line in br_lines:
+                    if _try_section_switch(plain_line):
+                        continue
+                    if html_line.strip():
+                        _append('<p>%s</p>' % html_line.strip())
+            else:
+                inner = elem.decode_contents().strip()
+                if inner:
+                    _append('<p>%s</p>' % inner)
             continue
  
         if tag == 'blockquote':
