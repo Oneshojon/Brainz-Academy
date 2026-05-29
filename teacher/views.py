@@ -1759,6 +1759,7 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
         return {
             'number':          number,
             'content':         '',
+            'content_after_image': '',
             'image_bytes':     None,
             'image_ext':       None,
             'image_width_px':  None,
@@ -1774,29 +1775,34 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
     questions     = []
     current_q     = None
     content_parts = []
+    after_image_parts = []
     answer_parts  = []
     marking_parts = []
+    image_seen        = False
     section       = 'content'
     last_q_number = 0
     used_numbers  = set()
  
     def _flush():
-        nonlocal current_q, content_parts, answer_parts
-        nonlocal marking_parts, section, last_q_number
+        nonlocal current_q, content_parts, after_image_parts, answer_parts
+        nonlocal marking_parts, image_seen, section, last_q_number
         if current_q is None:
             return
-        current_q['content']       = '\n'.join(content_parts).strip()
-        current_q['theory_answer'] = '\n'.join(answer_parts).strip()
-        current_q['marking_guide'] = '\n'.join(marking_parts).strip()
+        current_q['content']             = '\n'.join(content_parts).strip()
+        current_q['content_after_image'] = '\n'.join(after_image_parts).strip()
+        current_q['theory_answer']       = '\n'.join(answer_parts).strip()
+        current_q['marking_guide']       = '\n'.join(marking_parts).strip()
         if current_q['content']:
             questions.append(current_q)
             last_q_number = current_q['number']
             used_numbers.add(current_q['number'])
-        current_q     = None
-        content_parts = []
-        answer_parts  = []
-        marking_parts = []
-        section       = 'content'
+        current_q         = None
+        content_parts     = []
+        after_image_parts = []
+        answer_parts      = []
+        marking_parts     = []
+        image_seen        = False
+        section           = 'content'
  
     def _open(number):
         nonlocal current_q, section
@@ -1807,16 +1813,27 @@ def _parse_theory_blocks(blocks, img_map, q_num_re, q_inline_re, topic_re,
     def _append(html):
         if not html:
             return
-        if   section == 'content': content_parts.append(html)
-        elif section == 'answer':  answer_parts.append(html)
-        elif section == 'marking': marking_parts.append(html)
+        if section == 'content':
+            # Route to after_image_parts once an image has been seen,
+            # so the download pipeline can insert the image between the
+            # two content blocks — matching the original DOCX layout.
+            if image_seen:
+                after_image_parts.append(html)
+            else:
+                content_parts.append(html)
+        elif section == 'answer':
+            answer_parts.append(html)
+        elif section == 'marking':
+            marking_parts.append(html)
  
     def _set_image(b, ext, w, h):
+        nonlocal image_seen
         if current_q and current_q['image_bytes'] is None and b:
             current_q['image_bytes']     = b
             current_q['image_ext']       = ext
             current_q['image_width_px']  = w
             current_q['image_height_px'] = h
+            image_seen = True
  
     def _try_section_switch(text) -> bool:
         nonlocal section
