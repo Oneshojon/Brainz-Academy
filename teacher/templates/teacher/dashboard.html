@@ -25,10 +25,12 @@
         <a href="{% url 'teacher:upload' %}">Upload CSV</a>
         <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
         <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
-        <a href="{% url 'teacher:upload_past_paper' %}" class="active">Upload Past Paper</a>
+        <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
         <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
         <a href="{% url 'health:dashboard' %}">⚡ System Health</a>
         <a href="{% url 'teacher:referral_analytics' %}">📊 Referral Analytics</a>
+        <a href="{% url 'teacher:messaging' %}">✉️ Send Message</a>
+        <a href="{% url 'teacher:messaging_history' %}">📨 Message History</a>
       {% endif %}
       <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
     </nav>
@@ -78,14 +80,20 @@
           <div class="quick-action-desc">See how students are doing</div>
         </div>
       </a>
-
       <a href="{% url 'health:dashboard' %}" class="quick-action">
-      <span class="quick-action-icon">⚡</span>
-      <div>
-        <div class="quick-action-label">System Health</div>
-        <div class="quick-action-desc">Circuit breaker status &amp; controls</div>
-      </div>
-    </a>
+        <span class="quick-action-icon">⚡</span>
+        <div>
+          <div class="quick-action-label">System Health</div>
+          <div class="quick-action-desc">Circuit breaker status &amp; controls</div>
+        </div>
+      </a>
+      <a href="{% url 'teacher:messaging' %}" class="quick-action">
+        <span class="quick-action-icon">✉️</span>
+        <div>
+          <div class="quick-action-label">Send Message</div>
+          <div class="quick-action-desc">Broadcast to students or teachers</div>
+        </div>
+      </a>
       {% endif %}
       <a href="{% url 'lessonnotes:lesson_notes' %}" class="quick-action">
         <span class="quick-action-icon">📝</span>
@@ -114,14 +122,11 @@
 
     {% if recent_sessions %}
     <div class="sessions-grid">
-      <!-- Header row -->
       <div class="sessions-grid-header">
         <span>Student</span>
         <span>Subject</span>
         <span>Score</span>
       </div>
-
-      <!-- Data rows (max 6) -->
       {% for session in recent_sessions|slice:":6" %}
       <div class="sessions-grid-row">
         <span class="session-student">

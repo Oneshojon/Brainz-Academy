@@ -4,7 +4,6 @@ from . import views
 app_name = 'teacher'
 
 urlpatterns = [
-   
     path('', views.dashboard, name='dashboard'),
     path('question-sets/', views.question_sets, name='question_sets'),
     path('students/', views.students, name='students'),
@@ -18,4 +17,9 @@ urlpatterns = [
     path('sessions/', views.session_history, name='session_history'),
     path('lesson-notes/download-docx/<int:note_id>/', views.download_lesson_note_docx, name='download_lesson_note_docx'),
     path('topics-for-subject/<int:subject_id>/', views.topics_for_subject, name='topics_for_subject'),
+
+    # ── Messaging (admin-only broadcast) ─────────────────────────────────────
+    path('messaging/',          views.messaging,          name='messaging'),
+    path('messaging/preview/',  views.messaging_preview,  name='messaging_preview'),
+    path('messaging/history/',  views.messaging_history,  name='messaging_history'),
 ]

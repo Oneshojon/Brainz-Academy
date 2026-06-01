@@ -25,6 +25,9 @@ from catalog.models import LessonNote
 from catalog.feature_flags import feature_required, is_feature_enabled
 import json
 
+from messaging.cache_utils import invalidate_unread_count_bulk
+from messaging.models import Message, MessageReceipt
+from messaging.recipients import describe_filter, resolve_recipients
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DECORATORS
@@ -2363,4 +2366,295 @@ def upload_past_paper(request):
         'summary': summary,
         'paper':   paper,
         'created': created,
+    })
+
+    # Audience choices used by both GET render and POST validation
+_MSG_AUDIENCES = [
+    ('ALL',      'All Users'),
+    ('STUDENTS', 'Students'),
+    ('TEACHERS', 'Teachers'),
+]
+ 
+# Chunk size for bulk_create — keeps parameter count well under DB limits
+_BULK_CHUNK = 500
+ 
+ 
+def _parse_msg_filter_params(post):
+    """
+    Coerce raw POST values into a clean filter_params dict.
+    Safe to serialise as Message.recipient_filter JSON.
+    """
+    def _int_or_none(key):
+        val = post.get(key, '').strip()
+        try:
+            v = int(val)
+            return v if v > 0 else None
+        except (ValueError, TypeError):
+            return None
+ 
+    return {
+        'audience':            post.get('audience', 'ALL'),
+        'min_total_sessions':  _int_or_none('min_total_sessions'),
+        'min_recent_sessions': _int_or_none('min_recent_sessions'),
+        'subject_id':          _int_or_none('subject_id'),
+    }
+ 
+ 
+def _send_broadcast_email(recipient, message):
+    """
+    Send a single Brevo transactional email for a broadcast message.
+ 
+    Returns (email_sent: bool, email_error: str).
+    Per-recipient isolation — one bad address never aborts the send loop.
+    Uses django-anymail when BREVO_API_KEY is configured (see settings.py);
+    falls back to console backend in local dev automatically.
+    """
+    try:
+        from django.core.mail import send_mail as _send
+        from django.conf import settings as _s
+ 
+        _send(
+            subject        = f"[BrainzAcademy] {message.title}",
+            message        = message.body,
+            from_email     = getattr(_s, 'DEFAULT_FROM_EMAIL', 'noreply@brainzacademy.com'),
+            recipient_list = [recipient.email],
+            fail_silently  = False,
+        )
+        return True, ''
+    except Exception as exc:
+        logger.warning(
+            'Broadcast email failed for user=%s message=%s: %s',
+            recipient.id, message.id, exc,
+        )
+        return False, str(exc)[:500]
+ 
+ 
+@admin_required
+def messaging(request):
+    """
+    Compose and send a broadcast message.
+ 
+    GET  — render compose form with audience selector and live preview.
+    POST — validate, resolve recipients, persist Message + MessageReceipt
+           rows, deliver emails, redirect to history.
+ 
+    POST fields:
+        title               str  (required, max 255)
+        body                str  (required)
+        audience            ALL | STUDENTS | TEACHERS
+        min_total_sessions  int  (optional, students only)
+        min_recent_sessions int  (optional, students only — last 30 days)
+        subject_id          int  (optional, teachers only — test builder subject)
+ 
+    Query strategy:
+        resolve_recipients() returns an unevaluated queryset — .count() is
+        called once for validation, .iterator() twice (receipt build + email
+        loop). Subject list reuses the existing cached helper.
+    """
+    from messaging.cache_utils import invalidate_unread_count_bulk
+    from messaging.models import Message, MessageReceipt
+    from messaging.recipients import resolve_recipients, describe_filter
+    from catalog.cache_utils import get_subjects_with_question_counts
+ 
+    if request.method == 'GET':
+        return render(request, 'teacher/messaging.html', {
+            'subjects':  get_subjects_with_question_counts(),
+            'audiences': _MSG_AUDIENCES,
+        })
+ 
+    # ── Validate ──────────────────────────────────────────────────────────────
+    title  = request.POST.get('title', '').strip()
+    body   = request.POST.get('body', '').strip()
+    errors = []
+ 
+    if not title:
+        errors.append('Message title is required.')
+    if len(title) > 255:
+        errors.append('Title must be 255 characters or fewer.')
+    if not body:
+        errors.append('Message body is required.')
+ 
+    filter_params = _parse_msg_filter_params(request.POST)
+    if filter_params['audience'] not in ('ALL', 'STUDENTS', 'TEACHERS'):
+        errors.append('Invalid audience selection.')
+ 
+    if errors:
+        return render(request, 'teacher/messaging.html', {
+            'subjects':  get_subjects_with_question_counts(),
+            'audiences': _MSG_AUDIENCES,
+            'errors':    errors,
+            'post':      request.POST,
+        })
+ 
+    # ── Resolve recipients ────────────────────────────────────────────────────
+    recipient_qs    = resolve_recipients(filter_params)
+    recipient_count = recipient_qs.count()
+ 
+    if recipient_count == 0:
+        return render(request, 'teacher/messaging.html', {
+            'subjects':  get_subjects_with_question_counts(),
+            'audiences': _MSG_AUDIENCES,
+            'errors':    ['No users match the selected filters. Adjust your criteria and try again.'],
+            'post':      request.POST,
+        })
+ 
+    # ── Persist Message + receipts (atomic) ───────────────────────────────────
+    # Email delivery is intentionally outside the transaction so a Brevo
+    # failure never rolls back the in-app notification records.
+    with transaction.atomic():
+        message = Message.objects.create(
+            sender           = request.user,
+            title            = title,
+            body             = body,
+            recipient_filter = filter_params,
+            recipient_count  = recipient_count,
+        )
+ 
+        receipts = [
+            MessageReceipt(message=message, recipient=user)
+            for user in recipient_qs.only('id').iterator()
+        ]
+ 
+        for i in range(0, len(receipts), _BULK_CHUNK):
+            MessageReceipt.objects.bulk_create(
+                receipts[i : i + _BULK_CHUNK],
+                ignore_conflicts=True,   # safe re-run guard
+            )
+ 
+    # ── Bust per-user unread count cache ──────────────────────────────────────
+    recipient_ids = list(recipient_qs.values_list('id', flat=True))
+    invalidate_unread_count_bulk(recipient_ids)
+ 
+    # ── Deliver emails — one per recipient, error captured individually ────────
+    for user in recipient_qs.iterator():
+        sent, error = _send_broadcast_email(user, message)
+        MessageReceipt.objects.filter(
+            message=message, recipient=user,
+        ).update(
+            email_sent  = sent,
+            email_error = error,
+        )
+ 
+    logger.info(
+        'Broadcast sent: message=%s recipients=%s sender=%s',
+        message.id, recipient_count, request.user.id,
+    )
+ 
+    return redirect('teacher:messaging_history')
+ 
+ 
+@admin_required
+def messaging_preview(request):
+    """
+    POST /teacher/messaging/preview/
+    Returns live recipient count for the compose form preview badge.
+ 
+    Body (JSON):
+        { "audience": "STUDENTS", "min_total_sessions": 5, ... }
+ 
+    Response:
+        { "count": 42, "label": "All Students · min 5 total sessions" }
+ 
+    Not cached — admin-only, low traffic, and stale counts mislead the admin.
+    """
+    from messaging.recipients import resolve_recipients, describe_filter
+ 
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=405)
+ 
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+ 
+    filter_params = {
+        'audience':            data.get('audience', 'ALL'),
+        'min_total_sessions':  data.get('min_total_sessions') or None,
+        'min_recent_sessions': data.get('min_recent_sessions') or None,
+        'subject_id':          data.get('subject_id') or None,
+    }
+ 
+    try:
+        count = resolve_recipients(filter_params).count()
+    except Exception as exc:
+        logger.exception('messaging_preview: recipient resolution failed — %s', exc)
+        return JsonResponse({'error': 'Could not resolve recipients.'}, status=500)
+ 
+    return JsonResponse({
+        'count': count,
+        'label': describe_filter(filter_params),
+    })
+ 
+ 
+@admin_required
+def messaging_history(request):
+    """
+    GET /teacher/messaging/history/
+    Past broadcast history + test builder usage stats card.
+ 
+    Queries (all admin-only, no caching):
+      1. Messages with per-message email ok/error counts — one annotated query
+      2. SavedTest grouped by subject — one values/annotate query
+      3. Recent test builder activity count (last 30 days) — one filter count
+      4. Top 5 teachers by SavedTest count — one values/annotate query
+ 
+    No N+1: select_related('sender') covers sender name in one JOIN.
+    describe_filter() is pure Python — no extra DB calls.
+    """
+    from django.db.models import Count, Q as _Q
+    from messaging.models import Message
+    from messaging.recipients import describe_filter
+    from catalog.models import SavedTest
+ 
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+ 
+    # ── Broadcast history ─────────────────────────────────────────────────────
+    # Two COUNT annotations share the same receipts JOIN — one SQL query.
+    past_messages = (
+        Message.objects
+        .select_related('sender')
+        .annotate(
+            emails_ok  = Count('receipts', filter=_Q(receipts__email_sent=True)),
+            emails_err = Count('receipts', filter=_Q(receipts__email_sent=False)),
+        )
+        .order_by('-sent_at')[:50]
+    )
+ 
+    # Attach human-readable audience label — pure Python, no DB hit
+    for msg in past_messages:
+        msg.filter_label = describe_filter(msg.recipient_filter)
+ 
+    # ── Test builder stats card ───────────────────────────────────────────────
+    # Tests per subject (top 10)
+    tb_by_subject = (
+        SavedTest.objects
+        .values('test_questions__question__subject__name')
+        .annotate(test_count=Count('id', distinct=True))
+        .filter(test_count__gt=0)
+        .order_by('-test_count')[:10]
+    )
+ 
+    # Total tests created in the last 30 days
+    tb_recent_count = SavedTest.objects.filter(
+        created_at__gte=thirty_days_ago
+    ).count()
+ 
+    # Top 5 teachers by lifetime test count
+    tb_top_teachers = (
+        SavedTest.objects
+        .values(
+            'teacher__id',
+            'teacher__first_name',
+            'teacher__last_name',
+            'teacher__email',
+        )
+        .annotate(test_count=Count('id'))
+        .order_by('-test_count')[:5]
+    )
+ 
+    return render(request, 'teacher/messaging_history.html', {
+        'messages':        past_messages,
+        'tb_by_subject':   tb_by_subject,
+        'tb_recent_count': tb_recent_count,
+        'tb_top_teachers': tb_top_teachers,
     })

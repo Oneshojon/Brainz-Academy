@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'anymail',
     'payments',
     'teacher',
+    'messaging',
     'corsheaders',
     'frontend',
     'rest_framework',
@@ -79,7 +80,8 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'catalog.context_processors.feature_flags',   # ← add this
+                'catalog.context_processors.feature_flags',
+                'messaging.context_processors.unread_message_count',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',

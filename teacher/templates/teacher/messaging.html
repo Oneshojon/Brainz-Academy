@@ -1,0 +1,370 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block title %}Send Message — BrainzAcademy{% endblock %}
+{% block meta_description %}Broadcast messages to students, teachers, or all users on BrainzAcademy.{% endblock %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<style>
+  .msg-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+  .msg-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .msg-grid { grid-template-columns: 1fr; } }
+
+  .msg-card {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .msg-card-title {
+    font-size: .875rem;
+    font-weight: 700;
+    color: var(--navy, #0B2D72);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 0 0 1.1rem;
+    padding-bottom: .7rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+  .field + .field { margin-top: 1rem; }
+  .field label {
+    display: block;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: .35rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .field input,
+  .field textarea,
+  .field select {
+    width: 100%;
+    padding: .6rem .85rem;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 8px;
+    font-size: .925rem;
+    color: #111827;
+    background: #fff;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color .15s;
+  }
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--blue, #0992C2);
+    box-shadow: 0 0 0 3px rgba(9,146,194,.12);
+  }
+  .field textarea { resize: vertical; min-height: 150px; }
+  .char-hint { font-size: .75rem; color: #9ca3af; margin-top: .25rem; }
+
+  .audience-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .audience-tab {
+    padding: .4rem 1rem;
+    border: 1.5px solid var(--border, #e5e7eb);
+    border-radius: 999px;
+    font-size: .83rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: #fff;
+    color: #374151;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .audience-tab.active {
+    background: var(--blue, #0992C2);
+    color: #fff;
+    border-color: var(--blue, #0992C2);
+  }
+  .filter-panel { display: none; }
+  .filter-panel.visible { display: block; }
+
+  .preview-box {
+    background: rgba(9,146,194,.07);
+    border: 1px solid rgba(9,146,194,.2);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+    min-height: 80px;
+  }
+  .preview-count {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--navy, #0B2D72);
+    line-height: 1;
+    transition: opacity .2s;
+  }
+  .preview-label { font-size: .75rem; color: #6b7280; margin-top: .2rem; }
+  .preview-desc  { font-size: .78rem; color: #374151; margin-top: .45rem; font-style: italic; }
+
+  .btn-send {
+    width: 100%;
+    padding: .75rem;
+    background: var(--blue, #0992C2);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .btn-send:hover:not(:disabled) { background: #077ab3; }
+  .btn-send:disabled { opacity: .55; cursor: not-allowed; }
+
+  .error-list {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: .85rem 1rem;
+    margin-bottom: 1.25rem;
+    list-style: none;
+  }
+  .error-list li { color: #b91c1c; font-size: .875rem; }
+  .error-list li + li { margin-top: .3rem; }
+
+  .history-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .85rem;
+    color: var(--blue, #0992C2);
+    text-decoration: none;
+    margin-bottom: 1.25rem;
+  }
+  .history-link:hover { text-decoration: underline; }
+</style>
+
+<div class="page-body">
+
+  <!-- Header + Nav -->
+  <div class="dash-container">
+    <div class="dash-container-inner">
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Send Message</h1>
+    </div>
+    <nav class="teacher-nav">
+      <a href="{% url 'Users:dashboard' %}">Dashboard</a>
+      <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
+      <a href="{% url 'past_papers:past_papers' %}">Past Papers</a>
+      {% if user.is_admin %}
+        <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+        <a href="{% url 'teacher:students' %}">Students</a>
+        <a href="{% url 'teacher:session_history' %}">Session History</a>
+        <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+        <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+        <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+        <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
+        <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+        <a href="{% url 'health:dashboard' %}">⚡ System Health</a>
+        <a href="{% url 'teacher:referral_analytics' %}">📊 Referral Analytics</a>
+        <a href="{% url 'teacher:messaging' %}" class="active">✉️ Send Message</a>
+        <a href="{% url 'teacher:messaging_history' %}">📨 Message History</a>
+      {% endif %}
+      <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
+    </nav>
+  </div>
+
+  <!-- Compose form -->
+  <div class="msg-wrap">
+
+    <a href="{% url 'teacher:messaging_history' %}" class="history-link">← View message history</a>
+
+    {% if errors %}
+    <ul class="error-list">
+      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="post" id="msg-form">
+      {% csrf_token %}
+      <input type="hidden" name="audience" id="audience-input" value="{{ post.audience|default:'ALL' }}">
+
+      <div class="msg-grid">
+
+        <!-- Left -->
+        <div>
+          <div class="msg-card">
+            <p class="msg-card-title">Message</p>
+            <div class="field">
+              <label for="id_title">Subject / Title</label>
+              <input type="text" id="id_title" name="title" maxlength="255"
+                     placeholder="e.g. Important update for all students"
+                     value="{{ post.title|default:'' }}" required>
+              <div class="char-hint"><span id="title-count">0</span> / 255 characters</div>
+            </div>
+            <div class="field">
+              <label for="id_body">Message body</label>
+              <textarea id="id_body" name="body"
+                        placeholder="Write your message here…" required>{{ post.body|default:'' }}</textarea>
+            </div>
+          </div>
+
+          <div class="msg-card">
+            <p class="msg-card-title">Recipients</p>
+
+            <div class="audience-tabs" role="group" aria-label="Select audience">
+              {% for val, lbl in audiences %}
+              <button type="button"
+                      class="audience-tab {% if post.audience|default:'ALL' == val %}active{% endif %}"
+                      data-audience="{{ val }}">{{ lbl }}</button>
+              {% endfor %}
+            </div>
+
+            <!-- Student filters -->
+            <div id="panel-STUDENTS" class="filter-panel {% if post.audience == 'STUDENTS' %}visible{% endif %}">
+              <div class="field">
+                <label for="id_min_total">Min total practice sessions</label>
+                <input type="number" id="id_min_total" name="min_total_sessions" min="1"
+                       placeholder="e.g. 5 — leave blank for any"
+                       value="{{ post.min_total_sessions|default:'' }}">
+              </div>
+              <div class="field">
+                <label for="id_min_recent">Min sessions in last 30 days</label>
+                <input type="number" id="id_min_recent" name="min_recent_sessions" min="1"
+                       placeholder="e.g. 2 — leave blank for any"
+                       value="{{ post.min_recent_sessions|default:'' }}">
+              </div>
+            </div>
+
+            <!-- Teacher filters -->
+            <div id="panel-TEACHERS" class="filter-panel {% if post.audience == 'TEACHERS' %}visible{% endif %}">
+              <div class="field">
+                <label for="id_subject">Filter by test builder subject (optional)</label>
+                <select id="id_subject" name="subject_id">
+                  <option value="">— All teachers —</option>
+                  {% for subj in subjects %}
+                  <option value="{{ subj.id }}"
+                    {% if post.subject_id == subj.id|stringformat:'s' %}selected{% endif %}>
+                    {{ subj.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: preview + send -->
+        <div>
+          <div class="msg-card" style="position:sticky;top:1.5rem">
+            <p class="msg-card-title">Preview &amp; Send</p>
+
+            <div class="preview-box">
+              <div class="preview-count" id="preview-count">—</div>
+              <div class="preview-label">recipients matched</div>
+              <div class="preview-desc" id="preview-desc"></div>
+            </div>
+
+            <button type="submit" class="btn-send" id="send-btn" disabled>
+              <svg width="15" height="15" fill="none" stroke="currentColor"
+                   stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M22 2 11 13M22 2 15 22 11 13 2 9l20-7z"/>
+              </svg>
+              <span id="send-label">Send Message</span>
+            </button>
+
+            <p style="font-size:.73rem;color:#9ca3af;margin-top:.75rem;text-align:center;line-height:1.5">
+              Each recipient gets an in-app notification and an email.
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /msg-grid -->
+    </form>
+  </div><!-- /msg-wrap -->
+</div><!-- /page-body -->
+
+<script>
+(function () {
+  'use strict';
+  const audienceInput = document.getElementById('audience-input');
+  const tabs          = document.querySelectorAll('.audience-tab');
+  const previewCount  = document.getElementById('preview-count');
+  const previewDesc   = document.getElementById('preview-desc');
+  const sendBtn       = document.getElementById('send-btn');
+  const sendLabel     = document.getElementById('send-label');
+  const titleInput    = document.getElementById('id_title');
+  const titleCount    = document.getElementById('title-count');
+
+  function updateCharCount() { titleCount.textContent = titleInput.value.length; }
+  titleInput.addEventListener('input', updateCharCount);
+  updateCharCount();
+
+  function switchAudience(val) {
+    audienceInput.value = val;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.audience === val));
+    document.querySelectorAll('.filter-panel').forEach(p => {
+      p.classList.toggle('visible', p.id === `panel-${val}`);
+    });
+    schedulePreview();
+  }
+  tabs.forEach(tab => tab.addEventListener('click', () => switchAudience(tab.dataset.audience)));
+
+  let timer = null;
+  function schedulePreview() { clearTimeout(timer); timer = setTimeout(fetchPreview, 400); }
+
+  async function fetchPreview() {
+    previewCount.style.opacity = '.4';
+    const payload = {
+      audience:            audienceInput.value,
+      min_total_sessions:  parseInt(document.getElementById('id_min_total')?.value) || null,
+      min_recent_sessions: parseInt(document.getElementById('id_min_recent')?.value) || null,
+      subject_id:          parseInt(document.getElementById('id_subject')?.value)    || null,
+    };
+    try {
+      const res  = await fetch('{% url "teacher:messaging_preview" %}', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body:    JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        previewCount.textContent = data.count.toLocaleString();
+        previewDesc.textContent  = data.label;
+        sendBtn.disabled         = data.count === 0;
+        sendLabel.textContent    = data.count > 0
+          ? `Send to ${data.count.toLocaleString()} user${data.count !== 1 ? 's' : ''}`
+          : 'No recipients matched';
+      }
+    } catch (_) {
+      previewCount.textContent = '?';
+    } finally {
+      previewCount.style.opacity = '1';
+    }
+  }
+
+  document.querySelectorAll('#id_min_total, #id_min_recent, #id_subject')
+    .forEach(el => el.addEventListener('input', schedulePreview));
+
+  document.getElementById('msg-form').addEventListener('submit', function (e) {
+    const count = parseInt(previewCount.textContent.replace(/,/g, '')) || 0;
+    if (count === 0) { e.preventDefault(); return; }
+    const ok = confirm(
+      `Send "${titleInput.value}" to ${count.toLocaleString()} user${count !== 1 ? 's' : ''}?\n\nEach recipient will get an in-app notification and an email.`
+    );
+    if (!ok) { e.preventDefault(); return; }
+    sendBtn.disabled      = true;
+    sendLabel.textContent = 'Sending…';
+  });
+
+  fetchPreview();
+})();
+</script>
+{% endblock %}

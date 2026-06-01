@@ -32,6 +32,9 @@ urlpatterns = [
     # ── Teacher portal ────────────────────────────────────────────
     path('teacher/', include('teacher.urls')),
 
+    # ── Messaging (inbox — all authenticated users) ───────────────
+    path('messaging/', include('messaging.urls', namespace='messaging')),
+
     # ── Clean URLs ────────────────────────────────────────────────
     path('test-builder/', include('frontend.urls')),
     path('cbt-practice/', include('practice.urls')),

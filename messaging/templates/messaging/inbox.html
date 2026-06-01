@@ -1,0 +1,300 @@
+{% extends "Users/layout.html" %}
+{% load static %}
+
+{% block title %}Inbox — BrainzAcademy{% endblock %}
+
+{% block extra_head %}
+<style>
+  .inbox-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────────── */
+  .inbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: 1.75rem;
+  }
+  .inbox-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--navy, #0B2D72);
+    margin: 0;
+  }
+  .btn-mark-all {
+    padding: .45rem 1rem;
+    border: 1.5px solid var(--cyan, #0992C2);
+    border-radius: 8px;
+    color: var(--cyan, #0992C2);
+    font-size: .85rem;
+    font-weight: 600;
+    background: #fff;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-mark-all:hover { background: var(--cyan, #0992C2); color: #fff; }
+
+  /* ── Section label ──────────────────────────────────────────────────────── */
+  .inbox-section-label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #9ca3af;
+    margin: 0 0 .6rem;
+    padding-bottom: .35rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+
+  /* ── Message card ───────────────────────────────────────────────────────── */
+  .msg-card {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: .75rem;
+    cursor: pointer;
+    transition: box-shadow .15s, border-color .15s;
+    position: relative;
+  }
+  .msg-card.unread {
+    border-left: 3px solid var(--cyan, #0992C2);
+    background: rgba(9,146,194,.03);
+  }
+  .msg-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.07); border-color: #c4cde0; }
+
+  .msg-card .msg-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    font-size: .95rem;
+    color: #111827;
+    margin: 0 0 .3rem;
+  }
+  .msg-card.read .msg-title { font-weight: 500; color: #374151; }
+
+  .msg-card .msg-meta {
+    font-size: .75rem;
+    color: #9ca3af;
+    margin-bottom: .5rem;
+  }
+  .msg-card .msg-body {
+    font-size: .875rem;
+    color: #374151;
+    line-height: 1.6;
+    display: none;
+    margin-top: .65rem;
+    white-space: pre-wrap;
+    border-top: 1px solid var(--border, #e5e7eb);
+    padding-top: .65rem;
+  }
+  .msg-card.expanded .msg-body { display: block; }
+
+  /* Unread dot */
+  .unread-dot {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    width: 9px;
+    height: 9px;
+    background: var(--cyan, #0992C2);
+    border-radius: 50%;
+  }
+
+  /* ── Empty state ────────────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 3.5rem 1rem;
+    color: #9ca3af;
+  }
+  .empty-state svg { margin: 0 auto .75rem; display: block; }
+
+  /* ── Toast ──────────────────────────────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: #111827;
+    color: #fff;
+    padding: .65rem 1.2rem;
+    border-radius: 8px;
+    font-size: .85rem;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inbox-wrap">
+
+  <div class="inbox-header">
+    <h1 class="inbox-title">
+      Inbox
+      {% if unread %}
+      <span style="font-size:.75rem;background:var(--cyan,#0992C2);color:#fff;
+                   border-radius:999px;padding:.15rem .6rem;vertical-align:middle;margin-left:.5rem">
+        {{ unread|length }} new
+      </span>
+      {% endif %}
+    </h1>
+    {% if unread %}
+    <button class="btn-mark-all" id="mark-all-btn">Mark all as read</button>
+    {% endif %}
+  </div>
+
+  {% if not unread and not read %}
+  <div class="empty-state">
+    <svg width="48" height="48" fill="none" stroke="#e5e7eb" stroke-width="1.5" viewBox="0 0 24 24">
+      <path d="M4 4h16v12H4zM4 4l8 8 8-8"/>
+    </svg>
+    <p style="margin:0;font-size:1rem;font-weight:600">Your inbox is empty</p>
+    <p style="margin:.4rem 0 0;font-size:.875rem">Platform announcements from admin will appear here.</p>
+  </div>
+
+  {% else %}
+
+  {% if unread %}
+  <p class="inbox-section-label">Unread &middot; {{ unread|length }}</p>
+  {% for receipt in unread %}
+  <article class="msg-card unread"
+           data-receipt-id="{{ receipt.id }}"
+           data-read="0"
+           role="button"
+           tabindex="0"
+           aria-label="Unread: {{ receipt.message.title }}">
+    <span class="unread-dot" aria-hidden="true"></span>
+    <h2 class="msg-title">{{ receipt.message.title }}</h2>
+    <p class="msg-meta">
+      {{ receipt.message.sent_at|date:"d M Y, H:i" }}
+      {% if receipt.message.sender %}&middot; {{ receipt.message.sender.get_full_name|default:"Admin" }}{% endif %}
+    </p>
+    <div class="msg-body">{{ receipt.message.body }}</div>
+  </article>
+  {% endfor %}
+  {% endif %}
+
+  {% if read %}
+  <p class="inbox-section-label" style="margin-top:{% if unread %}1.5rem{% else %}0{% endif %}">
+    Read &middot; {{ read|length }}
+  </p>
+  {% for receipt in read %}
+  <article class="msg-card read"
+           data-receipt-id="{{ receipt.id }}"
+           data-read="1"
+           role="button"
+           tabindex="0"
+           aria-label="{{ receipt.message.title }}">
+    <h2 class="msg-title">{{ receipt.message.title }}</h2>
+    <p class="msg-meta">
+      {{ receipt.message.sent_at|date:"d M Y, H:i" }}
+      {% if receipt.message.sender %}&middot; {{ receipt.message.sender.get_full_name|default:"Admin" }}{% endif %}
+      &middot; read {{ receipt.read_at|date:"d M Y" }}
+    </p>
+    <div class="msg-body">{{ receipt.message.body }}</div>
+  </article>
+  {% endfor %}
+  {% endif %}
+
+  {% endif %}
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+
+  const MARK_URL = '{% url "messaging:mark_read" %}';
+  const CSRF     = '{{ csrf_token }}';
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  async function markRead(receiptId) {
+    try {
+      await fetch(MARK_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body:    JSON.stringify({ receipt_id: receiptId }),
+      });
+    } catch (_) { /* silent — UI already updated optimistically */ }
+  }
+
+  function decrementBell() {
+    const bell = document.getElementById('bell-count');
+    if (!bell) return;
+    const n = Math.max(0, parseInt(bell.textContent || '0') - 1);
+    bell.textContent  = n;
+    bell.style.display = n > 0 ? 'inline-block' : 'none';
+  }
+
+  // ── Card click: expand body + mark read ──────────────────────────────────
+  document.querySelectorAll('.msg-card').forEach(card => {
+    function activate() {
+      card.classList.toggle('expanded');
+      if (card.dataset.read === '0') {
+        card.dataset.read = '1';
+        card.classList.remove('unread');
+        card.classList.add('read');
+        card.querySelector('.unread-dot')?.remove();
+        decrementBell();
+        markRead(parseInt(card.dataset.receiptId));
+      }
+    }
+    card.addEventListener('click', activate);
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+    });
+  });
+
+  // ── Mark all ─────────────────────────────────────────────────────────────
+  const markAllBtn = document.getElementById('mark-all-btn');
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', async () => {
+      markAllBtn.disabled    = true;
+      markAllBtn.textContent = 'Marking…';
+      try {
+        const res  = await fetch(MARK_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+          body:    JSON.stringify({ mark_all: true }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.querySelectorAll('.msg-card.unread').forEach(c => {
+            c.classList.remove('unread');
+            c.classList.add('read');
+            c.dataset.read = '1';
+            c.querySelector('.unread-dot')?.remove();
+          });
+          const bell = document.getElementById('bell-count');
+          if (bell) { bell.textContent = '0'; bell.style.display = 'none'; }
+          markAllBtn.style.display = 'none';
+          showToast(`${data.marked} message${data.marked !== 1 ? 's' : ''} marked as read`);
+        }
+      } catch (_) {
+        markAllBtn.disabled    = false;
+        markAllBtn.textContent = 'Mark all as read';
+        showToast('Something went wrong. Please try again.');
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

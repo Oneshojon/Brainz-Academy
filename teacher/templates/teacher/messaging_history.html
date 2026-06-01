@@ -1,0 +1,312 @@
+{% extends 'Users/layout.html' %}
+{% load static %}
+{% block title %}Message History — BrainzAcademy{% endblock %}
+{% block meta_description %}Past broadcast messages and test builder activity on BrainzAcademy.{% endblock %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'practice/css/practice_shared.css' %}">
+<style>
+  .history-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+
+  /* Stats strip */
+  .stats-strip {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .stat-pill {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: .9rem 1.25rem;
+    min-width: 140px;
+  }
+  .stat-pill .val {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--navy, #0B2D72);
+    line-height: 1;
+  }
+  .stat-pill .lbl {
+    font-size: .73rem;
+    color: #6b7280;
+    margin-top: .25rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  /* Two column */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Card */
+  .hist-card {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .hist-card-title {
+    font-size: .875rem;
+    font-weight: 700;
+    color: var(--navy, #0B2D72);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 0 0 1rem;
+    padding-bottom: .65rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+
+  /* Table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
+  }
+  .data-table th {
+    text-align: left;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #9ca3af;
+    font-weight: 600;
+    padding: .45rem .65rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+  .data-table td {
+    padding: .75rem .65rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+    vertical-align: top;
+    color: #111827;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(9,146,194,.03); }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 600;
+  }
+  .badge-ok  { background: #d1fae5; color: #065f46; }
+  .badge-err { background: #fee2e2; color: #991b1b; }
+
+  /* Bar chart */
+  .bar-row { display: flex; align-items: center; gap: .65rem; margin-bottom: .55rem; }
+  .bar-label {
+    width: 110px;
+    font-size: .78rem;
+    color: #374151;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-track { flex: 1; background: #e5e7eb; border-radius: 4px; height: 7px; }
+  .bar-fill  { height: 7px; border-radius: 4px; background: var(--blue, #0992C2); }
+  .bar-count { font-size: .78rem; color: #6b7280; flex-shrink: 0; }
+
+  /* Empty */
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #9ca3af;
+    font-size: .9rem;
+  }
+
+  /* Compose button */
+  .btn-compose {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .5rem 1.1rem;
+    background: var(--blue, #0992C2);
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: .875rem;
+    text-decoration: none;
+    transition: background .15s;
+    margin-bottom: 1.25rem;
+  }
+  .btn-compose:hover { background: #077ab3; }
+</style>
+
+<div class="page-body">
+
+  <!-- Header + Nav -->
+  <div class="dash-container">
+    <div class="dash-container-inner">
+      <div class="page-eyebrow">Teacher Portal</div>
+      <h1 class="page-title">Message History</h1>
+    </div>
+    <nav class="teacher-nav">
+      <a href="{% url 'Users:dashboard' %}">Dashboard</a>
+      <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
+      <a href="{% url 'past_papers:past_papers' %}">Past Papers</a>
+      {% if user.is_admin %}
+        <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
+        <a href="{% url 'teacher:students' %}">Students</a>
+        <a href="{% url 'teacher:session_history' %}">Session History</a>
+        <a href="{% url 'teacher:upload' %}">Upload CSV</a>
+        <a href="{% url 'teacher:upload_docx' %}">Upload DOCX</a>
+        <a href="{% url 'teacher:upload_notes' %}">Upload Notes</a>
+        <a href="{% url 'teacher:upload_past_paper' %}">Upload Past Paper</a>
+        <a href="{% url 'teacher:feature_flags' %}">⚙️ Feature Flags</a>
+        <a href="{% url 'health:dashboard' %}">⚡ System Health</a>
+        <a href="{% url 'teacher:referral_analytics' %}">📊 Referral Analytics</a>
+        <a href="{% url 'teacher:messaging' %}">✉️ Send Message</a>
+        <a href="{% url 'teacher:messaging_history' %}" class="active">📨 Message History</a>
+      {% endif %}
+      <a href="{% url 'lessonnotes:lesson_notes' %}">Revision Notes</a>
+    </nav>
+  </div>
+
+  <div class="history-wrap">
+
+    <a href="{% url 'teacher:messaging' %}" class="btn-compose">
+      + New Message
+    </a>
+
+    <!-- Stats strip -->
+    <div class="stats-strip">
+      <div class="stat-pill">
+        <div class="val">{{ messages|length }}</div>
+        <div class="lbl">Broadcasts sent</div>
+      </div>
+      <div class="stat-pill">
+        <div class="val">{{ tb_recent_count|default:"0" }}</div>
+        <div class="lbl">Tests built (30 days)</div>
+      </div>
+      {% if tb_top_teachers %}
+      <div class="stat-pill">
+        <div class="val">{{ tb_top_teachers.0.test_count|default:"—" }}</div>
+        <div class="lbl">Top teacher tests</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="two-col">
+
+      <!-- Left: broadcast history -->
+      <div>
+        <div class="hist-card">
+          <p class="hist-card-title">Broadcast History</p>
+
+          {% if messages %}
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Audience</th>
+                  <th>Recipients</th>
+                  <th>Email delivery</th>
+                  <th>Sent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for msg in messages %}
+                <tr>
+                  <td>
+                    <strong>{{ msg.title }}</strong>
+                    {% if msg.sender %}
+                    <div style="font-size:.72rem;color:#9ca3af;margin-top:.1rem">
+                      by {{ msg.sender.get_full_name|default:msg.sender.email }}
+                    </div>
+                    {% endif %}
+                  </td>
+                  <td style="font-size:.78rem;color:#374151">{{ msg.filter_label }}</td>
+                  <td style="font-weight:600">{{ msg.recipient_count }}</td>
+                  <td>
+                    <span class="badge badge-ok">{{ msg.emails_ok }} ok</span>
+                    {% if msg.emails_err > 0 %}
+                    <span class="badge badge-err">{{ msg.emails_err }} failed</span>
+                    {% endif %}
+                  </td>
+                  <td style="font-size:.78rem;white-space:nowrap;color:#6b7280">
+                    {{ msg.sent_at|date:"d M Y, H:i" }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            No messages sent yet.<br>
+            <a href="{% url 'teacher:messaging' %}" style="color:var(--blue,#0992C2)">
+              Send your first broadcast →
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Right: test builder stats -->
+      <div>
+
+        {% if tb_top_teachers %}
+        <div class="hist-card">
+          <p class="hist-card-title">Top Teachers</p>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Teacher</th>
+                <th style="text-align:right">Tests</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tb_top_teachers %}
+              <tr>
+                <td>
+                  {{ t.teacher__first_name }} {{ t.teacher__last_name }}
+                  <div style="font-size:.7rem;color:#9ca3af">{{ t.teacher__email }}</div>
+                </td>
+                <td style="text-align:right;font-weight:700">{{ t.test_count }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        {% if tb_by_subject %}
+        <div class="hist-card">
+          <p class="hist-card-title">Tests by Subject</p>
+          {% with max_count=tb_by_subject.0.test_count %}
+          {% for row in tb_by_subject %}
+          {% with subj=row.test_questions__question__subject__name count=row.test_count %}
+          <div class="bar-row">
+            <span class="bar-label" title="{{ subj }}">{{ subj|default:"Unknown" }}</span>
+            <div class="bar-track">
+              <div class="bar-fill"
+                   style="width:{% if max_count %}{% widthratio count max_count 100 %}{% else %}0{% endif %}%">
+              </div>
+            </div>
+            <span class="bar-count">{{ count }}</span>
+          </div>
+          {% endwith %}
+          {% endfor %}
+          {% endwith %}
+        </div>
+        {% endif %}
+
+      </div>
+
+    </div><!-- /two-col -->
+  </div><!-- /history-wrap -->
+</div><!-- /page-body -->
+{% endblock %}
