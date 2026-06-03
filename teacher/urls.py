@@ -22,4 +22,5 @@ urlpatterns = [
     path('messaging/',          views.messaging,          name='messaging'),
     path('messaging/preview/',  views.messaging_preview,  name='messaging_preview'),
     path('messaging/history/',  views.messaging_history,  name='messaging_history'),
+    path('messaging/users/',    views.messaging_users,    name='messaging_users'),
 ]

@@ -352,3 +352,178 @@ def test_context_processor_zero_for_anonymous():
     req = MagicMock()
     req.user.is_authenticated = False
     assert unread_message_count(req) == {'unread_message_count': 0}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# messaging_users endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+def test_messaging_users_returns_audience_scoped_list(client, admin, student, teacher):
+    """Users endpoint returns only the requested audience, excluding admins."""
+    client.force_login(admin)
+
+    # ALL
+    res = client.get(reverse('teacher:messaging_users') + '?audience=ALL')
+    assert res.status_code == 200
+    data = res.json()
+    ids = {u['id'] for u in data}
+    assert student.id in ids
+    assert teacher.id in ids
+    assert admin.id not in ids   # admin always excluded
+
+    # STUDENTS only
+    res = client.get(reverse('teacher:messaging_users') + '?audience=STUDENTS')
+    data = res.json()
+    ids = {u['id'] for u in data}
+    assert student.id in ids
+    assert teacher.id not in ids
+
+    # TEACHERS only
+    res = client.get(reverse('teacher:messaging_users') + '?audience=TEACHERS')
+    data = res.json()
+    ids = {u['id'] for u in data}
+    assert teacher.id in ids
+    assert student.id not in ids
+
+
+@pytest.mark.django_db
+def test_messaging_users_response_shape(client, admin, student):
+    """Each user in the response has id, email, and name fields."""
+    client.force_login(admin)
+    res = client.get(reverse('teacher:messaging_users') + '?audience=STUDENTS')
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) >= 1
+    user = next(u for u in data if u['id'] == student.id)
+    assert 'id'    in user
+    assert 'email' in user
+    assert 'name'  in user
+
+
+@pytest.mark.django_db
+def test_messaging_users_invalid_audience(client, admin):
+    """Invalid audience returns 400."""
+    client.force_login(admin)
+    res = client.get(reverse('teacher:messaging_users') + '?audience=INVALID')
+    assert res.status_code == 400
+
+
+@pytest.mark.django_db
+def test_messaging_users_blocked_for_non_admin(client, teacher):
+    """Non-admin teachers cannot access the users endpoint."""
+    client.force_login(teacher)
+    res = client.get(reverse('teacher:messaging_users') + '?audience=ALL')
+    assert res.status_code == 302
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Individual mode — selected_user_ids
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+def test_messaging_post_with_selected_ids_sends_only_to_those(client, admin, student, student2):
+    """When selected_user_ids is provided, only those users get a receipt."""
+    client.force_login(admin)
+    res = client.post(reverse('teacher:messaging'), {
+        'title':             'Individual test',
+        'body':              'Hello you specifically.',
+        'audience':          'ALL',
+        'selected_user_ids': [student.id],   # only student, not student2
+    })
+    assert res.status_code == 302
+
+    msg = Message.objects.get(title='Individual test')
+    assert msg.recipient_count == 1
+    assert MessageReceipt.objects.filter(message=msg, recipient=student).exists()
+    assert not MessageReceipt.objects.filter(message=msg, recipient=student2).exists()
+
+
+@pytest.mark.django_db
+def test_messaging_post_selected_ids_multi(client, admin, student, student2):
+    """Multiple selected_user_ids creates receipts for all of them."""
+    client.force_login(admin)
+    res = client.post(reverse('teacher:messaging'), {
+        'title':             'Multi select',
+        'body':              'Both of you.',
+        'audience':          'ALL',
+        'selected_user_ids': [student.id, student2.id],
+    })
+    assert res.status_code == 302
+
+    msg = Message.objects.get(title='Multi select')
+    assert msg.recipient_count == 2
+    assert MessageReceipt.objects.filter(message=msg).count() == 2
+
+
+@pytest.mark.django_db
+def test_messaging_post_no_selection_falls_back_to_audience(client, admin, student, student2):
+    """No selected_user_ids → falls back to full audience (existing behaviour)."""
+    client.force_login(admin)
+    res = client.post(reverse('teacher:messaging'), {
+        'title':    'Audience fallback',
+        'body':     'Everyone.',
+        'audience': 'STUDENTS',
+    })
+    assert res.status_code == 302
+
+    msg = Message.objects.get(title='Audience fallback')
+    assert msg.recipient_count == 2
+    assert MessageReceipt.objects.filter(message=msg).count() == 2
+
+
+@pytest.mark.django_db
+def test_messaging_post_selected_ids_excludes_admins(client, admin, student):
+    """Admin IDs in selected_user_ids are silently dropped."""
+    client.force_login(admin)
+    res = client.post(reverse('teacher:messaging'), {
+        'title':             'Admin guard',
+        'body':              'body',
+        'audience':          'ALL',
+        'selected_user_ids': [admin.id, student.id],  # admin.id should be dropped
+    })
+    assert res.status_code == 302
+
+    msg = Message.objects.get(title='Admin guard')
+    assert msg.recipient_count == 1
+    assert not MessageReceipt.objects.filter(message=msg, recipient=admin).exists()
+    assert MessageReceipt.objects.filter(message=msg, recipient=student).exists()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Preview with selected_user_ids
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+def test_preview_with_selected_ids_returns_correct_count(client, admin, student, student2):
+    """Preview with selected_user_ids returns len(selected_user_ids), not audience count."""
+    client.force_login(admin)
+    res = client.post(
+        reverse('teacher:messaging_preview'),
+        data=json.dumps({
+            'audience':          'ALL',
+            'selected_user_ids': [student.id, student2.id],
+        }),
+        content_type='application/json',
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data['count'] == 2
+    assert 'selected' in data['label']
+
+
+@pytest.mark.django_db
+def test_preview_no_selection_uses_audience_count(client, admin, student, student2):
+    """Preview with empty selected_user_ids falls back to audience count."""
+    client.force_login(admin)
+    res = client.post(
+        reverse('teacher:messaging_preview'),
+        data=json.dumps({
+            'audience':          'STUDENTS',
+            'selected_user_ids': [],
+        }),
+        content_type='application/json',
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data['count'] == 2   # both students
