@@ -76,7 +76,7 @@ body {
 
 /* ══ SIDEBAR ══ */
 .exam-sidebar {
-  width: 228px; flex-shrink: 0;
+  width: 260px; flex-shrink: 0; margin-left: 2.5%;
   background: var(--sidebar-bg); border-right: 2px solid var(--border);
   display: flex; flex-direction: column; overflow: hidden;
 }
@@ -158,11 +158,61 @@ body {
   padding: 0.2rem 0.6rem; border-radius: 6px;
 }
 
-.q-content { font-size: 1rem; line-height: 1.75; margin-bottom: 1.5rem; color: var(--text); }
+.q-content table,
+.review-q-full table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.q-content table th,
+.q-content table td,
+.review-q-full table th,
+.review-q-full table td {
+  border: 1.5px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.q-content table th {
+  background: var(--offwhite);
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.q-content table tr:nth-child(even) {
+  background: var(--offwhite);
+}
+
+/* Pandoc-generated table classes */
+.q-content table tr.odd,
+.review-q-full table tr.odd  { background: #ffffff; }
+.q-content table tr.even,
+.review-q-full table tr.even { background: var(--offwhite); }
+
+/* Pandoc outputs <table> with no class — ensure borders always show */
+.q-content table { border: 1.5px solid var(--border); }
+.review-q-full table { border: 1.5px solid var(--border); }
+
 .q-image {
-  max-width: min(100%, 480px); height: auto; display: block;
-  border-radius: 8px; margin-bottom: 1.25rem; border: 1px solid var(--border);
+  display: block;
+  max-width: 95%;
+  max-height: 380px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto 1.25rem; 
+  border-radius: 8px;
+  border: 1px solid var(--border);
   box-shadow: 0 2px 8px rgba(11,45,114,0.08);
+}
+
+@media (max-width: 650px) {
+  .q-image {
+    max-height: 280px;
+  }
 }
 
 /* ── Choices ── */

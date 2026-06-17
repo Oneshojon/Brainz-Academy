@@ -30,32 +30,126 @@
   </head>
   <body>
 
-    <nav class="dash-nav {% if user.is_authenticated %}nav-auth{% endif %}">
+    <nav class="dash-nav {% if user.is_authenticated %}nav-auth{% endif %}" aria-label="Main navigation">
       <div class="nav-inner">
 
-        <a href="/" class="dash-logo">
+        {# ── Logo ── #}
+        <a href="/" class="dash-logo" aria-label="BrainzAcademy home">
           <img src="{% static 'Users/images/brainz_logo.png' %}" alt="Brainz Academy" style="height:40px; width:auto;">
         </a>
 
-        <button class="nav-hamburger" id="navToggle" aria-label="Toggle menu">
+        {# ── Mobile hamburger ── #}
+        <button class="nav-hamburger" id="navToggle"
+                aria-label="Toggle menu" aria-expanded="false" aria-controls="navMenu">
           <span></span><span></span><span></span>
         </button>
 
-        <div class="nav-menu" id="navMenu">
-          {% if user.is_authenticated %}
-            <a href="{% url 'Users:dashboard' %}" class="nav-link">Dashboard</a>
-            <a href="{% url 'practice:practice_home' %}" class="nav-link">Practice</a>
-            <a href="{% url 'past_papers:past_papers_boards' %}" class="nav-link">Past Papers</a>
-            <a href="{% url 'lessonnotes:lesson_notes' %}" class="nav-link">Revision Notes</a>
-            {% if user.role == 'TEACHER' %}
-              <a href="{% url 'teacher:dashboard' %}" class="nav-link">Teacher Portal</a>
-            {% endif %}
-          {% else %}
-            <a href="/" class="nav-link">Home</a>
-            <a href="{% url 'Users:pricing' %}" class="nav-link">Pricing</a>
-          {% endif %}
-        </div>
+        {# ── Primary nav links ── #}
+        <div class="nav-menu" id="navMenu" role="menubar">
 
+          {% if user.is_authenticated %}
+
+            {# Dashboard — always shown to authenticated users #}
+            <a href="{% url 'Users:dashboard' %}"
+               class="nav-link{% if request.resolver_match.namespace == 'Users' and request.resolver_match.url_name == 'dashboard' %} nav-link-active{% endif %}"
+               role="menuitem">
+              Dashboard
+            </a>
+
+            {# Resources dropdown — student and teacher #}
+            <div class="nav-dropdown" id="resourcesDropdown">
+              <button class="nav-link nav-dropdown-trigger"
+                      id="resourcesToggle"
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                      aria-controls="resourcesMenu">
+                Resources
+                <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 12 12"
+                     fill="none" aria-hidden="true">
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+
+              <ul class="nav-dropdown-menu" id="resourcesMenu" role="menu" aria-label="Resources">
+
+                <li role="none">
+                  <a href="{% url 'practice:practice_home' %}"
+                     class="nav-dropdown-item{% if request.resolver_match.namespace == 'practice' %} nav-dropdown-item-active{% endif %}"
+                     role="menuitem">
+                    <span class="nav-dropdown-icon" aria-hidden="true">✏️</span>
+                    <span>
+                      <strong>Practice</strong>
+                      <small>CBT timed sessions</small>
+                    </span>
+                  </a>
+                </li>
+
+                <li role="none">
+                  <a href="{% url 'past_papers:past_papers_boards' %}"
+                     class="nav-dropdown-item{% if request.resolver_match.namespace == 'past_papers' %} nav-dropdown-item-active{% endif %}"
+                     role="menuitem">
+                    <span class="nav-dropdown-icon" aria-hidden="true">📄</span>
+                    <span>
+                      <strong>Past Papers</strong>
+                      <small>WAEC, NECO & JAMB</small>
+                    </span>
+                  </a>
+                </li>
+
+                <li role="none">
+                  <a href="{% url 'lessonnotes:lesson_notes' %}"
+                     class="nav-dropdown-item{% if request.resolver_match.namespace == 'lessonnotes' %} nav-dropdown-item-active{% endif %}"
+                     role="menuitem">
+                    <span class="nav-dropdown-icon" aria-hidden="true">📚</span>
+                    <span>
+                      <strong>Revision Notes</strong>
+                      <small>AI-powered study notes</small>
+                    </span>
+                  </a>
+                </li>
+
+                {% if user.role == 'TEACHER' %}
+                  <li class="nav-dropdown-divider" role="separator"></li>
+                  <li role="none">
+                    <a href="{% url 'frontend:frontend-index' %}"
+                       class="nav-dropdown-item{% if request.resolver_match.namespace == 'frontend' %} nav-dropdown-item-active{% endif %}"
+                       role="menuitem">
+                      <span class="nav-dropdown-icon" aria-hidden="true">🛠️</span>
+                      <span>
+                        <strong>Test Builder</strong>
+                        <small>Create & manage tests</small>
+                      </span>
+                    </a>
+                  </li>
+                {% endif %}
+
+              </ul>
+            </div>{# /.nav-dropdown #}
+
+            {# Teacher Portal — top-level link for teachers only #}
+            {% if user.role == 'TEACHER' %}
+              <a href="{% url 'teacher:dashboard' %}"
+                 class="nav-link{% if request.resolver_match.namespace == 'teacher' and request.resolver_match.url_name == 'dashboard' %} nav-link-active{% endif %}"
+                 role="menuitem">
+                Teacher Portal
+              </a>
+            {% endif %}
+
+          {% else %}
+
+            {# Unauthenticated links #}
+            <a href="/" class="nav-link{% if request.path == '/' %} nav-link-active{% endif %}"
+               role="menuitem">Home</a>
+            <a href="{% url 'Users:pricing' %}"
+               class="nav-link{% if request.resolver_match.url_name == 'pricing' %} nav-link-active{% endif %}"
+               role="menuitem">Pricing</a>
+
+          {% endif %}
+
+        </div>{# /.nav-menu #}
+
+        {# ── Right-side actions (profile dropdown / login button) ── #}
         <div class="nav-actions">
           {% if user.is_authenticated %}
             {% with sub=user.active_subscription %}
@@ -65,28 +159,35 @@
                 <a href="{% url 'Users:pricing' %}" class="btn-upgrade-nav">Upgrade</a>
               {% endif %}
 
-              <div class="nav-profile" id="profileToggle">
-                <span class="profile-icon">👤</span>
+              <div class="nav-profile" id="profileToggle" role="button"
+                   aria-haspopup="true" aria-expanded="false" tabindex="0">
+                <span class="profile-icon" aria-hidden="true">👤</span>
                 <span class="profile-name">{{ user.first_name|default:user.email }}</span>
-                <span class="profile-chevron">▾</span>
-                <div class="profile-dropdown" id="profileDropdown">
+                <span class="profile-chevron" aria-hidden="true">▾</span>
+
+                <div class="profile-dropdown" id="profileDropdown" role="menu">
+
                   <div class="dropdown-plan">
                     <div class="dropdown-plan-label">CURRENT PLAN</div>
                     <div class="dropdown-plan-val">
                       {% if not sub_required %}Premium{% elif sub %}{{ sub.plan.name }}{% else %}Free{% endif %}
                     </div>
                   </div>
+
                   <div class="dropdown-divider"></div>
+
                   {% if sub_required and not sub and not user.is_admin %}
-                    <a href="{% url 'Users:pricing' %}" class="dropdown-item upgrade">Get Premium</a>
-                  {% endif %}
-                  <a href="{% url 'Users:dashboard' %}" class="dropdown-item">Dashboard</a>
-                  {% if user.role == 'TEACHER' %}
-                    <a href="{% url 'teacher:dashboard' %}" class="dropdown-item">Teacher Portal</a>
+                    <a href="{% url 'Users:pricing' %}" class="dropdown-item upgrade" role="menuitem">Get Premium</a>
                   {% endif %}
 
-                  {# Inbox / bell icon — inlined (no {% include %}) to prevent template recursion #}
-                  <a href="/messaging/inbox/" class="dropdown-item"
+                  <a href="{% url 'Users:dashboard' %}" class="dropdown-item" role="menuitem">Dashboard</a>
+
+                  {% if user.role == 'TEACHER' %}
+                    <a href="{% url 'teacher:dashboard' %}" class="dropdown-item" role="menuitem">Teacher Portal</a>
+                  {% endif %}
+
+                  {# Inbox / bell — inlined to avoid template recursion #}
+                  <a href="/messaging/inbox/" class="dropdown-item" role="menuitem"
                      style="display:flex;align-items:center;gap:.5rem">
                     <svg width="15" height="15" fill="none" stroke="currentColor"
                          stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
@@ -106,27 +207,31 @@
                     {% endif %}
                   </a>
 
-                  <a href="{% url 'Users:referrals' %}" class="dropdown-item">Referrals</a>
-                  <a href="{% url 'Users:logout' %}" class="dropdown-item">Logout</a>
-                </div>
-              </div>
+                  <a href="{% url 'Users:referrals' %}" class="dropdown-item" role="menuitem">Referrals</a>
+                  <a href="{% url 'Users:logout' %}" class="dropdown-item" role="menuitem">Logout</a>
+
+                </div>{# /.profile-dropdown #}
+              </div>{# /.nav-profile #}
+
             {% endwith %}
 
           {% else %}
             <a href="{% url 'Users:request_otp' %}" class="btn-login-nav">Login / Sign up</a>
           {% endif %}
-        </div>
+        </div>{# /.nav-actions #}
 
-      </div>
+      </div>{# /.nav-inner #}
     </nav>
 
     {% block body %}{% endblock %}
 
+    {# ── KaTeX (math rendering) ── #}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 
     <script>
+      /* ── Math rendering ── */
       function renderMath(el) {
         renderMathInElement(el || document.body, {
           delimiters: [
@@ -139,39 +244,113 @@
       }
       document.addEventListener('DOMContentLoaded', () => renderMath());
 
-      const toggle = document.getElementById('navToggle');
-      const menu   = document.getElementById('navMenu');
-      if (toggle) {
-        toggle.addEventListener('click', e => {
+      /* ─────────────────────────────────────────
+         Hamburger toggle (mobile)
+      ───────────────────────────────────────── */
+      const hamburger = document.getElementById('navToggle');
+      const navMenu   = document.getElementById('navMenu');
+
+      if (hamburger) {
+        hamburger.addEventListener('click', e => {
           e.stopPropagation();
-          const open = menu.classList.toggle('open');
-          toggle.classList.toggle('open', open);
+          const open = navMenu.classList.toggle('open');
+          hamburger.classList.toggle('open', open);
+          hamburger.setAttribute('aria-expanded', open);
+
+          // Close resources dropdown when hamburger closes
+          if (!open) closeResourcesDropdown();
         });
-        menu.querySelectorAll('a').forEach(l => l.addEventListener('click', () => {
-          menu.classList.remove('open');
-          toggle.classList.remove('open');
+
+        // Close hamburger menu when any top-level nav-link (non-dropdown) is clicked
+        navMenu.querySelectorAll('a.nav-link').forEach(l => l.addEventListener('click', () => {
+          navMenu.classList.remove('open');
+          hamburger.classList.remove('open');
+          hamburger.setAttribute('aria-expanded', 'false');
         }));
+
         document.addEventListener('click', e => {
-          if (!toggle.contains(e.target) && !menu.contains(e.target)) {
-            menu.classList.remove('open');
-            toggle.classList.remove('open');
+          if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+            navMenu.classList.remove('open');
+            hamburger.classList.remove('open');
+            hamburger.setAttribute('aria-expanded', 'false');
+            closeResourcesDropdown();
           }
         });
       }
 
+      /* ─────────────────────────────────────────
+         Resources dropdown
+      ───────────────────────────────────────── */
+      const resourcesToggle  = document.getElementById('resourcesToggle');
+      const resourcesDropdown = document.getElementById('resourcesDropdown');
+      const resourcesMenu    = document.getElementById('resourcesMenu');
+
+      function closeResourcesDropdown() {
+        if (!resourcesDropdown) return;
+        resourcesDropdown.classList.remove('open');
+        if (resourcesToggle) resourcesToggle.setAttribute('aria-expanded', 'false');
+      }
+
+      if (resourcesToggle) {
+        resourcesToggle.addEventListener('click', e => {
+          e.stopPropagation();
+          const open = resourcesDropdown.classList.toggle('open');
+          resourcesToggle.setAttribute('aria-expanded', open);
+        });
+
+        // Close when a resources item is clicked (also closes hamburger on mobile)
+        resourcesMenu.querySelectorAll('a').forEach(l => l.addEventListener('click', () => {
+          closeResourcesDropdown();
+          navMenu.classList.remove('open');
+          hamburger && hamburger.classList.remove('open');
+          hamburger && hamburger.setAttribute('aria-expanded', 'false');
+        }));
+
+        // Close on outside click
+        document.addEventListener('click', e => {
+          if (!resourcesDropdown.contains(e.target)) {
+            closeResourcesDropdown();
+          }
+        });
+
+        // Keyboard: Escape closes the dropdown
+        resourcesToggle.addEventListener('keydown', e => {
+          if (e.key === 'Escape') closeResourcesDropdown();
+        });
+      }
+
+      /* ─────────────────────────────────────────
+         Profile dropdown
+      ───────────────────────────────────────── */
       const profileToggle   = document.getElementById('profileToggle');
       const profileDropdown = document.getElementById('profileDropdown');
+
       if (profileToggle) {
         profileToggle.addEventListener('click', e => {
           e.stopPropagation();
-          profileDropdown.classList.toggle('open');
+          const open = profileDropdown.classList.toggle('open');
+          profileToggle.setAttribute('aria-expanded', open);
         });
+
+        // Keyboard support
+        profileToggle.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            profileToggle.click();
+          }
+          if (e.key === 'Escape') {
+            profileDropdown.classList.remove('open');
+            profileToggle.setAttribute('aria-expanded', 'false');
+          }
+        });
+
         document.addEventListener('click', e => {
           if (!profileToggle.contains(e.target)) {
             profileDropdown.classList.remove('open');
+            profileToggle.setAttribute('aria-expanded', 'false');
           }
         });
       }
-   </script>
+    </script>
   </body>
 </html>
