@@ -2,6 +2,8 @@
 {% load static %}
 {% load question_filters %}
 
+{% block nav %}{% endblock %}
+
 {% block body %}
 <link rel="stylesheet" href="{% static 'practice/css/exam_page.css' %}">
 
@@ -10,6 +12,7 @@
   data-session-id="{{ session.id }}"
   data-total="{{ total_count }}"
   data-answered-count="{{ answered_count }}"
+  data-seconds-per-question="{{ seconds_per_question }}"
   data-csrf="{{ csrf_token }}"
   data-submit-url="{% url 'practice:submit_answer' %}"
   data-finish-url="{% url 'practice:finish_session' session.id %}"

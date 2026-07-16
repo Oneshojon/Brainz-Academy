@@ -2,6 +2,7 @@
 const examData    = document.getElementById('exam-data');
 const SESSION_ID  = parseInt(examData.dataset.sessionId);
 const TOTAL       = parseInt(examData.dataset.total);
+const SECONDS_PER_QUESTION = parseInt(examData.dataset.secondsPerQuestion) || 60; // fallback: 1 min/question
 const CSRF        = examData.dataset.csrf;
 const SUBMIT_URL  = examData.dataset.submitUrl;
 const FINISH_URL  = examData.dataset.finishUrl;
@@ -15,7 +16,7 @@ const qCards = Array.from(document.querySelectorAll('.question-card'));
 const qIds   = qCards.map(c => parseInt(c.dataset.qid));
 
 // ── TIMER ────────────────────────────────────────────────────────────────────
-let timeLeft = TOTAL * 90;
+let timeLeft = TOTAL * SECONDS_PER_QUESTION;
 const timerEl = document.getElementById('timer');
 
 function formatTime(s) {
@@ -31,7 +32,9 @@ const timerInterval = setInterval(() => {
   if (timeLeft <= 60)  timerEl.className = 'timer danger';
   if (timeLeft <= 0) {
     clearInterval(timerInterval);
-    document.getElementById('confirmModal').classList.add('open');
+    timerEl.textContent = "⏱ 00:00";
+    // Auto-submit: time's up, no way to dismiss and keep answering
+    document.querySelector('#confirmModal form').submit();
   }
 }, 1000);
 

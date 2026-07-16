@@ -1,3 +1,5 @@
+SECONDS_PER_QUESTION = 60
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -210,6 +212,7 @@ def exam_page(request, session_id):
         'question_status': question_status,
         'answered_count': len(answered_ids),
         'total_count': len(questions),
+        'seconds_per_question': SECONDS_PER_QUESTION,
     }
     return render(request, 'practice/exam_page.html', context)
 
