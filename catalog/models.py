@@ -176,6 +176,8 @@ class ExamSeries(models.Model):
 
     SITTING_CHOICES = [
         ('MAY_JUNE', 'May/June'),
+        ('JUNE_JULY', 'June/July'),
+        ('JAN_FEB',  'Jan/Feb'),
         ('NOV_DEC',  'Nov/Dec'),
         ('MOCK',     'Mock'),
         ('MOCK-SERIES',    'Mock Series'),

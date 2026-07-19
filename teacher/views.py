@@ -911,8 +911,9 @@ from bs4 import BeautifulSoup, NavigableString
  
  
 _SITTING_MAP = {
-    'may':  'MAY_JUNE', 'june': 'MAY_JUNE',
+    'may':  'MAY_JUNE', 'june': 'JUNE_JULY',
     'nov':  'NOV_DEC',  'dec':  'NOV_DEC',
+    'jan':  'JAN_FEB',  'feb':  'JAN_FEB',
     'mock': 'MOCK_SERIES', 'mock_series': 'MOCK_SERIES',
 }
  
