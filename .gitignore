@@ -30,6 +30,7 @@ htmlcov/
 *.sql.log
 *.dump
 .pgpass
+db.sqlite3
 
 # OS specific (especially for WSL/Windows users)
 .DS_Store
