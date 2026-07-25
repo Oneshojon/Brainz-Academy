@@ -126,3 +126,86 @@ describe('Step2Subject — board-scoped subjects', () => {
     })
   })
 })
+
+describe('QuestionGeneratorForm — exam board before subject, board-scoped subjects', () => {
+  // Full endpoint mock covering every call QuestionGeneratorForm makes on
+  // mount and on exam_board change, matching each endpoint's real response
+  // shape exactly (years/available-sittings return nested objects, not
+  // bare arrays) — an incomplete mock here previously caused a real crash
+  // (setAvailableYears(undefined) from an unmatched fallback response).
+  function mockGeneratorFormApi({ subjects = [], boardSubjects = {}, boards = [] } = {}) {
+    api.get.mockImplementation((url) => {
+      if (url.startsWith('subjects/?board=')) {
+        const boardId = url.split('board=')[1]
+        return Promise.resolve({ data: boardSubjects[boardId] ?? [] })
+      }
+      if (url === 'subjects/') {
+        return Promise.resolve({ data: subjects })
+      }
+      if (url === 'exam-boards/') {
+        return Promise.resolve({ data: boards })
+      }
+      if (url.startsWith('topics/')) {
+        return Promise.resolve({ data: [] })
+      }
+      if (url.startsWith('years/')) {
+        return Promise.resolve({ data: { years: [] } })
+      }
+      if (url.startsWith('available-sittings/')) {
+        return Promise.resolve({ data: { sittings: [] } })
+      }
+      return Promise.resolve({ data: [] })
+    })
+  }
+
+  it('renders the Exam Board select before the Subject select', async () => {
+    mockGeneratorFormApi({
+      boards: [{ id: 1, name: 'NECO', abbreviation: 'NECO' }],
+    })
+
+    const { default: QuestionGeneratorForm } = await import(
+      '../components/QuestionGeneratorForm'
+    )
+    const { container } = render(
+      <QuestionGeneratorForm onResults={vi.fn()} onClear={vi.fn()} access={null} />
+    )
+
+    // Board option text is "NECO (NECO)" (name + abbreviation) — a single
+    // exact string match against "NECO" alone won't hit it, so use a regex.
+    await waitFor(() => screen.getByText(/NECO/))
+
+    const labels = Array.from(container.querySelectorAll('.form-label'))
+      .map((el) => el.textContent)
+    const boardIdx   = labels.findIndex((t) => t.includes('Exam Board'))
+    const subjectIdx = labels.findIndex((t) => t.includes('Subject'))
+
+    expect(boardIdx).toBeGreaterThanOrEqual(0)
+    expect(subjectIdx).toBeGreaterThanOrEqual(0)
+    expect(boardIdx).toBeLessThan(subjectIdx)
+  })
+
+  it('re-fetches subjects scoped to board when exam board changes', async () => {
+    mockGeneratorFormApi({
+      subjects: [{ id: 1, name: 'Physics', question_count: 5 }],
+      boards: [{ id: 1, name: 'NECO', abbreviation: 'NECO' }],
+      boardSubjects: {
+        '1': [{ id: 2, name: 'English Language', question_count: 3 }],
+      },
+    })
+
+    const { default: QuestionGeneratorForm } = await import(
+      '../components/QuestionGeneratorForm'
+    )
+    render(<QuestionGeneratorForm onResults={vi.fn()} onClear={vi.fn()} access={null} />)
+
+    await waitFor(() => screen.getByText('Physics'))
+
+    const boardSelect = screen.getByDisplayValue('— Any Board —')
+    fireEvent.change(boardSelect, { target: { value: '1' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('English Language')).toBeTruthy()
+      expect(screen.queryByText('Physics')).toBeFalsy()
+    })
+  })
+})

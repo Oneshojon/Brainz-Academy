@@ -7,12 +7,10 @@
 <link rel="stylesheet" href="{% static 'practice/css/practice_home.css' %}">
 
 <div id="practice-data"
+  data-subjects-url="{% url 'catalog:subject-list' %}"
   data-topics-url="{% url 'catalog:topic-list' %}"
   data-years-url="{% url 'catalog:available-years' %}"
   data-sittings-url="{% url 'catalog:available-sittings' %}"
-  data-is-free="{{ access.is_free|yesno:'true,false' }}"
-  data-max-questions="{{ access.max_questions }}"
-  style="display:none"></div>
 
 <div class="practice-body">
   <div class="page-eyebrow">Practice</div>
@@ -89,21 +87,21 @@
 
     <div class="form-grid">
       <div class="form-group">
-        <label class="form-label" for="subject">Subject <span style="color:var(--red)">*</span></label>
-        <select class="form-select" name="subject" id="subject">
-          <option value="">— Select Subject —</option>
-          {% for subject in subjects %}
-          <option value="{{ subject.id }}"{% if subject.id in oral_subject_ids %} data-oral="true"{% endif %}>{{ subject.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="form-group">
         <label class="form-label" for="exam_board">Exam Board <span class="optional">(optional)</span></label>
         <select class="form-select" name="exam_board" id="exam_board">
           <option value="">— Any Board —</option>
           {% for board in exam_boards %}
           <option value="{{ board.id }}">{{ board.name }} ({{ board.abbreviation }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="subject">Subject <span style="color:var(--red)">*</span></label>
+        <select class="form-select" name="subject" id="subject">
+          <option value="">— Select Subject —</option>
+          {% for subject in subjects %}
+          <option value="{{ subject.id }}"{% if subject.id in oral_subject_ids %} data-oral="true"{% endif %}>{{ subject.name }}</option>
           {% endfor %}
         </select>
       </div>

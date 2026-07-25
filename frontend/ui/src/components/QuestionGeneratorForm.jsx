@@ -222,13 +222,31 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
   const questionTypes = buildQuestionTypes(isOralSubject);
 
   useEffect(() => {
-    api.get("subjects/")
-      .then((res) => setSubjects(res.data.filter(s => (s.question_count ?? 0) > 0)))
-      .catch(() => {});
     api.get("exam-boards/")
       .then((res) => setExamBoards(res.data))
       .catch(() => {});
   }, []);
+
+  // Subjects scoped by exam board — board is now the first field (see
+  // JSX reorder below), matching Manual Test Builder's Step 1 → Step 2 flow.
+  // Runs once on mount (board empty → unfiltered list) and again whenever
+  // exam_board changes.
+  useEffect(() => {
+    const params = form.exam_board ? `?board=${form.exam_board}` : '';
+    api.get(`subjects/${params}`)
+      .then((res) => {
+        const filtered = res.data.filter(s => (s.question_count ?? 0) > 0);
+        setSubjects(filtered);
+        // Clear the selected subject if it's no longer valid for this board
+        setForm((f) => {
+          if (f.subject && !filtered.some(s => String(s.id) === String(f.subject))) {
+            return { ...f, subject: "" };
+          }
+          return f;
+        });
+      })
+      .catch(() => {});
+  }, [form.exam_board]);
 
   useEffect(() => {
     if (form.subject) {
@@ -403,6 +421,17 @@ const handleClear = () => {
           <div className="form-section-label">Exam Context</div>
 
           <div className="form-group">
+            <label className="form-label">Exam Board</label>
+            <select className="form-select" value={form.exam_board}
+              onChange={(e) => set("exam_board", e.target.value)}>
+              <option value="">— Any Board —</option>
+              {examBoards.map((b) => (
+                <option key={b.id} value={b.id}>{b.name} ({b.abbreviation})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label className="form-label">
               Subject <span style={{ color: "var(--red)" }}>*</span>
             </label>
@@ -411,17 +440,6 @@ const handleClear = () => {
               <option value="">— Select Subject —</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Exam Board</label>
-            <select className="form-select" value={form.exam_board}
-              onChange={(e) => set("exam_board", e.target.value)}>
-              <option value="">— Any Board —</option>
-              {examBoards.map((b) => (
-                <option key={b.id} value={b.id}>{b.name} ({b.abbreviation})</option>
               ))}
             </select>
           </div>

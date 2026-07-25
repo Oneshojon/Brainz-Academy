@@ -1,4 +1,5 @@
 const data = document.getElementById('practice-data');
+const SUBJECTS_URL = data.dataset.subjectsUrl;
 const TOPICS_URL   = data.dataset.topicsUrl;
 const YEARS_URL    = data.dataset.yearsUrl;
 const SITTINGS_URL = data.dataset.sittingsUrl;
@@ -88,6 +89,50 @@ function loadTopics(subjectId) {
 function toggleTopicLabel(id, el) {
   document.getElementById(`topic-label-${id}`).classList.toggle('checked', el.checked);
   updateSummary();
+}
+
+// ── LOAD SUBJECTS (scoped by exam board) ────────────────────────────────────
+// Board is selected first (see field reorder in practice_home.html), so the
+// subject list narrows to only subjects with real questions for that board —
+// same pattern as Manual Test Builder's Step2Subject.
+let subjectsController = null;
+
+function loadSubjects() {
+  const boardId       = document.getElementById('exam_board').value;
+  const subjectSelect = document.getElementById('subject');
+  const currentValue   = subjectSelect.value;
+
+  if (subjectsController) subjectsController.abort();
+  subjectsController = new AbortController();
+
+  const params = new URLSearchParams();
+  if (boardId) params.set('board', boardId);
+
+  fetch(`${SUBJECTS_URL}?${params}`, { signal: subjectsController.signal })
+    .then(r => r.json())
+    .then(subjects => {
+      const stillValid = subjects.some(s => String(s.id) === currentValue);
+
+      subjectSelect.innerHTML = '<option value="">— Select Subject —</option>' +
+        subjects.map(s =>
+          `<option value="${s.id}"${s.is_oral_eligible ? ' data-oral="true"' : ''}>${s.name}</option>`
+        ).join('');
+      subjectSelect.value = stillValid ? currentValue : '';
+
+      // Subject no longer valid for this board — reset dependent state
+      if (!stillValid) {
+        syncQTypeBar(subjectSelect);
+        loadTopics('');
+      }
+      loadYears();
+      loadSittings();
+      updateSummary();
+    })
+    .catch(err => {
+      if (err.name !== 'AbortError') {
+        subjectSelect.innerHTML = '<option value="">Failed to load</option>';
+      }
+    });
 }
 
 // ── LOAD YEARS ────────────────────────────────────────────────────────────────
@@ -194,9 +239,7 @@ document.getElementById('subject').addEventListener('change', function () {
 });
 
 document.getElementById('exam_board').addEventListener('change', function () {
-  loadYears();
-  loadSittings();
-  updateSummary();
+  loadSubjects();
 });
 
 document.getElementById('year').addEventListener('change', function () {
