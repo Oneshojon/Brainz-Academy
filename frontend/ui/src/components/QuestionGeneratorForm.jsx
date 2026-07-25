@@ -5,13 +5,6 @@ import api from "../api";
 export const getTestBuilderAccess = () =>
   api.get("test-builder-access/").then((r) => r.data);
 
-const SITTINGS = [
-  { value: "",         label: "All Sittings" },
-  { value: "MAY_JUNE", label: "May/June"     },
-  { value: "NOV_DEC",  label: "Nov/Dec"      },
-  { value: "MOCK",     label: "Mock"          },
-  { value: "OTHER",    label: "Other"         },
-];
 
 /**
  * Base question type options — always shown.
@@ -199,6 +192,7 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
   const [examBoards, setExamBoards]       = useState([]);
   const [topics, setTopics]               = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
+  const [sittings, setSittings]           = useState([]);
 
   const [form, setForm] = useState({
     subject:       "",
@@ -261,6 +255,22 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
     }
   }, [form.subject, form.exam_board]);
 
+  // Sittings scoped to subject + exam board — only sittings with real
+  // questions for the current combination are offered.
+  useEffect(() => {
+    if (!form.subject) {
+      setSittings([]);
+      setForm((f) => ({ ...f, sitting: "" }));
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("subject", form.subject);
+    if (form.exam_board) params.set("board", form.exam_board);
+    api.get(`available-sittings/?${params}`)
+      .then((res) => setSittings(res.data.sittings || []))
+      .catch(() => setSittings([]));
+  }, [form.subject, form.exam_board]);
+
   // Reset question_type if the subject changes away from English while
   // ORAL_ENG_OBJ was selected — prevents stale filter on next generation.
   useEffect(() => {
@@ -313,7 +323,7 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
     }
   };
 
-  const handleClear = () => {
+const handleClear = () => {
     setForm({
       subject:       "",
       exam_board:    "",
@@ -324,6 +334,7 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
       difficulty:    "",
       num_questions: 15,
     });
+    setSittings([]);
     onClear();
   };
 
@@ -418,11 +429,18 @@ export default function QuestionGeneratorForm({ onResults, onClear, access }) {
           <div className="form-group">
             <label className="form-label">Sitting</label>
             <select className="form-select" value={form.sitting}
+              disabled={!form.subject || sittings.length === 0}
               onChange={(e) => set("sitting", e.target.value)}>
-              {SITTINGS.map((s) => (
+              <option value="">— Any Sitting —</option>
+              {sittings.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
+            {form.subject && sittings.length === 0 && (
+              <p style={{ fontSize: "0.75rem", color: "var(--muted)", fontStyle: "italic", marginTop: "0.3rem" }}>
+                No sittings available for this selection.
+              </p>
+            )}
           </div>
         </div>
 

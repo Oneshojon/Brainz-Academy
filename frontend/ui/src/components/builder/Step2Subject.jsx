@@ -37,13 +37,18 @@ export default function Step2Subject({ board, onSelect, selected, onBack }) {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading]   = useState(true);
 
+  // Scoped to the board selected in Step 1 — only subjects with real
+  // questions for this exam board are shown, so a teacher can never pick
+  // a subject/board combination with zero data.
   useEffect(() => {
-  api.get('subjects/')
-    .then(r => setSubjects(r.data.filter(s => (s.question_count ?? 0) > 0)))
-    .catch(() => {})
-    .finally(() => setLoading(false));
-}, []);
-
+    setLoading(true);
+    const params = board?.id ? `?board=${board.id}` : '';
+    api.get(`subjects/${params}`)
+      .then(r => setSubjects(r.data.filter(s => (s.question_count ?? 0) > 0)))
+      .catch(() => setSubjects([]))
+      .finally(() => setLoading(false));
+  }, [board?.id]);
+  
   if (loading) return <div style={{ color: '#6B7FA3', padding: '2rem' }}>Loading subjects…</div>;
 
   return (

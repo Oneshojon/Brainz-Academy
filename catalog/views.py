@@ -28,12 +28,7 @@ from datetime import date
 from django.http import JsonResponse
 from .models import ExamSeries
 
-SITTING_LABELS = {
-    'MAY_JUNE': 'May/June',
-    'NOV_DEC':  'Nov/Dec',
-    'MOCK':     'Mock',
-    'OTHER':    'Other',
-}
+SITTING_LABELS = dict(ExamSeries.SITTING_CHOICES)
 
 
 
@@ -42,7 +37,7 @@ _FIRST_P_RE   = re.compile(r'^(<p[^>]*>)', re.IGNORECASE)
 _BLOCK_TAG_RE = re.compile(r'^<(table|figure|img|div|ul|ol)', re.IGNORECASE)
 
 from catalog.cache_utils import (
-    get_all_subjects, get_all_boards, get_available_sittings, get_subjects_with_question_counts, get_themes_for_subject,
+    get_all_subjects, get_all_boards, get_available_sittings, get_subjects_for_board, get_subjects_with_question_counts, get_themes_for_subject,
     get_topics_for_subject, get_topics_for_theme, get_available_years,
     get_feature_flags, invalidate_subject_caches, invalidate_feature_flags,
     get_leaderboard, get_boards_with_question_counts, get_platform_settings
@@ -65,6 +60,25 @@ class AvailableSittingsView(APIView):
         return Response({'sittings': data})
 
 
+class SittingChoicesView(APIView):
+    """
+    GET /api/catalog/sitting-choices/
+    Returns the full, unfiltered list of sittings from ExamSeries.SITTING_CHOICES.
+
+    Unlike AvailableSittingsView (which only returns sittings with existing
+    questions, scoped to a subject/board/year combination), this always
+    returns the complete set of possible sittings and their labels. Used by
+    Step5Export/MyTestsModal to display the correct label for a sitting value
+    on an already-saved question, where the question's actual sitting must
+    always resolve to a label regardless of current filter state.
+    """
+    permission_classes = [AllowAny]
+    def get(self, request):
+        return Response({
+            'sittings': [{'value': v, 'label': l} for v, l in ExamSeries.SITTING_CHOICES]
+        })
+
+
 class FeatureFlagsView(APIView):
     """
     GET /api/catalog/feature-flags/
@@ -78,19 +92,27 @@ class FeatureFlagsView(APIView):
         return Response(get_feature_flags())
 
 class SubjectListView(generics.ListAPIView):
-    permission_classes = [AllowAny]
-    serializer_class   = SubjectSerializer
- 
-    def get_queryset(self):
-        return get_all_subjects()
- 
- 
-class SubjectListView(generics.ListAPIView):
+    """
+    GET /api/catalog/subjects/
+    GET /api/catalog/subjects/?board=<id>
+
+    Without ?board=, returns all subjects that have at least one question
+    (used by Practice and Random Test Builder, where subject and exam board
+    are independent, simultaneously-visible filters).
+
+    With ?board=<id>, returns only subjects that have questions for that
+    specific exam board (used by Manual Test Builder Step 2, where the board
+    is already locked in from Step 1 — narrowing here prevents a teacher
+    from selecting a subject/board combination with zero real data).
+    """
     permission_classes = [AllowAny]
     serializer_class   = SubjectSerializer
 
     def get_queryset(self):
-        return get_subjects_with_question_counts()   
+        board_id = self.request.query_params.get('board')
+        if board_id:
+            return get_subjects_for_board(board_id)
+        return get_subjects_with_question_counts()
     
 class TopicListView(generics.ListAPIView):
     """Returns topics filtered by subject."""

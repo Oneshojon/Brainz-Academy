@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import api from "../../api";
 
 const styles = `
   /* ══ Row 1: stats + actions ══ */
@@ -289,6 +290,20 @@ export default function Step5Export({
   const [dragIdx, setDragIdx] = useState(null);
   const [overIdx, setOverIdx] = useState(null);
 
+  // Unfiltered sitting label lookup — a saved question can carry any
+  // sitting value regardless of current filters, so this always fetches
+  // the complete set (see SittingChoicesView), not a scoped subset.
+  const [sittingLabels, setSittingLabels] = useState({});
+  useEffect(() => {
+    api.get('sitting-choices/')
+      .then((res) => {
+        const map = {};
+        (res.data.sittings || []).forEach((s) => { map[s.value] = s.label; });
+        setSittingLabels(map);
+      })
+      .catch(() => {});
+  }, []);
+
   const previewScrollRef = useRef(null);
 
   // Re-render KaTeX over the paper preview whenever the question list changes
@@ -414,7 +429,7 @@ export default function Step5Export({
                       <span className={`s5-q-tag ${cls}`}>{label}</span>
                       {q.exam_year && (
                         <span className="s5-q-tag year">
-                          {q.sitting ? q.sitting.replace('MAY_JUNE', 'May/Jun').replace('NOV_DEC', 'Nov/Dec').replace('MOCK', 'Mock') + ' · ' : ''}
+                          {q.sitting ? (sittingLabels[q.sitting] || q.sitting) + ' · ' : ''}
                           {String(q.exam_year).slice(-2)}
                         </span>
                       )}

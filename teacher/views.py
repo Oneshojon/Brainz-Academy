@@ -2214,10 +2214,7 @@ def upload_docx(request):
         from catalog.cache_utils import invalidate_subject_caches
         invalidate_subject_caches(subject.id)
 
-    SITTING_DISPLAY = {
-        'MAY_JUNE': 'May/June', 'NOV_DEC': 'Nov/Dec',
-        'MOCK_SERIES': 'Mock Series',         'OTHER':   'Other',
-    }
+    SITTING_DISPLAY = dict(ExamSeries.SITTING_CHOICES)
 
     context = {
         'success':       True,
