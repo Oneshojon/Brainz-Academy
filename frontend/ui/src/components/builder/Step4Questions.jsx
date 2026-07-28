@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../api";
+import { boardParamValue } from "../../utils/boardParam";
 
 const styles = `
 /* Year bar — single row, horizontal scroll, no wrap */
@@ -379,11 +380,12 @@ export default function Step4Questions({
     if (!topic) return;
     setLoading(true);
     setSelectedYears([]);
+    const boardId = boardParamValue(board);
     const params = new URLSearchParams({ topic: topic.id });
-    if (board && board.id !== 'mix') params.set('exam_board', board.id);
+    if (boardId) params.set('exam_board', boardId);
     Promise.all([
       api.get(`questions-by-topic/?${params}`),
-      api.get(`years/?subject=${topic.subject}${board?.id && board.id !== 'mix' ? `&exam_board=${board.id}` : ''}`),
+      api.get(`years/?subject=${topic.subject}${boardId ? `&exam_board=${boardId}` : ''}`),
     ])
       .then(([qRes, yRes]) => {
         setQuestions(qRes.data);

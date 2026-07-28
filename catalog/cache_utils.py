@@ -22,6 +22,7 @@ KEY_TOPICS_THEME_BOARD = 'catalog:topics:theme:{theme_id}:board:{board_id}'
 KEY_FEATURE_FLAGS  = 'catalog:feature_flags:all'
 KEY_LEADERBOARD    = 'practice:leaderboard:top50'
 KEY_AVAILABLE_YEARS = 'catalog:years:subject:{subject_id}:board:{board_id}'
+KEY_AVAILABLE_YEARS_KNOWN = 'catalog:years:known_keys:subject:{subject_id}'
 KEY_SUBJECTS_WITH_COUNTS = 'catalog:subjects:with_counts'
 KEY_BOARDS_WITH_QUESTION_COUNTS = 'catalog:boards:with_question_counts'
 KEY_AVAILABLE_SITTINGS = 'catalog:sittings:subject:{subject_id}:board:{board_id}:year:{year}'
@@ -216,14 +217,33 @@ def get_topics_for_theme(theme_id):
 
 
 def get_available_years(subject_id, board_id):
+    """
+    board_id may be a single id, or a comma-separated string of multiple ids
+    (used by the WAEC+NECO combined board) — in the multi-id case, this
+    returns the UNION of years available across all listed boards.
+
+    Every distinct (subject_id, board_id) cache key is tracked in a
+    known-keys registry (same pattern as get_student_stats/
+    invalidate_student_stats) so invalidate_subject_caches() can purge
+    all board-id variants for a subject — including multi-board combined
+    keys like "1,2" — not just the default 'all' variant.
+    """
     from catalog.models import ExamSeries
     key = KEY_AVAILABLE_YEARS.format(subject_id=subject_id or 'all', board_id=board_id or 'all')
+
+    if subject_id:
+        known_key = KEY_AVAILABLE_YEARS_KNOWN.format(subject_id=subject_id)
+        known = cache.get(known_key) or []
+        if key not in known:
+            cache.set(known_key, known + [key], CACHE_24_HOUR)
+
     def _fetch():
         qs = ExamSeries.objects.all()
         if subject_id:
             qs = qs.filter(subject_id=subject_id)
         if board_id:
-            qs = qs.filter(exam_board_id=board_id)
+            board_ids = [b for b in str(board_id).split(',') if b]
+            qs = qs.filter(exam_board_id__in=board_ids)
         return sorted(qs.values_list('year', flat=True).distinct())
     return get_or_set(key, _fetch, CACHE_1_HOUR)
 
@@ -283,16 +303,22 @@ def invalidate_leaderboard():
 def invalidate_subject_caches(subject_id=None):
     keys = [KEY_ALL_SUBJECTS, KEY_ALL_BOARDS, KEY_SUBJECTS_WITH_COUNTS, KEY_BOARDS_WITH_QUESTION_COUNTS]
     if subject_id:
+        known_years_key = KEY_AVAILABLE_YEARS_KNOWN.format(subject_id=subject_id)
+        known_years_keys = cache.get(known_years_key) or []
         keys += [
             KEY_THEMES.format(subject_id=subject_id),
             KEY_TOPICS.format(subject_id=subject_id),
-            KEY_AVAILABLE_YEARS.format(subject_id=subject_id, board_id='all'),
             KEY_AVAILABLE_SITTINGS.format(subject_id=subject_id, board_id='all', year='all'),
-        ]
+        ] + known_years_keys + [known_years_key]
     invalidate(*keys)
 
 
 def get_topics_for_theme_with_counts(theme_id, exam_board_id=None):
+    """
+    exam_board_id may be a single id, or a comma-separated string of
+    multiple ids (WAEC+NECO combined board) — counts reflect the UNION
+    of questions across all listed boards.
+    """
     from catalog.models import Topic
     from django.db.models import Count, Q
 
@@ -302,10 +328,11 @@ def get_topics_for_theme_with_counts(theme_id, exam_board_id=None):
     )
 
     def _fetch():
-        count_filter = (
-            Q(questions__exam_series__exam_board_id=exam_board_id)
-            if exam_board_id else Q()
-        )
+        if exam_board_id:
+            board_ids = [b for b in str(exam_board_id).split(',') if b]
+            count_filter = Q(questions__exam_series__exam_board_id__in=board_ids)
+        else:
+            count_filter = Q()
         topics = (
             Topic.objects
             .filter(theme_id=theme_id)

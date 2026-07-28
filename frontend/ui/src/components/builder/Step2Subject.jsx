@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../api";
+import { boardParamValue } from "../../utils/boardParam";
 
 const styles = `
   .subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.85rem; }
@@ -37,17 +38,45 @@ export default function Step2Subject({ board, onSelect, selected, onBack }) {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading]   = useState(true);
 
-  // Scoped to the board selected in Step 1 — only subjects with real
+ // Scoped to the board selected in Step 1 — only subjects with real
   // questions for this exam board are shown, so a teacher can never pick
   // a subject/board combination with zero data.
+  //
+  // Special case: the synthetic WAEC+NECO combined board isn't a real
+  // ExamBoard row, so it can't be filtered by a single board id. Instead,
+  // fetch subjects for each real board (board.component_ids) separately
+  // and keep only subjects present in both — i.e. subjects with real
+  // question data for WAEC *and* NECO (intersection, by design — differs
+  // from topics/questions/years for the combined board, which use union).
   useEffect(() => {
     setLoading(true);
-    const params = board?.id ? `?board=${board.id}` : '';
+    const [id1, id2] = board?.component_ids ?? [];
+
+    if (id1 && id2) {
+      Promise.all([
+        api.get(`subjects/?board=${id1}`),
+        api.get(`subjects/?board=${id2}`),
+      ])
+        .then(([r1, r2]) => {
+          const idsInSecond = new Set(r2.data.map(s => s.id));
+          const intersection = r1.data.filter(s => idsInSecond.has(s.id));
+          setSubjects(intersection.filter(s => (s.question_count ?? 0) > 0));
+        })
+        .catch(() => setSubjects([]))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // "All Boards" (board.id === 'all') and real single boards both use
+    // the plain endpoint — boardParamValue() returns undefined for "all",
+    // giving the unfiltered subject list.
+    const boardParam = boardParamValue(board);
+    const params = boardParam ? `?board=${boardParam}` : '';
     api.get(`subjects/${params}`)
       .then(r => setSubjects(r.data.filter(s => (s.question_count ?? 0) > 0)))
       .catch(() => setSubjects([]))
       .finally(() => setLoading(false));
-  }, [board?.id]);
+  }, [board?.id, board?.component_ids?.[0], board?.component_ids?.[1]]);
   
   if (loading) return <div style={{ color: '#6B7FA3', padding: '2rem' }}>Loading subjects…</div>;
 

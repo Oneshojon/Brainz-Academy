@@ -347,12 +347,12 @@ export default function QuestionList({ questions, filterMeta, access }) {
 
       {/* ── Question cards ── */}
       <div className="q-list">
-        {questions.map(q => {
+        {questions.map((q, idx) => {
           const { cls, label } = qTypeDisplay(q.question_type);
           return (
             <div key={q.id} className={`q-card ${cls}`}>
               <div className="q-card-header">
-                <span className="q-num">Q{q.question_number}</span>
+                <span className="q-num">Q{idx + 1}</span>
                 {/* Type badge — ORAL_ENG_OBJ gets its own style, not a fallback */}
                 <span className={`q-badge ${cls}`}>{label}</span>
                 {q.difficulty && (

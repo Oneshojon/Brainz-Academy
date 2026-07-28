@@ -68,7 +68,8 @@ const styles = `
   }
 `;
 
-const WAEC_NECO_MIX = { id: 'mix', name: 'WAEC & NECO Combined', abbreviation: 'WAEC+NECO' };
+const ALL_BOARDS = { id: 'all', name: 'All available boards — no restriction', abbreviation: 'ALL' };
+const WAEC_NECO_MIX_BASE = { id: 'mix', name: 'WAEC & NECO Combined', abbreviation: 'WAEC+NECO' };
 
 export default function Step1Board({ onSelect, selected, access }) {
   const [boards, setBoards]   = useState([]);
@@ -144,7 +145,7 @@ export default function Step1Board({ onSelect, selected, access }) {
 
       {/* Board grid — dimmed and non-interactive when blocked */}
        <div className={`board-grid ${isBlocked ? 's1-boards-blocked' : ''}`}>
-        {[...boards, ...(showMix ? [WAEC_NECO_MIX] : [])].map(b => (  
+        {[ALL_BOARDS, ...boards, ...(showMix ? [WAEC_NECO_MIX_BASE] : [])].map(b => (  
           <div key={b.id}
             className={`board-card ${b.id === 'mix' ? 'waec-neco-card' : ''} ${selected?.id === b.id ? 'selected' : ''}`}
             onClick={() => !isBlocked && onSelect(b)}>

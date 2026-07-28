@@ -126,6 +126,11 @@ class TopicListView(generics.ListAPIView):
         return []
 
 class TopicsByThemeView(APIView):
+    """
+    exam_board may be a single id, or a comma-separated string of multiple
+    ids (used by the WAEC+NECO combined board) — question counts then
+    reflect the UNION of questions across all listed boards.
+    """
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -180,6 +185,19 @@ class TestBuilderAccessView(APIView):
         return Response(access)
  
  
+def _should_randomize(is_free, topic_ids, years):
+    """
+    Ordering rule for Random Test Builder results (paid users; free tier
+    always randomises regardless of this function):
+      - Any topic selected           → random
+      - No topic, exactly one year   → orderly (question_number, as stored)
+      - No topic, multiple/no years  → random
+    Extracted as a standalone function so the rule can be unit-tested
+    deterministically, without depending on actual DB random ordering.
+    """
+    return is_free or bool(topic_ids) or len(years) != 1
+
+
 class GenerateQuestionsView(APIView):
     """Updated to enforce free tier limits before generating."""
     permission_classes = [IsAuthenticated]
@@ -233,9 +251,10 @@ class GenerateQuestionsView(APIView):
             'theory_answer',
         )
 
-        # Always randomise for free trial; paid can choose ordering later
-        if access['is_free']:
+        if _should_randomize(access['is_free'], topic_ids, years):
             qs = qs.order_by('?')
+        else:
+            qs = qs.order_by('question_number')
 
         questions = list(qs[:num_questions])
  
@@ -382,6 +401,11 @@ class QuestionsByTopicView(APIView):
     permission_classes = [IsAuthenticated]
  
     def get(self, request):
+        """
+        exam_board may be a single id, or a comma-separated string of
+        multiple ids (WAEC+NECO combined board) — returns the UNION of
+        questions across all listed boards.
+        """
         topic_id      = request.query_params.get('topic')
         exam_board_id = request.query_params.get('exam_board')
 
@@ -397,7 +421,8 @@ class QuestionsByTopicView(APIView):
         )
 
         if exam_board_id:
-            qs = qs.filter(exam_series__exam_board_id=exam_board_id)
+            board_ids = [b for b in str(exam_board_id).split(',') if b]
+            qs = qs.filter(exam_series__exam_board_id__in=board_ids)
 
         serializer = QuestionSerializer(qs, many=True)
         return Response(serializer.data)

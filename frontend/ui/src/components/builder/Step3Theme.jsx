@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../api";
+import { boardParamValue } from "../../utils/boardParam";
 
 const styles = `
   .theme-layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem; align-items: start; }
@@ -130,7 +131,8 @@ function MobileThemeItem({ theme, board, onSelect }) {
   const toggle = () => {
     if (!open && !fetched) {
       setLoading(true);
-      const boardParam = board?.id ? `&exam_board=${board.id}` : '';
+      const boardId = boardParamValue(board);
+      const boardParam = boardId ? `&exam_board=${boardId}` : '';
       api.get(`topics-by-theme/?theme=${theme.id}${boardParam}`)
         .then(r => { setTopics(r.data); setFetched(true); })
         .catch(() => {})
@@ -187,7 +189,8 @@ export default function Step3Theme({ board, subject, onSelect, selected, onBack,
   const handleThemeClick = (theme) => {
     setActiveTheme(theme);
     setLoadingTopics(true);
-    const boardParam = board?.id ? `&exam_board=${board.id}` : '';
+    const boardId = boardParamValue(board);
+    const boardParam = boardId ? `&exam_board=${boardId}` : '';
     api.get(`topics-by-theme/?theme=${theme.id}${boardParam}`)
       .then(r => setTopics(r.data))
       .catch(() => {})
