@@ -74,19 +74,38 @@ const WAEC_NECO_MIX_BASE = { id: 'mix', name: 'WAEC & NECO Combined', abbreviati
 export default function Step1Board({ onSelect, selected, access }) {
   const [boards, setBoards]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showMix, setShowMix] = useState(false);  // ← moved inside
+  const [showMix, setShowMix] = useState(false);
+  // Real ExamBoard IDs for WAEC and NECO — attached to the synthetic mix
+  // card so Step2Subject/Step3Theme/Step4Questions can fetch data for each
+  // real board and union/intersect, instead of sending the non-existent
+  // 'mix' id straight to the backend (which matches zero rows).
+  const [mixBoardIds, setMixBoardIds] = useState({ waec: null, neco: null });
 
   useEffect(() => {
     api.get('exam-boards/')
       .then(r => {
         const data = r.data;
         setBoards(data);
-        const abbrs = data.map(b => b.abbreviation.toUpperCase());
-        setShowMix(abbrs.includes('WAEC') && abbrs.includes('NECO'));
+        const waec = data.find(b => b.abbreviation.toUpperCase() === 'WAEC');
+        const neco = data.find(b => b.abbreviation.toUpperCase() === 'NECO');
+        if (waec && neco) {
+          setShowMix(true);
+          setMixBoardIds({ waec: waec.id, neco: neco.id });
+        } else {
+          setShowMix(false);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Built fresh each render from mixBoardIds — this is what onSelect passes
+  // to Step2Subject etc. as `board`, carrying the real board ids under
+  // component_ids so downstream steps can filter correctly.
+  const waecNecoMix = {
+    ...WAEC_NECO_MIX_BASE,
+    component_ids: [mixBoardIds.waec, mixBoardIds.neco],
+  };
 
   const isFree    = access?.is_free ?? true;
   const isBlocked = access ? !access.allowed : false;
@@ -145,7 +164,7 @@ export default function Step1Board({ onSelect, selected, access }) {
 
       {/* Board grid — dimmed and non-interactive when blocked */}
        <div className={`board-grid ${isBlocked ? 's1-boards-blocked' : ''}`}>
-        {[ALL_BOARDS, ...boards, ...(showMix ? [WAEC_NECO_MIX_BASE] : [])].map(b => (  
+        {[ALL_BOARDS, ...boards, ...(showMix ? [waecNecoMix] : [])].map(b => (  
           <div key={b.id}
             className={`board-card ${b.id === 'mix' ? 'waec-neco-card' : ''} ${selected?.id === b.id ? 'selected' : ''}`}
             onClick={() => !isBlocked && onSelect(b)}>
