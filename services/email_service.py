@@ -161,3 +161,46 @@ def send_subscription_confirmation(
             "Subscription confirmation email failed for %s: %s", to_email, exc
         )
         return False
+    
+def send_contact_notification(
+    category: str,
+    name: str,
+    from_email: str,
+    subject: str,
+    message: str,
+) -> bool:
+    """
+    Notify the support inbox of a new Contact Us submission.
+    Non-critical — the ContactMessage row is already persisted regardless
+    of email delivery, so failure here is logged, not raised.
+    """
+    support_inbox = "masjnr@gmail.com"
+    full_subject = f"[BrainzAcademy Contact — {category}] {subject}"
+    body_text = (
+        f"New {category.lower()} submission\n\n"
+        f"From: {name} <{from_email}>\n"
+        f"Subject: {subject}\n\n"
+        f"{message}"
+    )
+    body_html = f"""
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+      <h2 style="color:#0B2D72">New {category} Submission</h2>
+      <p><strong>From:</strong> {name} &lt;{from_email}&gt;</p>
+      <p><strong>Subject:</strong> {subject}</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+      <p style="white-space:pre-wrap">{message}</p>
+    </div>
+    """
+    try:
+        _send_mail(
+            subject=full_subject,
+            body_text=body_text,
+            body_html=body_html,
+            to=[support_inbox],
+        )
+        logger.info("Contact notification sent for %s submission from %s", category, from_email)
+        return True
+
+    except (CircuitOpenError, Exception) as exc:
+        logger.error("Contact notification email failed for %s: %s", from_email, exc)
+        return False
