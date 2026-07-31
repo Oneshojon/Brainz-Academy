@@ -37,6 +37,7 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'brainzacademy.com', 'www.brainzacade
 INSTALLED_APPS = [
     'anymail',
     'payments',
+    'contact',
     'teacher',
     'messaging',
     'corsheaders',

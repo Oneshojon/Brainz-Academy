@@ -40,6 +40,7 @@ urlpatterns = [
     path('cbt-practice/', include('practice.urls')),
     path('lesson-notes/', include('teacher.lesson_note_urls')),
     path('past-papers/', include('practice.past_paper_urls')),
+    path("contact/", include("contact.urls", namespace="contact")),
 
     # ── API ───────────────────────────────────────────────────────
     path('api/catalog/', include('catalog.urls')),

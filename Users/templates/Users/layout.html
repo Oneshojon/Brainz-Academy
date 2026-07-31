@@ -144,6 +144,12 @@
 
           {% endif %}
 
+          <a href="{% url 'contact:contact_page' %}"
+             class="nav-link{% if request.resolver_match.namespace == 'contact' %} nav-link-active{% endif %}"
+             role="menuitem">
+            Contact
+          </a>
+
         </div>{# /.nav-menu #}
 
         {# ── Right-side actions (profile dropdown / login button) ── #}
