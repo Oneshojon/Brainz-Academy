@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'anymail',
     'payments',
     'contact',
+    'schools',
     'teacher',
     'messaging',
     'corsheaders',
