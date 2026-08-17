@@ -777,6 +777,12 @@ INITIAL_FLAGS = [
         'description': 'Admin tool to bulk-import questions from CSV files.',
         'is_enabled': True, 'visible_to': 'TEACHER',
     },
+    {
+        'key': 'school_plan', 'label': 'School Plan',
+        'description': 'Multi-tenant school accounts — self-service registration '
+                       'and school admin dashboard.',
+        'is_enabled': False, 'visible_to': 'TEACHER',
+    },
 ]
 
 
