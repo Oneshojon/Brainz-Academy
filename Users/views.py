@@ -12,6 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 import hashlib
 import secrets
+from .services import get_client_ip, is_otp_request_rate_limited, is_otp_verify_rate_limited
 from practice.models import PracticeSession
 from catalog.cache_utils import get_subjects_for_board
 from catalog.models import ExamBoard, ExamSeries
@@ -79,6 +80,13 @@ def request_otp(request):
                 'ref':   ref,
             })
 
+        client_ip = get_client_ip(request)
+        if is_otp_request_rate_limited(client_ip, email):
+            return render(request, 'Users/login.html', {
+                'error': 'Too many login code requests. Please wait a while before trying again.',
+                'ref': ref,
+            })
+
         # Generate OTP and store in session
         otp = str(random.randint(100000, 999999))
         request.session['otp']            = otp
@@ -133,6 +141,17 @@ def verify_otp(request):
                 })
 
         if entered_otp != stored_otp:
+            if is_otp_verify_rate_limited(email):
+                # Too many wrong guesses against this email — force a
+                # fresh code rather than let guessing continue against
+                # the same one.
+                for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
+                    request.session.pop(key, None)
+                return render(request, 'Users/verify_otp.html', {
+                    'email': email, 'ref_code': ref_code,
+                    'error': 'Too many incorrect attempts. Please request a new code.',
+                })
+
             # Check if this is a new user form submit
             user_exists = CustomUser.objects.filter(email=email).exists()
             return render(request, 'Users/verify_otp.html', {

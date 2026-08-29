@@ -13,8 +13,20 @@ Email is mocked via EMAIL_BACKEND = locmem in settings_test.py.
 """
 
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
 from django.core import mail
+
+from Users.services import OTP_REQUEST_EMAIL_MAX, OTP_VERIFY_MAX
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limit_cache():
+    """OTP rate limiting is cache-backed and keyed by IP/email — clear
+    between tests so one test's counters don't bleed into the next."""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.mark.django_db
@@ -62,6 +74,32 @@ class TestRequestOTP:
         response = client.post(url, {'email': ''})
         assert response.status_code in (200, 302)
 
+    def test_repeated_requests_for_same_email_get_rate_limited(self, client, student):
+        """After OTP_REQUEST_EMAIL_MAX successful sends to one email,
+        the next request should be blocked rather than send another."""
+        url = reverse('Users:request_otp')
+        for _ in range(OTP_REQUEST_EMAIL_MAX):
+            client.post(url, {'email': student.email})
+
+        mail.outbox.clear()
+        response = client.post(url, {'email': student.email})
+
+        assert response.status_code == 200
+        assert b'too many' in response.content.lower()
+        assert len(mail.outbox) == 0
+
+    def test_rate_limit_does_not_store_otp_in_session(self, client, student):
+        """A blocked request must not overwrite/seed a usable OTP session
+        — otherwise the rate limit could be bypassed by checking the
+        session instead of the response."""
+        url = reverse('Users:request_otp')
+        for _ in range(OTP_REQUEST_EMAIL_MAX):
+            client.post(url, {'email': student.email})
+
+        session_before = dict(client.session)
+        client.post(url, {'email': student.email})
+        assert dict(client.session) == session_before
+
 
 @pytest.mark.django_db
 class TestVerifyOTP:
@@ -106,6 +144,41 @@ class TestVerifyOTP:
         url = reverse('Users:verify_otp')
         response = client.post(url, {'otp': '000000'})
         assert response.status_code == 200
+
+    def test_wrong_guesses_lock_out_after_max_attempts(self, client, student):
+        """After OTP_VERIFY_MAX wrong guesses, verification should be
+        locked out for this email and the session cleared, forcing a
+        fresh request_otp instead of allowing further guesses."""
+        self._seed_otp_session(client, student, otp='777777')
+        url = reverse('Users:verify_otp')
+
+        for _ in range(OTP_VERIFY_MAX):
+            response = client.post(url, {'otp': '000000'})
+            assert response.status_code == 200
+
+        # One more wrong guess past the max — should be locked out now,
+        # not just told "invalid code" again.
+        response = client.post(url, {'otp': '000000'})
+        assert b'too many' in response.content.lower()
+        assert 'otp' not in client.session
+        assert 'otp_email' not in client.session
+
+        # The correct code no longer works either — session was cleared.
+        response = client.post(url, {'otp': '777777'})
+        assert '_auth_user_id' not in client.session
+
+    def test_correct_guess_within_attempt_budget_still_logs_in(self, client, student):
+        """A few wrong guesses followed by the right one should still
+        succeed — the lockout only fires once the max is exceeded."""
+        self._seed_otp_session(client, student, otp='888888')
+        url = reverse('Users:verify_otp')
+
+        client.post(url, {'otp': '000000'})
+        client.post(url, {'otp': '111111'})
+
+        response = client.post(url, {'otp': '888888'})
+        assert response.status_code == 302
+        assert '_auth_user_id' in client.session
 
     def test_expired_otp_does_not_log_in(self, client, student):
         """OTP created 15 minutes ago should be rejected."""

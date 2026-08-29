@@ -42,7 +42,7 @@ class ContactMessage(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["category", "status", "-created_at"], name="contact_cat_status_idx"),
         ]
