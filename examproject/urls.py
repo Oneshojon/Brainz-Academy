@@ -37,6 +37,7 @@ urlpatterns = [
 
     # ── Clean URLs ────────────────────────────────────────────────
     path('test-builder/', include('frontend.urls')),
+    path('school-plan/', include('schools.frontend_urls')), 
     path('cbt-practice/', include('practice.urls')),
     path('lesson-notes/', include('teacher.lesson_note_urls')),
     path('past-papers/', include('practice.past_paper_urls')),

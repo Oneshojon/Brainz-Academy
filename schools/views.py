@@ -24,6 +24,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -37,8 +38,27 @@ from services.payment_service import (
     verify_webhook_signature,
 )
 
-from .models import School, SchoolPlan, SchoolStaff, SchoolSubscription
-from .serializers import SchoolPlanSerializer, SchoolRegistrationSerializer
+from .models import (
+    AcademicTerm,
+    ClassGroup,
+    Cohort,
+    School,
+    SchoolInvite,
+    SchoolPlan,
+    SchoolStaff,
+    SchoolSubscription,
+)
+from .permissions import IsSchoolAdmin
+from .serializers import (
+    AcademicTermSerializer,
+    ClassGroupSerializer,
+    CohortSerializer,
+    SchoolInviteCreateSerializer,
+    SchoolInviteRedeemSerializer,
+    SchoolPlanSerializer,
+    SchoolRegistrationSerializer,
+    SchoolStaffSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -243,3 +263,194 @@ def _activate_school(subscription, reference):
     subscription.activate(reference=reference)
     subscription.school.status = 'ACTIVE'
     subscription.school.save(update_fields=['status', 'updated_at'])
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Admin-management views
+#
+# Every view below is gated by IsSchoolAdmin and every queryset is scoped
+# to request.user.school_staff_profile.school — a school admin can only
+# ever see or modify their own school's data. Serializer-level
+# validate_<field> methods (see schools/serializers.py) back this up by
+# rejecting cross-school FK references even if an admin guesses a valid
+# ID belonging to another school.
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── AcademicTerm ──────────────────────────────────────────────────────────
+
+class AcademicTermListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /schools/terms/    — list this admin's school's terms
+    POST /schools/terms/    — create a term
+    """
+
+    serializer_class = AcademicTermSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return AcademicTerm.objects.filter(school=school).order_by('-year', 'term')
+
+    def perform_create(self, serializer):
+        school = self.request.user.school_staff_profile.school
+        term = serializer.save(school=school)
+        self._enforce_single_current_term(term)
+
+    @staticmethod
+    def _enforce_single_current_term(term):
+        # Not a DB constraint by design (see AcademicTerm docstring — a
+        # brief overlap during rollover is harmless) but the API should
+        # still behave as "setting one current un-sets the others."
+        if term.is_current:
+            AcademicTerm.objects.filter(school=term.school).exclude(pk=term.pk).update(is_current=False)
+
+
+class AcademicTermDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PATCH / PUT / DELETE /schools/terms/<id>/"""
+
+    serializer_class = AcademicTermSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        return AcademicTerm.objects.filter(school=self.request.user.school_staff_profile.school)
+
+    def perform_update(self, serializer):
+        term = serializer.save()
+        AcademicTermListCreateView._enforce_single_current_term(term)
+
+
+# ── Cohort ────────────────────────────────────────────────────────────────
+
+class CohortListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /schools/cohorts/    — list this admin's school's cohorts
+    POST /schools/cohorts/    — create a cohort
+    """
+
+    serializer_class = CohortSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return (
+            Cohort.objects.filter(school=school)
+            .select_related('academic_term', 'class_teacher__user')
+            .order_by('level', 'name')
+        )
+
+    def perform_create(self, serializer):
+        school = self.request.user.school_staff_profile.school
+        serializer.save(school=school)
+
+
+class CohortDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PATCH / PUT / DELETE /schools/cohorts/<id>/"""
+
+    serializer_class = CohortSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return Cohort.objects.filter(school=school).select_related('academic_term', 'class_teacher__user')
+
+
+# ── Staff & invites ──────────────────────────────────────────────────────
+
+class SchoolStaffListView(generics.ListAPIView):
+    """GET /schools/staff/ — read-only roster of this admin's school's staff."""
+
+    serializer_class = SchoolStaffSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return SchoolStaff.objects.filter(school=school).select_related('user').order_by('user__last_name')
+
+
+class SchoolInviteCreateView(generics.CreateAPIView):
+    """
+    POST /schools/invites/
+    Creates an invite link (ADMIN/TEACHER school-wide, or STUDENT scoped
+    to a class_group). Returns the token — the frontend builds the
+    shareable URL from it.
+    """
+
+    serializer_class = SchoolInviteCreateSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def perform_create(self, serializer):
+        school = self.request.user.school_staff_profile.school
+        serializer.save(school=school, created_by=self.request.user)
+
+
+class SchoolInviteRedeemView(APIView):
+    """
+    POST /schools/invites/redeem/  { token }
+
+    Any authenticated user not already on a school can redeem an
+    ADMIN/TEACHER invite to join it. STUDENT invites are out of scope for
+    this phase — there's no self-service student enrollment flow yet
+    (CohortEnrollment/ClassEnrollment creation needs its own design, not
+    bolted onto this endpoint) — so those are rejected with a clear
+    message rather than silently mishandled.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = SchoolInviteRedeemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data['token']
+
+        try:
+            invite = SchoolInvite.objects.select_related('school').get(token=token)
+        except SchoolInvite.DoesNotExist:
+            return Response({'error': 'Invalid invite link.'}, status=404)
+
+        if not invite.is_valid:
+            return Response({'error': 'This invite has expired or been fully used.'}, status=400)
+
+        if hasattr(request.user, 'school_staff_profile'):
+            return Response({'error': "You're already part of a school."}, status=400)
+
+        if invite.role not in ('ADMIN', 'TEACHER'):
+            return Response({'error': 'Student invites are not yet supported.'}, status=400)
+
+        SchoolStaff.objects.create(user=request.user, school=invite.school, school_role=invite.role)
+        invite.redeem()
+
+        return Response({'school_id': invite.school_id, 'role': invite.role}, status=200)
+
+
+# ── ClassGroup ───────────────────────────────────────────────────────────
+
+class ClassGroupListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /schools/class-groups/    — list this admin's school's class groups
+    POST /schools/class-groups/    — create a class group (teacher+subject+cohort)
+    """
+
+    serializer_class = ClassGroupSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return (
+            ClassGroup.objects.filter(cohort__school=school)
+            .select_related('teacher__user', 'subject', 'cohort')
+            .order_by('cohort', 'subject')
+        )
+
+
+class ClassGroupDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PATCH / PUT / DELETE /schools/class-groups/<id>/"""
+
+    serializer_class = ClassGroupSerializer
+    permission_classes = [IsSchoolAdmin]
+
+    def get_queryset(self):
+        school = self.request.user.school_staff_profile.school
+        return (
+            ClassGroup.objects.filter(cohort__school=school)
+            .select_related('teacher__user', 'subject', 'cohort')
+        )
