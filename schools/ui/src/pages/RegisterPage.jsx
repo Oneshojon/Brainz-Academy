@@ -6,10 +6,13 @@ import { ApiError } from '../api/client';
 import { FieldError } from '../components/FieldError';
 import { Spinner } from '../components/Spinner';
 
-/** Known at page-load from the Django template — avoids a wasted API round trip. */
-const isAuthenticated = typeof window !== 'undefined' ? window.IS_AUTHENTICATED !== false : true;
-
 export function RegisterPage() {
+  // Read fresh on every render (set by the Django template at page load)
+  // rather than frozen at module-import time — a module-level constant
+  // here would never reflect a change to window.IS_AUTHENTICATED after
+  // the bundle first loads.
+  const isAuthenticated = typeof window !== 'undefined' ? window.IS_AUTHENTICATED !== false : true;
+
   const [searchParams] = useSearchParams();
   const initialPlanId = searchParams.get('plan') ?? '';
 
@@ -32,7 +35,7 @@ export function RegisterPage() {
           <p className="mt-2 text-sm text-sp-navy/70">
             Registering a school needs a BrainzAcademy account first.
           </p>
-          
+          <a
             href={`/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             className="mt-6 inline-block rounded-full bg-sp-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-sp-navy/90"
           >
@@ -147,7 +150,7 @@ export function RegisterPage() {
           >
             {loading ? (
               <>
-                <Spinner label="Preparing checkout" />
+                <Spinner decorative />
                 Preparing checkout…
               </>
             ) : (
