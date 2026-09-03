@@ -4,10 +4,13 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from catalog.models import LessonPlan
-from .permissions import HasLessonPlanAccess
+from catalog.feature_flags import is_feature_enabled
+from .permissions import HasLessonPlanAccess, IsLessonPlanEligibleTeacher
 from .serializers import (
     LessonPlanCreateSerializer, LessonPlanDetailSerializer, LessonPlanListSerializer,
 )
+
+AI_LESSON_PLANS_FLAG_KEY = 'ai_lesson_plans'
 
 
 def _build_prompt(plan: LessonPlan) -> str:
@@ -16,6 +19,7 @@ def _build_prompt(plan: LessonPlan) -> str:
     class_size_line = f"Class size: {plan.class_size} students\n" if plan.class_size else ""
 
     return (
+        f"School: {plan.effective_school_name}\n"
         f"Subject: {plan.subject.name}\n"
         f"Class level: {plan.class_level}\n"
         f"Lesson duration: {plan.duration_minutes} minutes\n"
@@ -31,12 +35,24 @@ def _build_prompt(plan: LessonPlan) -> str:
     )
 
 
+def _default_school_name(user) -> str:
+    """
+    School Plan teachers -> their school's name (still editable afterwards).
+    Individual teachers -> blank; LessonPlan.effective_school_name falls back
+    to "Brainz Academy" for display without persisting that string on every row.
+    """
+    staff_profile = getattr(user, 'school_staff_profile', None)
+    if staff_profile is not None and staff_profile.is_active:
+        return staff_profile.school.name
+    return ''
+
+
 class LessonPlanListView(APIView):
     """
-    GET  /api/lesson-plans/   → list the teacher's own lesson plans (lightweight)
-    POST /api/lesson-plans/   → create a new draft plan (input fields only, ungated)
+    GET  /api/lesson-plans/   -> list the teacher's own lesson plans (lightweight)
+    POST /api/lesson-plans/   -> create a new draft plan (input fields only, ungated)
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLessonPlanEligibleTeacher]
 
     def get(self, request):
         plans = (
@@ -54,16 +70,17 @@ class LessonPlanListView(APIView):
     def post(self, request):
         serializer = LessonPlanCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        plan = serializer.save(teacher=request.user)
+        school_name = serializer.validated_data.get('school_name') or _default_school_name(request.user)
+        plan = serializer.save(teacher=request.user, school_name=school_name)
         return Response(LessonPlanDetailSerializer(plan).data, status=status.HTTP_201_CREATED)
 
 
 class LessonPlanDetailView(APIView):
     """
-    GET    /api/lesson-plans/<pk>/   → full plan
-    DELETE /api/lesson-plans/<pk>/   → delete a plan the teacher owns
+    GET    /api/lesson-plans/<pk>/   -> full plan
+    DELETE /api/lesson-plans/<pk>/   -> delete a plan the teacher owns
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsLessonPlanEligibleTeacher]
 
     def _get_plan(self, pk, user):
         try:
@@ -87,12 +104,37 @@ class LessonPlanDetailView(APIView):
 class LessonPlanGenerateView(APIView):
     """
     POST /api/lesson-plans/<pk>/generate/
-    The AI-gated step. HasLessonPlanAccess enforces has_ai_feature_access().
-    Cache-first: if already generated, returns stored content without calling the API again.
+
+    Gated two independent ways:
+      - `IsLessonPlanEligibleTeacher` + `HasLessonPlanAccess` (permission_classes):
+        role (must be a teacher, either individually or via School Plan) and
+        entitlement (must hold TEACHER_PRO or a valid school grant) -> 403
+        if either check fails.
+      - `ai_lesson_plans` FeatureFlag (checked in the body): platform-wide
+        kill switch, e.g. admin out of Anthropic credit -> 404 with
+        {'error': ...}, same convention schools/views.py already uses for
+        flag-off.
+
+        Deliberately called WITHOUT `user=` here: is_feature_enabled()'s
+        role-visibility check reads CustomUser.role, which School Plan
+        teachers don't reliably have set to 'TEACHER' (SchoolStaff.school_role
+        is a separate, unsynced field — see IsLessonPlanEligibleTeacher).
+        Role eligibility is already fully handled by the permission classes
+        above by the time this line runs, so re-checking it here via the
+        wrong field would incorrectly 404 legitimate school teachers.
+
+    Cache-first: if already generated, returns stored content without
+    calling the API again.
     """
-    permission_classes = [IsAuthenticated, HasLessonPlanAccess]
+    permission_classes = [IsAuthenticated, IsLessonPlanEligibleTeacher, HasLessonPlanAccess]
 
     def post(self, request, pk):
+        if not is_feature_enabled(AI_LESSON_PLANS_FLAG_KEY):
+            return Response(
+                {'error': 'The Lesson Plan Generator is currently disabled by the admin.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         try:
             plan = LessonPlan.objects.select_related('subject', 'teacher').get(
                 pk=pk, teacher=request.user,

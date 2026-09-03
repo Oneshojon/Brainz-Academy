@@ -185,12 +185,17 @@ class LessonPlan(models.Model):
         ('MIXED',    'Mixed ability'),
     ]
 
-    # Mirrors schools.Cohort.LEVEL_CHOICES exactly. Duplicated (not
-    # imported) deliberately: catalog must not depend on schools, and this
-    # model is used by individually-subscribed teachers who have no Cohort.
+    # Mirrors schools.Cohort.LEVEL_CHOICES for the Nigerian side (duplicated,
+    # not imported — catalog must not depend on schools). IGCSE values added
+    # so the same freeform LessonPlan works for British-curriculum teachers.
+    # Year 12/13 intentionally omitted — IGCSE ends at Year 11, no clean
+    # SS2/SS3 equivalent. Frontend shows only the subset matching the
+    # selected `curriculum`.
     CLASS_LEVEL_CHOICES = [
         ('JSS1', 'JSS1'), ('JSS2', 'JSS2'), ('JSS3', 'JSS3'),
         ('SS1', 'SS1'), ('SS2', 'SS2'), ('SS3', 'SS3'),
+        ('YEAR7', 'Year 7'), ('YEAR8', 'Year 8'), ('YEAR9', 'Year 9'),
+        ('YEAR10', 'Year 10'), ('YEAR11', 'Year 11'),
     ]
 
     teacher          = models.ForeignKey(
@@ -208,6 +213,14 @@ class LessonPlan(models.Model):
                            blank=True,
                            help_text="Optional extra context: resources on hand, prior lesson, exam focus, etc."
                        )
+
+    school_name      = models.CharField(
+                        max_length=150, blank=True,
+                        help_text="Shown on the generated lesson plan header. School "
+                                    "Plan teachers get this auto-filled from their school "
+                                    "(editable); individual teachers can enter their own "
+                                    "or leave blank to fall back to 'Brainz Academy'.",
+                    )
 
     objectives       = models.TextField(blank=True)
     activities       = models.TextField(blank=True)
@@ -234,6 +247,11 @@ class LessonPlan(models.Model):
     def short_title(self):
         snippet = (self.coverage[:60] + '…') if len(self.coverage) > 60 else self.coverage
         return f"{self.subject.name} — {snippet}"
+
+    @property
+    def effective_school_name(self):
+        """Display fallback — individual teachers who leave school_name blank."""
+        return self.school_name or "Brainz Academy"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. EXAM STRUCTURE  (ExamBoard → ExamSeries → Question · Choice · TheoryAnswer)
@@ -813,6 +831,14 @@ INITIAL_FLAGS = [
         'key': 'ai_lesson_notes', 'label': 'AI-Generated Lesson Notes',
         'description': 'When no PDF exists for a topic, offer AI-generated notes '
                        'as a fallback. Teachers must accept before content is shown.',
+        'is_enabled': True, 'visible_to': 'TEACHER',
+    },
+    {
+        'key': 'ai_lesson_plans', 'label': 'AI Lesson Plan Generator',
+        'description': "Platform-wide kill switch for the Lesson Plan Generator's live "
+                       "AI call (e.g. out of Anthropic credit). Independent of "
+                       "AIFeature/SchoolFeatureAccess, which govern who is entitled — "
+                       "this governs whether the call is live at all.",
         'is_enabled': True, 'visible_to': 'TEACHER',
     },
     {

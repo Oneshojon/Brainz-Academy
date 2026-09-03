@@ -113,6 +113,85 @@ class TestLessonPlanListCreate:
         response = client.get(reverse('lesson_plans:list'))
         assert response.status_code in (401, 403)
 
+    def test_student_cannot_create_plan(self, client):
+        student = UserFactory(role='STUDENT')
+        client.force_login(student)
+        subject = SubjectFactory()
+        response = client.post(
+            reverse('lesson_plans:list'),
+            data=json.dumps({
+                'subject': subject.id, 'curriculum': 'NIGERIAN', 'class_level': 'SS2',
+                'coverage': 'x', 'duration_minutes': 40, 'student_ability': 'MIXED',
+            }),
+            content_type='application/json',
+        )
+        assert response.status_code == 403
+
+    def test_school_admin_staff_cannot_create_plan(self, client):
+        """school_role='ADMIN' (e.g. a non-teaching Principal) is not a teacher."""
+        admin_staff = SchoolStaffFactory(school_role='ADMIN', is_active=True)
+        client.force_login(admin_staff.user)
+        subject = SubjectFactory()
+        response = client.post(
+            reverse('lesson_plans:list'),
+            data=json.dumps({
+                'subject': subject.id, 'curriculum': 'NIGERIAN', 'class_level': 'SS2',
+                'coverage': 'x', 'duration_minutes': 40, 'student_ability': 'MIXED',
+            }),
+            content_type='application/json',
+        )
+        assert response.status_code == 403
+
+    def test_school_teacher_with_base_role_student_can_still_create_plan(self, client):
+        """
+        Regression test for the exact gap this permission fixes: a School
+        Plan teacher invited via SchoolInviteRedeemView keeps base
+        role='STUDENT' (UserFactory default) — school_role='TEACHER' alone
+        must be enough.
+        """
+        staff = SchoolStaffFactory(school_role='TEACHER', is_active=True)
+        assert staff.user.role == 'STUDENT'  # sanity-check the gap exists
+        client.force_login(staff.user)
+        subject = SubjectFactory()
+        response = client.post(
+            reverse('lesson_plans:list'),
+            data=json.dumps({
+                'subject': subject.id, 'curriculum': 'NIGERIAN', 'class_level': 'SS2',
+                'coverage': 'x', 'duration_minutes': 40, 'student_ability': 'MIXED',
+            }),
+            content_type='application/json',
+        )
+        assert response.status_code == 201
+
+    def test_school_teacher_gets_school_name_autofilled(self, client, school_teacher_with_grant):
+        client.force_login(school_teacher_with_grant)
+        subject = SubjectFactory()
+        response = client.post(
+            reverse('lesson_plans:list'),
+            data=json.dumps({
+                'subject': subject.id, 'curriculum': 'NIGERIAN', 'class_level': 'SS2',
+                'coverage': "Hooke's Law", 'duration_minutes': 40, 'student_ability': 'MIXED',
+            }),
+            content_type='application/json',
+        )
+        assert response.status_code == 201
+        expected_school = school_teacher_with_grant.school_staff_profile.school.name
+        assert response.json()['school_name'] == expected_school
+
+    def test_individual_teacher_school_name_blank_falls_back_in_detail(self, client, unentitled_teacher):
+        client.force_login(unentitled_teacher)
+        subject = SubjectFactory()
+        response = client.post(
+            reverse('lesson_plans:list'),
+            data=json.dumps({
+                'subject': subject.id, 'curriculum': 'NIGERIAN', 'class_level': 'SS2',
+                'coverage': 'x', 'duration_minutes': 40, 'student_ability': 'MIXED',
+            }),
+            content_type='application/json',
+        )
+        assert response.json()['school_name'] == ''
+        assert response.json()['effective_school_name'] == 'Brainz Academy'
+
 
 @pytest.mark.django_db
 class TestLessonPlanDetailDelete:
@@ -217,3 +296,35 @@ class TestLessonPlanGenerate:
 
         response = client.post(reverse('lesson_plans:generate', args=[plan.id]))
         assert response.status_code == 404
+
+    def test_ai_lesson_plans_flag_off_returns_404_for_entitled_teacher(self, client, teacher_pro_user):
+        from catalog.models import FeatureFlag
+        from django.core.cache import cache
+
+        FeatureFlag.objects.filter(key='ai_lesson_plans').update(is_enabled=False)
+        cache.clear()
+
+        plan = LessonPlanFactory(teacher=teacher_pro_user)
+        client.force_login(teacher_pro_user)
+
+        with patch('services.ai_service.generate_lesson_plan') as mock_generate:
+            response = client.post(reverse('lesson_plans:generate', args=[plan.id]))
+
+        assert response.status_code == 404
+        assert 'disabled by the admin' in response.json()['error']
+        mock_generate.assert_not_called()
+
+    def test_school_admin_staff_cannot_generate_even_with_grant(self, client):
+        """Same role boundary as create/list — entitlement isn't the gate here, role is."""
+        feature = AIFeatureFactory(key='lesson_plan_generator', label='Lesson Plan Generator')
+        school = SchoolFactory(status='ACTIVE')
+        admin_staff = SchoolStaffFactory(school=school, school_role='ADMIN', is_active=True)
+        SchoolFeatureAccessFactory(
+            school=school, feature=feature, status='TRIAL',
+            trial_expires_at=timezone.now() + timedelta(days=7),
+        )
+        plan = LessonPlanFactory(teacher=admin_staff.user)
+        client.force_login(admin_staff.user)
+
+        response = client.post(reverse('lesson_plans:generate', args=[plan.id]))
+        assert response.status_code == 403

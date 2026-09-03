@@ -18,16 +18,18 @@ class LessonPlanListSerializer(serializers.ModelSerializer):
 
 class LessonPlanDetailSerializer(serializers.ModelSerializer):
     """Full record — used when opening a single plan."""
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
-    short_title  = serializers.CharField(read_only=True)
+    subject_name         = serializers.CharField(source='subject.name', read_only=True)
+    short_title           = serializers.CharField(read_only=True)
+    effective_school_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = LessonPlan
         fields = [
             'id', 'subject', 'subject_name', 'curriculum', 'class_level',
             'coverage', 'duration_minutes', 'class_size', 'student_ability',
-            'additional_notes', 'objectives', 'activities', 'timing_breakdown',
-            'assessment', 'is_generated', 'short_title', 'created_at', 'updated_at',
+            'additional_notes', 'school_name', 'effective_school_name',
+            'objectives', 'activities', 'timing_breakdown', 'assessment',
+            'is_generated', 'short_title', 'created_at', 'updated_at',
         ]
         read_only_fields = ['objectives', 'activities', 'timing_breakdown', 'assessment', 'is_generated']
 
@@ -39,8 +41,12 @@ class LessonPlanCreateSerializer(serializers.ModelSerializer):
         model = LessonPlan
         fields = [
             'subject', 'curriculum', 'class_level', 'coverage',
-            'duration_minutes', 'class_size', 'student_ability', 'additional_notes',
+            'duration_minutes', 'class_size', 'student_ability',
+            'additional_notes', 'school_name',
         ]
+        extra_kwargs = {
+            'school_name': {'required': False, 'allow_blank': True},
+        }
 
     def validate_duration_minutes(self, value):
         if value <= 0 or value > 300:

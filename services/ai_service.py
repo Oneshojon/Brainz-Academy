@@ -168,18 +168,33 @@ def generate_lesson_plan(subject_name: str, curriculum: str, prompt: str) -> dic
                               the model's response could not be parsed as
                               the required structured JSON.
     """
-    curriculum_label = (
-        "Cambridge/Edexcel IGCSE (British)" if curriculum == 'IGCSE'
-        else "WAEC/NECO/JAMB (Nigerian)"
-    )
+    if curriculum == 'IGCSE':
+        curriculum_label = "Cambridge/Edexcel IGCSE (British)"
+        structure_guidance = (
+            "Follow UK lesson-planning convention: 'objectives' should read as "
+            "Learning Objectives/Outcomes; 'activities' should be staged as "
+            "Starter -> Main -> Plenary; 'assessment' should express success "
+            "criteria in tiered form (All students / Most students / Some students)."
+        )
+    else:
+        curriculum_label = "WAEC/NECO/JAMB (Nigerian)"
+        structure_guidance = (
+            "Follow the NERDC/WAEC scheme-of-work convention: 'objectives' should "
+            "read as Entry Behaviour followed by the lesson Objectives; "
+            "'activities' should list Instructional Materials followed by a "
+            "numbered Presentation (the teacher's step-by-step activities); "
+            "'assessment' should cover both Evaluation questions and an "
+            "Assignment."
+        )
+
     system_prompt = (
         f"You are an expert {subject_name} teacher planning a lesson for the "
-        f"{curriculum_label} curriculum. Respond with ONLY a single valid JSON "
-        f"object — no markdown code fences, no prose before or after it — "
-        f"containing exactly these four string keys: \"objectives\", "
-        f"\"activities\", \"timing_breakdown\", \"assessment\". Each value's "
-        f"text may use markdown formatting internally (bullets, bold, etc.), "
-        f"but the outer response must be parseable JSON."
+        f"{curriculum_label} curriculum. {structure_guidance} Respond with ONLY a "
+        f"single valid JSON object — no markdown code fences, no prose before or "
+        f"after it — containing exactly these four string keys: \"objectives\", "
+        f"\"activities\", \"timing_breakdown\", \"assessment\". Each value's text "
+        f"may use markdown formatting internally (bullets, bold, etc.), but the "
+        f"outer response must be parseable JSON."
     )
 
     try:
