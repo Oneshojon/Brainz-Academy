@@ -1,8 +1,9 @@
 from django.contrib import admin
-from catalog.models import Worksheet, LessonNote, FeatureFlag, SubscriptionPlan, UserSubscription
+from catalog.models import Worksheet, LessonNote, LessonPlan, FeatureFlag, SubscriptionPlan, UserSubscription
 from .models import Subject, Theme, Topic, ExamBoard, ExamSeries, Question, Choice, TheoryAnswer
 from catalog.models import PastPaper
 from catalog.models import PlatformSettings
+from catalog.models import AIFeature
 
 
 @admin.register(PastPaper)
@@ -72,6 +73,16 @@ class LessonNoteAdmin(admin.ModelAdmin):
     search_fields = ['title', 'topic__name']
 
 
+@admin.register(LessonPlan)
+class LessonPlanAdmin(admin.ModelAdmin):
+    list_display  = ['short_title', 'teacher', 'subject', 'curriculum', 'class_level', 'is_generated', 'updated_at']
+    list_filter   = ['curriculum', 'class_level', 'student_ability', 'is_generated', 'subject']
+    search_fields = ['coverage', 'teacher__email', 'subject__name']
+    # teacher and subject are both rendered per row — one join each, avoided per row.
+    list_select_related = ['teacher', 'subject']
+    date_hierarchy = 'created_at'
+
+
 @admin.register(ExamBoard)
 class ExamBoardAdmin(admin.ModelAdmin):
     list_display = ['name', 'abbreviation']
@@ -107,6 +118,27 @@ class TheoryAnswerAdmin(admin.ModelAdmin):
 class FeatureFlagAdmin(admin.ModelAdmin):
     list_display = ['label', 'key', 'is_enabled', 'visible_to', 'updated_at']
     list_filter  = ['is_enabled', 'visible_to']
+
+
+@admin.register(AIFeature)
+class AIFeatureAdmin(admin.ModelAdmin):
+    """No FK columns on this model, so no list_select_related needed."""
+    list_display = [
+        'label', 'key', 'is_ai_powered', 'default_pricing_mode',
+        'default_price', 'is_advertised', 'grant_count',
+    ]
+    list_filter  = ['is_ai_powered', 'default_pricing_mode', 'is_advertised']
+    search_fields = ['key', 'label']
+
+    def get_queryset(self, request):
+        # Annotate the per-school grant count once here rather than letting
+        # grant_count() below issue one query per row on the changelist.
+        from django.db.models import Count
+        return super().get_queryset(request).annotate(_grant_count=Count('school_grants'))
+
+    @admin.display(description='Schools granted', ordering='_grant_count')
+    def grant_count(self, obj):
+        return obj._grant_count
 
 
 @admin.register(SubscriptionPlan)

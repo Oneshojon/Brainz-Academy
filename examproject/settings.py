@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'payments',
     'contact',
     'schools',
+    'lesson_plans',
     'teacher',
     'messaging',
     'corsheaders',

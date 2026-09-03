@@ -199,6 +199,78 @@ class SchoolStaff(models.Model):
     @property
     def is_school_admin(self):
         return self.school_role == 'ADMIN'
+    
+
+class SchoolFeatureAccess(models.Model):
+    """
+    A single school's access grant for a single catalog.AIFeature.
+    School Plan membership alone does NOT grant access to any AI feature —
+    a school only gets access once it has a row here, manually priced/
+    trialed after a real conversation with the school (Option B —
+    manual/discussion-driven pricing, not a per-seat formula).
+    """
+
+    STATUS_CHOICES = [
+        ('TRIAL',  'Trial'),
+        ('PAID',   'Paid'),
+        ('LOCKED', 'Locked'),
+    ]
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='feature_access_grants')
+    feature = models.ForeignKey(
+        'catalog.AIFeature', on_delete=models.CASCADE, related_name='school_grants',
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='LOCKED')
+    trial_expires_at = models.DateTimeField(
+        null=True, blank=True, help_text="Only used when status is TRIAL.",
+    )
+    quoted_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Manually agreed price (NGN) for this school, distinct from the feature's default.",
+    )
+    paid_until = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Only used when status is PAID. Blank = paid access does not expire "
+                  "until manually revoked.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('school', 'feature')
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['school', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.school.name} — {self.feature.label} ({self.status})"
+
+    @property
+    def is_active(self):
+        if self.status == 'PAID':
+            if self.paid_until and timezone.now() > self.paid_until:
+                return False
+            return True
+        if self.status == 'TRIAL':
+            if not self.trial_expires_at:
+                return False
+            return timezone.now() <= self.trial_expires_at
+        return False
+
+    def activate_trial(self, expires_at):
+        self.status = 'TRIAL'
+        self.trial_expires_at = expires_at
+        self.save(update_fields=['status', 'trial_expires_at', 'updated_at'])
+
+    def activate_paid(self, paid_until=None):
+        self.status = 'PAID'
+        self.paid_until = paid_until
+        self.save(update_fields=['status', 'paid_until', 'updated_at'])
+
+    def lock(self):
+        self.status = 'LOCKED'
+        self.save(update_fields=['status', 'updated_at'])
 
 
 # ══════════════════════════════════════════════════════════════════════════

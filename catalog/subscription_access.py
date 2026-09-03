@@ -222,3 +222,34 @@ def check_lesson_note_access(user, topic):
         'slots_remaining':  FreeTeacherTopicAccess.slots_remaining(user),
         'reason':           reason,
     }
+
+
+def has_ai_feature_access(user, feature_key):
+    """
+    Whether `user` can access the AI-gated feature identified by
+    `feature_key` (a catalog.AIFeature.key, e.g. 'lesson_plan_generator').
+    Additive to has_subscription() -- never replaces it.
+    """
+    if not user.is_authenticated:
+        return False
+
+    if has_subscription(user, 'TEACHER_PRO'):
+        return True
+
+    staff = getattr(user, 'school_staff_profile', None)
+    if not staff or not staff.is_active:
+        return False
+    if not staff.school.is_active:
+        return False
+
+    from schools.models import SchoolFeatureAccess
+
+    grant = (
+        SchoolFeatureAccess.objects
+        .select_related('feature')
+        .filter(school_id=staff.school_id, feature__key=feature_key)
+        .first()
+    )
+    if not grant:
+        return False
+    return grant.is_active

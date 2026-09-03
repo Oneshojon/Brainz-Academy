@@ -8,6 +8,7 @@ contact/admin.py.
 """
 
 from django.contrib import admin
+from django.db.models import Count, Q
 
 from .models import (
     AcademicTerm,
@@ -16,6 +17,7 @@ from .models import (
     ClassGroup,
     CohortEnrollment,
     School,
+    SchoolFeatureAccess,
     SchoolInvite,
     SchoolMemo,
     SchoolPlan,
@@ -60,6 +62,37 @@ class SchoolSubscriptionAdmin(admin.ModelAdmin):
     # school and plan are both rendered per row — one join each, avoided per row.
     list_select_related = ('school', 'plan')
     date_hierarchy = 'created_at'
+
+
+@admin.register(SchoolFeatureAccess)
+class SchoolFeatureAccessAdmin(admin.ModelAdmin):
+    """
+    Per-school AI feature grant. `active_seat_count` is shown alongside the
+    pricing fields so the admin has the school's actual size as context
+    when setting/adjusting `quoted_price` — per the locked decision, pricing
+    here is manual/discussion-driven, not an auto-computed formula; this
+    column exists purely as reference, not as an input.
+    """
+    list_display = (
+        'school', 'feature', 'status', 'quoted_price',
+        'active_seat_count', 'trial_expires_at', 'paid_until',
+    )
+    list_filter = ('status', 'feature')
+    search_fields = ('school__name', 'feature__label', 'feature__key')
+    # school and feature are both rendered per row — one join each, avoided per row.
+    list_select_related = ('school', 'feature')
+    date_hierarchy = 'updated_at'
+
+    def get_queryset(self, request):
+        # Annotate active staff count once here instead of a per-row query
+        # in active_seat_count() below.
+        return super().get_queryset(request).annotate(
+            _active_seat_count=Count('school__staff', filter=Q(school__staff__is_active=True))
+        )
+
+    @admin.display(description='Active seats', ordering='_active_seat_count')
+    def active_seat_count(self, obj):
+        return obj._active_seat_count
 
 
 @admin.register(SchoolStaff)

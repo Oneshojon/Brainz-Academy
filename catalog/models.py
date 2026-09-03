@@ -157,6 +157,84 @@ class Worksheet(models.Model):
         return f"Worksheet: {self.topic.name}"
 
 
+
+class LessonPlan(models.Model):
+    """
+    A teacher-authored, AI-assisted lesson plan — teacher-facing (objectives,
+    activities, timing, assessment), distinct from LessonNote (student-facing
+    revision content, one shared note per Topic).
+
+    Deliberately freeform (no Topic FK): two teachers on the same topic plan
+    differently, so a plan is scoped to a teacher's own description of what
+    they're covering, not pinned to the Topic taxonomy.
+
+    Gated via catalog.subscription_access.has_ai_feature_access(). Available
+    to BOTH individually-subscribed (TEACHER_PRO) teachers and School Plan
+    teachers whose school holds a valid grant for 'lesson_plan_generator'.
+    """
+
+    CURRICULUM_CHOICES = [
+        ('NIGERIAN', 'Nigerian (WAEC / NECO / JAMB)'),
+        ('IGCSE',    'British (IGCSE)'),
+    ]
+
+    ABILITY_CHOICES = [
+        ('FAST',     'Fast learners'),
+        ('MODERATE', 'Moderate pace'),
+        ('SLOW',     'Slow learners'),
+        ('MIXED',    'Mixed ability'),
+    ]
+
+    # Mirrors schools.Cohort.LEVEL_CHOICES exactly. Duplicated (not
+    # imported) deliberately: catalog must not depend on schools, and this
+    # model is used by individually-subscribed teachers who have no Cohort.
+    CLASS_LEVEL_CHOICES = [
+        ('JSS1', 'JSS1'), ('JSS2', 'JSS2'), ('JSS3', 'JSS3'),
+        ('SS1', 'SS1'), ('SS2', 'SS2'), ('SS3', 'SS3'),
+    ]
+
+    teacher          = models.ForeignKey(
+                           settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                           related_name='lesson_plans',
+                       )
+    subject          = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='lesson_plans')
+    curriculum       = models.CharField(max_length=10, choices=CURRICULUM_CHOICES, default='NIGERIAN')
+    class_level      = models.CharField(max_length=10, choices=CLASS_LEVEL_CHOICES)
+    coverage         = models.TextField(help_text="What this lesson covers, in the teacher's own words.")
+    duration_minutes = models.PositiveIntegerField(help_text="Lesson length in minutes.")
+    class_size       = models.PositiveIntegerField(null=True, blank=True)
+    student_ability  = models.CharField(max_length=10, choices=ABILITY_CHOICES, default='MIXED')
+    additional_notes = models.TextField(
+                           blank=True,
+                           help_text="Optional extra context: resources on hand, prior lesson, exam focus, etc."
+                       )
+
+    objectives       = models.TextField(blank=True)
+    activities       = models.TextField(blank=True)
+    timing_breakdown = models.TextField(blank=True)
+    assessment       = models.TextField(blank=True)
+    is_generated     = models.BooleanField(
+                           default=False,
+                           help_text="True once AI content has been generated and accepted for this plan.",
+                       )
+
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['teacher', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.subject.name} lesson plan — {self.teacher.email} ({self.class_level})"
+
+    @property
+    def short_title(self):
+        snippet = (self.coverage[:60] + '…') if len(self.coverage) > 60 else self.coverage
+        return f"{self.subject.name} — {snippet}"
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. EXAM STRUCTURE  (ExamBoard → ExamSeries → Question · Choice · TheoryAnswer)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -796,6 +874,55 @@ def _seed_flags():
         FeatureFlag.objects.get_or_create(key=flag_data['key'], defaults=flag_data)
     print(f"✅ {len(INITIAL_FLAGS)} feature flags seeded.")
 
+
+class AIFeature(models.Model):
+    """
+    Registry of individually-priced/gated features (AI-powered or not).
+    Separate from FeatureFlag: FeatureFlag is a plain platform-wide on/off
+    switch with no pricing concept. AIFeature exists specifically for
+    features that need per-school trial/paid access — see
+    schools.SchoolFeatureAccess for the per-school grant record, and
+    catalog.subscription_access.has_ai_feature_access() for the gating
+    check that ties the two together.
+    """
+
+    PRICING_MODE_CHOICES = [
+        ('FREE',       'Free — always free, no trial clock'),
+        ('FREE_UNTIL', 'Free until a set date, then requires payment'),
+        ('PAID',       'Paid — requires an active paid grant'),
+    ]
+
+    key = models.SlugField(
+        unique=True,
+        help_text="Snake_case identifier used in code, e.g. 'lesson_plan_generator'",
+    )
+    label = models.CharField(max_length=120, help_text="Human-readable name shown in admin panel")
+    description = models.TextField(blank=True, help_text="What this feature does")
+    is_ai_powered = models.BooleanField(
+        default=True,
+        help_text="Whether this feature makes live AI API calls (informs cost/pricing decisions).",
+    )
+    default_pricing_mode = models.CharField(
+        max_length=10, choices=PRICING_MODE_CHOICES, default='PAID',
+        help_text="Starting pricing mode copied onto a school's grant when first accessed.",
+    )
+    default_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Starting quoted price (NGN) copied onto a school's grant when first created.",
+    )
+    is_advertised = models.BooleanField(
+        default=True,
+        help_text="Shown on a school-facing 'features' page even before that school has "
+                  "been granted access (e.g. 'coming soon' / 'ask about this').",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['label']
+
+    def __str__(self):
+        return f"{self.label} ({self.key})"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 8. SUBSCRIPTION PLANS SEED DATA

@@ -47,6 +47,7 @@ urlpatterns = [
     # ── API ───────────────────────────────────────────────────────
     path('api/catalog/', include('catalog.urls')),
 
+    path('api/lesson-plans/', include('lesson_plans.urls', namespace='lesson_plans')),
     # ── Payments ──────────────────────────────────────────────────
     path('payments/', include('payments.urls')),
 
