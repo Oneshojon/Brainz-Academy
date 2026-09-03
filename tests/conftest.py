@@ -203,6 +203,35 @@ class PastPaperFactory(factory.django.DjangoModelFactory):
     paper_type  = 'OBJ'
 
 
+class LessonPlanFactory(factory.django.DjangoModelFactory):
+    """LessonPlan is freeform (no Topic FK) — see model docstring."""
+    class Meta:
+        model = 'catalog.LessonPlan'
+
+    teacher          = factory.SubFactory(UserFactory, role='TEACHER')
+    subject          = factory.SubFactory(SubjectFactory)
+    curriculum       = 'NIGERIAN'
+    class_level      = 'SS2'
+    coverage         = "Hooke's Law and simple harmonic motion basics"
+    duration_minutes = 40
+    class_size       = 35
+    student_ability  = 'MIXED'
+    additional_notes = ''
+
+
+class AIFeatureFactory(factory.django.DjangoModelFactory):
+    """AIFeature is in the catalog app. See catalog.subscription_access.has_ai_feature_access."""
+    class Meta:
+        model = 'catalog.AIFeature'
+        django_get_or_create = ('key',)
+
+    key = factory.Sequence(lambda n: f'ai_feature_{n}')
+    label = factory.Sequence(lambda n: f'AI Feature {n}')
+    is_ai_powered = True
+    default_pricing_mode = 'PAID'
+    default_price = 20000
+    is_advertised = True
+
 class PracticeSessionFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = 'practice.PracticeSession'

@@ -13,7 +13,7 @@ import factory
 from django.utils import timezone
 from datetime import timedelta
 
-from tests.conftest import SubjectFactory, UserFactory
+from tests.conftest import AIFeatureFactory, SubjectFactory, UserFactory  # noqa: F401
 
 
 class SchoolFactory(factory.django.DjangoModelFactory):
@@ -48,6 +48,24 @@ class SchoolSubscriptionFactory(factory.django.DjangoModelFactory):
     status     = 'ACTIVE'
     started_at = factory.LazyFunction(timezone.now)
     expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=90))
+
+
+class SchoolFeatureAccessFactory(factory.django.DjangoModelFactory):
+    """
+    is_active property: PAID is active unless paid_until is set and in the
+    past; TRIAL is active only while trial_expires_at is in the future.
+    Default here is an active TRIAL, matching the most common "just
+    granted" test setup — override status/dates for other cases.
+    """
+    class Meta:
+        model = 'schools.SchoolFeatureAccess'
+
+    school            = factory.SubFactory(SchoolFactory)
+    feature           = factory.SubFactory(AIFeatureFactory)
+    status            = 'TRIAL'
+    trial_expires_at  = factory.LazyFunction(lambda: timezone.now() + timedelta(days=14))
+    quoted_price      = None
+    paid_until        = None
 
 
 class SchoolStaffFactory(factory.django.DjangoModelFactory):

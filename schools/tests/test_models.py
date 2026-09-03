@@ -11,9 +11,9 @@ from datetime import timedelta
 
 from tests.conftest import SubjectFactory, UserFactory
 from schools.tests.factories import (
-    AcademicTermFactory, ClassEnrollmentFactory, ClassGroupFactory,
-    CohortEnrollmentFactory, CohortFactory, SchoolFactory, SchoolInviteFactory,
-    SchoolMemoFactory, SchoolPlanFactory, SchoolStaffFactory,
+    AcademicTermFactory, AIFeatureFactory, ClassEnrollmentFactory, ClassGroupFactory,
+    CohortEnrollmentFactory, CohortFactory, SchoolFactory, SchoolFeatureAccessFactory,
+    SchoolInviteFactory, SchoolMemoFactory, SchoolPlanFactory, SchoolStaffFactory,
     SchoolSubscriptionFactory,
 )
 
@@ -353,3 +353,76 @@ class TestSchoolMemo:
         cohort = CohortFactory()
         memo = SchoolMemoFactory(school=cohort.school, audience='COHORT', target_cohort=cohort)
         assert memo.target_cohort == cohort
+
+
+# ---------------------------------------------------------------------------
+# SchoolFeatureAccess — is_active mirrors SchoolSubscription's shape
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestSchoolFeatureAccessIsActive:
+
+    def test_trial_with_future_expiry_is_active(self):
+        grant = SchoolFeatureAccessFactory(
+            status='TRIAL', trial_expires_at=timezone.now() + timedelta(days=5),
+        )
+        assert grant.is_active is True
+
+    def test_trial_with_past_expiry_is_not_active(self):
+        grant = SchoolFeatureAccessFactory(
+            status='TRIAL', trial_expires_at=timezone.now() - timedelta(days=1),
+        )
+        assert grant.is_active is False
+
+    def test_trial_with_no_expiry_set_is_not_active(self):
+        grant = SchoolFeatureAccessFactory(status='TRIAL', trial_expires_at=None)
+        assert grant.is_active is False
+
+    def test_paid_with_no_expiry_is_active(self):
+        grant = SchoolFeatureAccessFactory(status='PAID', paid_until=None)
+        assert grant.is_active is True
+
+    def test_paid_with_future_expiry_is_active(self):
+        grant = SchoolFeatureAccessFactory(
+            status='PAID', paid_until=timezone.now() + timedelta(days=30),
+        )
+        assert grant.is_active is True
+
+    def test_paid_with_past_expiry_is_not_active(self):
+        grant = SchoolFeatureAccessFactory(
+            status='PAID', paid_until=timezone.now() - timedelta(days=1),
+        )
+        assert grant.is_active is False
+
+    def test_locked_is_never_active(self):
+        grant = SchoolFeatureAccessFactory(status='LOCKED')
+        assert grant.is_active is False
+
+    def test_activate_trial_sets_status_and_expiry(self):
+        grant = SchoolFeatureAccessFactory(status='LOCKED', trial_expires_at=None)
+        expires = timezone.now() + timedelta(days=14)
+        grant.activate_trial(expires)
+        grant.refresh_from_db()
+        assert grant.status == 'TRIAL'
+        assert grant.trial_expires_at == expires
+
+    def test_activate_paid_sets_status_and_paid_until(self):
+        grant = SchoolFeatureAccessFactory(status='TRIAL')
+        until = timezone.now() + timedelta(days=365)
+        grant.activate_paid(paid_until=until)
+        grant.refresh_from_db()
+        assert grant.status == 'PAID'
+        assert grant.paid_until == until
+
+    def test_lock_sets_status_to_locked(self):
+        grant = SchoolFeatureAccessFactory(status='PAID')
+        grant.lock()
+        grant.refresh_from_db()
+        assert grant.status == 'LOCKED'
+
+    def test_unique_together_school_and_feature(self):
+        school = SchoolFactory()
+        feature = AIFeatureFactory()
+        SchoolFeatureAccessFactory(school=school, feature=feature)
+        with pytest.raises(IntegrityError):
+            SchoolFeatureAccessFactory(school=school, feature=feature)

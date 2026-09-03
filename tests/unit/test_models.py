@@ -10,7 +10,8 @@ from tests.conftest import (
     UserFactory, UserSubscriptionFactory, SubscriptionPlanFactory,
     QuestionFactory, ChoiceFactory, TheoryAnswerFactory,
     TopicFactory, LessonNoteFactory, WorksheetFactory,
-    PracticeSessionFactory, UserAnswerFactory,
+    PracticeSessionFactory, UserAnswerFactory, AIFeatureFactory,
+    LessonPlanFactory, SubjectFactory,
 )
 
 
@@ -325,3 +326,88 @@ class TestUserSubscriptionIsActive:
         plan = SubscriptionPlanFactory()
         sub = UserSubscriptionFactory(user=user, plan=plan, status='CANCELLED')
         assert sub.is_active is False
+
+
+@pytest.mark.django_db
+class TestAIFeatureModel:
+
+    def test_str_includes_label_and_key(self):
+        feature = AIFeatureFactory(label='Lesson Plan Generator', key='lesson_plan_generator')
+        assert 'Lesson Plan Generator' in str(feature)
+        assert 'lesson_plan_generator' in str(feature)
+
+    def test_key_must_be_unique(self):
+        from django.db import IntegrityError
+        from catalog.models import AIFeature
+
+        AIFeatureFactory(key='lesson_plan_generator')
+        with pytest.raises(IntegrityError):
+            # .create() bypasses the factory's django_get_or_create, so
+            # this is a genuine duplicate-key insert attempt.
+            AIFeature.objects.create(key='lesson_plan_generator', label='Duplicate')
+
+    def test_default_pricing_mode_is_paid(self):
+        feature = AIFeatureFactory()
+        assert feature.default_pricing_mode == 'PAID'
+
+    def test_is_advertised_defaults_true(self):
+        feature = AIFeatureFactory()
+        assert feature.is_advertised is True
+
+
+# ---------------------------------------------------------------------------
+# LessonPlan — freeform, structured-output, teacher-scoped
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestLessonPlanModel:
+
+    def test_defaults_to_not_generated(self):
+        plan = LessonPlanFactory()
+        assert plan.is_generated is False
+        assert plan.objectives == ''
+        assert plan.activities == ''
+        assert plan.timing_breakdown == ''
+        assert plan.assessment == ''
+
+    def test_two_teachers_can_plan_the_same_coverage(self):
+        """No unique_together — freeform means duplicates are expected, not an error."""
+        subject = SubjectFactory()
+        LessonPlanFactory(subject=subject, coverage="Hooke's Law")
+        # Must not raise.
+        LessonPlanFactory(subject=subject, coverage="Hooke's Law")
+        assert subject.lesson_plans.count() == 2
+
+    def test_short_title_truncates_long_coverage(self):
+        long_coverage = 'A' * 100
+        plan = LessonPlanFactory(coverage=long_coverage)
+        assert plan.short_title.endswith('…')
+        assert len(plan.short_title) < len(long_coverage) + len(plan.subject.name) + 10
+
+    def test_short_title_does_not_truncate_short_coverage(self):
+        plan = LessonPlanFactory(coverage='Short scope')
+        assert 'Short scope' in plan.short_title
+        assert '…' not in plan.short_title
+
+    def test_str_includes_subject_and_teacher_email(self):
+        plan = LessonPlanFactory()
+        assert plan.subject.name in str(plan)
+        assert plan.teacher.email in str(plan)
+
+    def test_curriculum_defaults_to_nigerian(self):
+        from catalog.models import LessonPlan
+        plan = LessonPlan.objects.create(
+            teacher=UserFactory(role='TEACHER'),
+            subject=SubjectFactory(),
+            class_level='SS1',
+            coverage='Test coverage',
+            duration_minutes=40,
+        )
+        assert plan.curriculum == 'NIGERIAN'
+
+    def test_ordered_most_recent_first(self):
+        older = LessonPlanFactory()
+        newer = LessonPlanFactory()
+        from catalog.models import LessonPlan
+        plans = list(LessonPlan.objects.all())
+        assert plans.index(newer) < plans.index(older)
