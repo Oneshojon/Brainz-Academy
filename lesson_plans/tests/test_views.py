@@ -328,3 +328,94 @@ class TestLessonPlanGenerate:
 
         response = client.post(reverse('lesson_plans:generate', args=[plan.id]))
         assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestLessonPlanDownload:
+
+    def test_download_pdf_for_generated_plan(self, client, teacher_pro_user):
+        plan = LessonPlanFactory(teacher=teacher_pro_user, is_generated=True,
+                                  objectives='Obj.', activities='Act.',
+                                  timing_breakdown='Time.', assessment='Assess.')
+        client.force_login(teacher_pro_user)
+
+        with patch('services.pandoc_export.markdown_to_pdf_bytes', return_value=b'%PDF-fake') as mock_pdf:
+            response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=pdf')
+
+        assert response.status_code == 200
+        assert response['Content-Type'] == 'application/pdf'
+        assert 'attachment' in response['Content-Disposition']
+        assert response.content == b'%PDF-fake'
+        mock_pdf.assert_called_once()
+
+    def test_download_docx_for_generated_plan(self, client, teacher_pro_user):
+        plan = LessonPlanFactory(teacher=teacher_pro_user, is_generated=True,
+                                  objectives='Obj.', activities='Act.',
+                                  timing_breakdown='Time.', assessment='Assess.')
+        client.force_login(teacher_pro_user)
+
+        with patch('services.pandoc_export.markdown_to_docx_bytes', return_value=b'PK-fake-docx') as mock_docx:
+            response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=docx')
+
+        assert response.status_code == 200
+        assert 'wordprocessingml' in response['Content-Type']
+        mock_docx.assert_called_once()
+
+    def test_invalid_format_returns_400(self, client, teacher_pro_user):
+        plan = LessonPlanFactory(teacher=teacher_pro_user, is_generated=True)
+        client.force_login(teacher_pro_user)
+        response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=txt')
+        assert response.status_code == 400
+
+    def test_cannot_download_a_draft_plan(self, client, teacher_pro_user):
+        plan = LessonPlanFactory(teacher=teacher_pro_user, is_generated=False)
+        client.force_login(teacher_pro_user)
+        response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=pdf')
+        assert response.status_code == 400
+        assert 'Generate this lesson plan' in response.json()['error']
+
+    def test_unentitled_teacher_cannot_download(self, client, unentitled_teacher):
+        plan = LessonPlanFactory(teacher=unentitled_teacher, is_generated=True)
+        client.force_login(unentitled_teacher)
+        response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=pdf')
+        assert response.status_code == 403
+
+    def test_lapsed_subscriber_loses_download_access(self, client):
+        """
+        Regression test for the explicit decision: entitlement is re-checked
+        on every download, not just at generation time -- a plan generated
+        while Pro becomes undownloadable once the subscription expires.
+        """
+        teacher = UserFactory(role='TEACHER')
+        plan = LessonPlanFactory(teacher=teacher, is_generated=True)
+
+        plan_sub = SubscriptionPlanFactory(plan_type='TEACHER_PRO', duration='MONTHLY')
+        UserSubscriptionFactory(
+            user=teacher, plan=plan_sub, status='ACTIVE',
+            expires_at=timezone.now() - timedelta(days=1),  # already lapsed
+        )
+
+        client.force_login(teacher)
+        response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=pdf')
+        assert response.status_code == 403
+
+    def test_download_allowed_for_anyone_when_platform_is_free(self, client):
+        """
+        HasLessonPlanAccess -> has_ai_feature_access -> has_subscription()
+        already short-circuits to True when PlatformSettings.subscription_required
+        is off -- proving the download re-check doesn't need special-casing
+        for free-mode; it's automatic via the existing chain.
+        """
+        from catalog.models import PlatformSettings
+        settings_row = PlatformSettings.get()
+        settings_row.subscription_required = False
+        settings_row.save()
+
+        teacher = UserFactory(role='TEACHER')  # no subscription at all
+        plan = LessonPlanFactory(teacher=teacher, is_generated=True)
+        client.force_login(teacher)
+
+        with patch('services.pandoc_export.markdown_to_pdf_bytes', return_value=b'%PDF-fake'):
+            response = client.get(reverse('lesson_plans:download', args=[plan.id]) + '?file_type=pdf')
+
+        assert response.status_code == 200

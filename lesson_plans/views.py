@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from django.http import HttpResponse
+import re
 
 from catalog.models import LessonPlan
 from catalog.feature_flags import is_feature_enabled
@@ -9,6 +11,7 @@ from .permissions import HasLessonPlanAccess, IsLessonPlanEligibleTeacher
 from .serializers import (
     LessonPlanCreateSerializer, LessonPlanDetailSerializer, LessonPlanListSerializer,
 )
+from .services import build_lesson_plan_markdown
 
 AI_LESSON_PLANS_FLAG_KEY = 'ai_lesson_plans'
 
@@ -45,6 +48,23 @@ def _default_school_name(user) -> str:
     if staff_profile is not None and staff_profile.is_active:
         return staff_profile.school.name
     return ''
+
+
+def _safe_filename(title: str) -> str:
+    """
+    Content-Disposition filenames must be ASCII-safe. LessonPlan.short_title
+    includes an em dash ("Subject — Coverage"), which is valid UTF-8 but not
+    Latin-1 -- Django silently RFC-2047-encodes the ENTIRE header value when
+    it can't represent it as Latin-1, turning "attachment; filename=..." into
+    an opaque "=?utf-8?b?...?=" blob browsers don't reliably parse as a
+    normal attachment. Stripped to ASCII here only -- the em dash is fine
+    inside the actual document text handed to pandoc; this only affects the
+    filename in the HTTP header.
+    """
+    ascii_title = title.encode('ascii', 'ignore').decode('ascii')
+    ascii_title = re.sub(r'\s+', '_', ascii_title).strip('_')
+    ascii_title = re.sub(r'_+', '_', ascii_title)
+    return ascii_title or 'Lesson_Plan'
 
 
 class LessonPlanListView(APIView):
@@ -167,3 +187,60 @@ class LessonPlanGenerateView(APIView):
         ])
 
         return Response({**LessonPlanDetailSerializer(plan).data, 'cached': False})
+
+
+class LessonPlanDownloadView(APIView):
+    """
+    GET /api/lesson-plans/<pk>/download/?format=pdf|docx
+
+    Read-only export -- unlike Test Builder's download (which persists a
+    SavedTest as a side effect), a LessonPlan is already fully persisted
+    the moment it's generated, so this is a plain GET with no mutation.
+
+    Re-checks HasLessonPlanAccess on every call (not just at generation
+    time), matching Test Builder's own precedent of re-checking entitlement
+    on every download rather than only once at creation -- a lapsed
+    subscriber loses re-download access the same way they'd lose a fresh
+    generate() call. This check is a no-op (always passes) whenever the
+    platform-wide PlatformSettings.subscription_required is off, since
+    has_ai_feature_access() -> has_subscription() already short-circuits
+    to True in that mode -- no separate handling needed here for that case.
+    """
+    permission_classes = [IsAuthenticated, IsLessonPlanEligibleTeacher, HasLessonPlanAccess]
+
+    CONTENT_TYPES = {
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'pdf': 'application/pdf',
+    }
+
+    def get(self, request, pk):
+        fmt = request.query_params.get('file_type', 'pdf').lower()
+        if fmt not in self.CONTENT_TYPES:
+            return Response({'error': f'Invalid format "{fmt}". Must be "pdf" or "docx".'}, status=400)
+
+        try:
+            plan = LessonPlan.objects.select_related('subject', 'teacher').get(
+                pk=pk, teacher=request.user,
+            )
+        except LessonPlan.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if not plan.is_generated:
+            return Response({'error': 'Generate this lesson plan before downloading it.'}, status=400)
+
+        markdown_text = build_lesson_plan_markdown(plan)
+
+        from services.pandoc_export import markdown_to_docx_bytes, markdown_to_pdf_bytes
+
+        try:
+            if fmt == 'docx':
+                content = markdown_to_docx_bytes(markdown_text, plan.short_title)
+            else:
+                content = markdown_to_pdf_bytes(markdown_text, plan.short_title)
+        except ValueError as exc:
+            return Response({'error': f'File generation failed: {exc}'}, status=500)
+
+        safe_title = _safe_filename(plan.short_title)
+        response = HttpResponse(content, content_type=self.CONTENT_TYPES[fmt])
+        response['Content-Disposition'] = f'attachment; filename="{safe_title}.{fmt}"'
+        return response
