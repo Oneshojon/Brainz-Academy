@@ -16,11 +16,19 @@ export default defineConfig({
       },
       exclude: [
         'node_modules/**',
-        'src/__tests__/**',
+        '**/__tests__/**',
         '*.config.*',
         'dist/**',
       ],
     },
-    include: ['src/__tests__/**/*.test.{js,jsx}'],
+    // Was 'src/__tests__/**/*.test.{js,jsx}' -- scoped to exactly the one
+    // __tests__ folder that existed at the time. That silently excluded
+    // every test added under a feature's own __tests__ folder (e.g.
+    // src/features/lessonPlans/__tests__/, src/shared/__tests__/) --
+    // Vitest found zero matches there and said nothing, so `npm test`
+    // kept reporting a clean pass while those suites never ran at all.
+    // Broadened to match any *.test.{js,jsx} anywhere under src/, however
+    // a given feature organizes its own tests.
+    include: ['src/**/*.test.{js,jsx}'],
   },
 })
