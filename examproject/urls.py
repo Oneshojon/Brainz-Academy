@@ -36,7 +36,7 @@ urlpatterns = [
     path('messaging/', include('messaging.urls', namespace='messaging')),
 
     # ── Clean URLs ────────────────────────────────────────────────
-    path('test-builder/', include('frontend.urls')),
+    path('tools/', include('frontend.urls')),
     path('school-plan/', include('schools.frontend_urls')), 
     path('cbt-practice/', include('practice.urls')),
     path('lesson-notes/', include('teacher.lesson_note_urls')),
@@ -58,7 +58,8 @@ urlpatterns = [
          template_name='robots.txt', content_type='text/plain')),
 
     # ── 301 Redirects ─────────────────────────────────────────────
-    re_path(r'^app/(?P<rest>.*)$',                          redirect_with_rest('test-builder')),
+    re_path(r'^app/(?P<rest>.*)$',                          redirect_with_rest('tools')),
+    re_path(r'^test-builder/(?P<rest>.*)$',                 redirect_with_rest('tools')),
     re_path(r'^student/(?P<rest>.*)$',                      redirect_with_rest('cbt-practice')),
     re_path(r'^teacher/lesson-notes/(?P<rest>.*)$',         redirect_with_rest('lesson-notes')),
     re_path(r'^practice/past-papers/(?P<rest>.*)$',         redirect_with_rest('past-papers')),

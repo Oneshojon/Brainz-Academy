@@ -17,6 +17,7 @@
     <nav class="teacher-nav">
       <a href="{% url 'Users:dashboard' %}">Dashboard</a>
       <a href="{% url 'frontend:frontend-index' %}">Test Builder ↗</a>
+      <a href="/tools/lesson-plans/">Lesson Plans ↗</a>
       <a href="{% url 'past_papers:past_papers' %}" class="nav-link">Past Papers</a>
       {% if user.is_admin %}
         <a href="{% url 'teacher:question_sets' %}">Question Sets</a>
@@ -95,6 +96,14 @@
         </div>
       </a>
       {% endif %}
+            <a href="/tools/lesson-plans/" class="quick-action">
+        <span class="quick-action-icon">📋</span>
+        <div>
+          <div class="quick-action-label">Lesson Plan Generator</div>
+          <div class="quick-action-desc">AI-assisted lesson plans, tailored to your class</div>
+        </div>
+      </a>
+      
       <a href="{% url 'lessonnotes:lesson_notes' %}" class="quick-action">
         <span class="quick-action-icon">📝</span>
         <div>
