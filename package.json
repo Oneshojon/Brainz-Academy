@@ -1,0 +1,9 @@
+{
+  "name": "brainz-academy",
+  "private": true,
+  "workspaces": [
+    "frontend/ui",
+    "schools/ui",
+    "packages/*"
+  ]
+}

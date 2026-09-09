@@ -2,7 +2,17 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App';
 
-const LessonPlansRouter = lazy(() => import('./features/lessonPlans/LessonPlansRouter'));
+// Extracted into a workspace package (packages/lesson-plan-generator) during
+// the school-portal build so schools/ui can mount the same component tree
+// under its own path -- see that package's LessonPlansLayout for why
+// logoTo/backLinks are passed explicitly rather than hardcoded there.
+const LessonPlansRouter = lazy(() => import('@brainz/lesson-plan-generator'));
+
+const LESSON_PLANS_LOGO_TO = '/';
+const LESSON_PLANS_BACK_LINKS = [
+  { label: '← Test Builder', to: '/' },
+  { label: '← Dashboard', href: '/teacher/' },
+];
 
 export default function AppRouter() {
   return (
@@ -13,7 +23,7 @@ export default function AppRouter() {
           path="/lesson-plans/*"
           element={
             <Suspense fallback={<RouteLoadingFallback />}>
-              <LessonPlansRouter />
+              <LessonPlansRouter logoTo={LESSON_PLANS_LOGO_TO} backLinks={LESSON_PLANS_BACK_LINKS} />
             </Suspense>
           }
         />
