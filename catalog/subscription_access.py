@@ -54,6 +54,56 @@ def subscription_required(plan_type, redirect_to='/pricing/'):
     return decorator
  
  
+# ── School Plan feature-grant lookup ──────────────────────────────────────────
+
+def _school_feature_grant_active(user, feature_key):
+    """
+    True if `user` is an active School Plan member — staff (teacher/admin)
+    OR an enrolled student — whose school currently holds an active
+    schools.SchoolFeatureAccess grant for `feature_key`.
+
+    Covers both AI-powered features (e.g. 'lesson_plan_generator') and
+    general, non-AI features registered with AIFeature.is_ai_powered=False
+    (e.g. 'practice_access', 'test_builder_access', 'lesson_notes_access').
+    School Plan membership alone never grants access on its own — a school
+    only unlocks a given feature once an admin has created/activated a
+    SchoolFeatureAccess row for it (TRIAL/PAID), same as the individual
+    subscription model. No grant row at all == not active, same as LOCKED.
+
+    Staff is checked before student enrollment since SchoolStaff is a
+    OneToOne (single extra query, no join needed); the CohortEnrollment
+    lookup only runs for the (much more common) student case.
+    """
+    if not user.is_authenticated:
+        return False
+
+    school = None
+    staff = getattr(user, 'school_staff_profile', None)
+    if staff and staff.is_active:
+        school = staff.school
+    else:
+        enrollment = (
+            user.cohort_enrollments
+            .filter(is_active=True)
+            .select_related('cohort__school')
+            .first()
+        )
+        if enrollment:
+            school = enrollment.cohort.school
+
+    if not school or not school.is_active:
+        return False
+
+    from schools.models import SchoolFeatureAccess
+
+    grant = (
+        SchoolFeatureAccess.objects
+        .filter(school_id=school.id, feature__key=feature_key)
+        .first()
+    )
+    return bool(grant and grant.is_active)
+
+
 # ── Practice session enforcement ──────────────────────────────────────────────
  
 def check_practice_access(user):
@@ -90,6 +140,18 @@ def check_practice_access(user):
  
     # Subscribed teachers get full practice access too
     if has_subscription(user, 'TEACHER_PRO'):
+        return {
+            'allowed':       True,
+            'max_questions': 9999,
+            'sessions_left': 9999,
+            'is_free':       False,
+            'reason':        '',
+        }
+
+    # School Plan member whose school has been granted free practice access
+    # — see _school_feature_grant_active. Falls through to the free tier
+    # below if the school has no such grant yet.
+    if _school_feature_grant_active(user, 'practice_access'):
         return {
             'allowed':       True,
             'max_questions': 9999,
@@ -155,6 +217,18 @@ def check_test_builder_access(user):
             'pdf_only':         False,
             'reason':           '',
         }
+
+    # School Plan teacher whose school has been granted free Test Builder
+    # access. Falls through to the free-teacher tier below otherwise.
+    if _school_feature_grant_active(user, 'test_builder_access'):
+        return {
+            'allowed':          True,
+            'is_free':          False,
+            'trials_remaining': 9999,
+            'max_questions':    9999,
+            'pdf_only':         False,
+            'reason':           '',
+        }
  
     # Free teacher
     tracker, _ = FreeUsageTracker.objects.get_or_create(user=user)
@@ -210,6 +284,17 @@ def check_lesson_note_access(user, topic):
             'slots_remaining':  9999,
             'reason':           '',
         }
+
+    # School Plan teacher whose school has been granted free lesson-notes
+    # access. Falls through to the free-teacher tier below otherwise.
+    if _school_feature_grant_active(user, 'lesson_notes_access'):
+        return {
+            'allowed':          True,
+            'is_free':          False,
+            'already_accessed': False,
+            'slots_remaining':  9999,
+            'reason':           '',
+        }
  
     # Free teacher
     already = FreeTeacherTopicAccess.has_accessed(user, topic)
@@ -226,8 +311,18 @@ def check_lesson_note_access(user, topic):
 
 def has_ai_feature_access(user, feature_key):
     """
-    Whether `user` can access the AI-gated feature identified by
-    `feature_key` (a catalog.AIFeature.key, e.g. 'lesson_plan_generator').
+    Whether `user` can access the feature identified by `feature_key` (a
+    catalog.AIFeature.key, e.g. 'lesson_plan_generator'). Despite the name
+    (kept for backwards compatibility with existing callers, e.g.
+    lesson_plans.permissions), this now also covers general/non-AI
+    features registered with AIFeature.is_ai_powered=False — the grant
+    mechanism (SchoolFeatureAccess) is identical either way.
+
+    True if:
+      - individually-subscribed TEACHER_PRO, OR
+      - a School Plan member (staff OR enrolled student) whose school
+        holds an active SchoolFeatureAccess grant for feature_key.
+
     Additive to has_subscription() -- never replaces it.
     """
     if not user.is_authenticated:
@@ -236,20 +331,4 @@ def has_ai_feature_access(user, feature_key):
     if has_subscription(user, 'TEACHER_PRO'):
         return True
 
-    staff = getattr(user, 'school_staff_profile', None)
-    if not staff or not staff.is_active:
-        return False
-    if not staff.school.is_active:
-        return False
-
-    from schools.models import SchoolFeatureAccess
-
-    grant = (
-        SchoolFeatureAccess.objects
-        .select_related('feature')
-        .filter(school_id=staff.school_id, feature__key=feature_key)
-        .first()
-    )
-    if not grant:
-        return False
-    return grant.is_active
+    return _school_feature_grant_active(user, feature_key)

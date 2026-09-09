@@ -418,3 +418,93 @@ class TestHistory:
         response = client.get(reverse('practice:history'))
         for s in response.context['sessions']:
             assert s.completed_at is not None
+
+
+# ---------------------------------------------------------------------------
+# School Plan members inheriting "general" (individually-gated) features
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestSchoolPlanGeneralFeatureAccess:
+    """
+    check_practice_access / check_test_builder_access / check_lesson_note_access
+    each gained one new branch: a School Plan member (staff or enrolled
+    student) whose school holds an active SchoolFeatureAccess grant for the
+    matching general AIFeature (is_ai_powered=False) gets full access, same
+    as an individual subscriber -- without one, they fall through to the
+    ordinary free tier. Lower-level unit tests for the grant lookup itself
+    live in schools/tests/test_feature_access.py.
+    """
+
+    def _school_teacher(self, feature_key):
+        from tests.conftest import AIFeatureFactory
+        from schools.tests.factories import SchoolFactory, SchoolFeatureAccessFactory, SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=True)
+        feature = AIFeatureFactory(key=feature_key, is_ai_powered=False)
+        SchoolFeatureAccessFactory(school=school, feature=feature, status='PAID', paid_until=None)
+        return staff.user
+
+    def _school_student(self, feature_key):
+        from tests.conftest import AIFeatureFactory
+        from schools.tests.factories import (
+            SchoolFactory, SchoolFeatureAccessFactory, AcademicTermFactory,
+            CohortFactory, CohortEnrollmentFactory,
+        )
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=True)
+        feature = AIFeatureFactory(key=feature_key, is_ai_powered=False)
+        SchoolFeatureAccessFactory(school=school, feature=feature, status='PAID', paid_until=None)
+        return enrollment.student
+
+    def test_school_teacher_with_test_builder_grant_gets_full_access(self):
+        from catalog.subscription_access import check_test_builder_access
+        user = self._school_teacher('test_builder_access')
+        access = check_test_builder_access(user)
+        assert access['allowed'] is True
+        assert access['is_free'] is False
+        assert access['pdf_only'] is False
+
+    def test_school_teacher_with_no_test_builder_grant_falls_back_to_free_tier(self):
+        from catalog.subscription_access import check_test_builder_access
+        from schools.tests.factories import SchoolFactory, SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=True)
+        access = check_test_builder_access(staff.user)
+        assert access['is_free'] is True
+
+    def test_school_teacher_with_lesson_notes_grant_gets_full_access(self, subject):
+        from catalog.subscription_access import check_lesson_note_access
+        from tests.conftest import TopicFactory
+        user = self._school_teacher('lesson_notes_access')
+        topic = TopicFactory(subject=subject)
+        access = check_lesson_note_access(user, topic)
+        assert access['allowed'] is True
+        assert access['is_free'] is False
+
+    def test_school_student_with_practice_grant_gets_unlimited_questions(self):
+        from catalog.subscription_access import check_practice_access
+        user = self._school_student('practice_access')
+        access = check_practice_access(user)
+        assert access['is_free'] is False
+        assert access['max_questions'] == 9999
+
+    def test_school_student_with_no_grant_falls_back_to_free_tier(self):
+        """
+        The fallback decision: no explicit grant == the same free-tier
+        limits as an unsubscribed individual, not a hard block.
+        """
+        from catalog.subscription_access import check_practice_access
+        from schools.tests.factories import (
+            SchoolFactory, AcademicTermFactory, CohortFactory, CohortEnrollmentFactory,
+        )
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=True)
+        access = check_practice_access(enrollment.student)
+        assert access['allowed'] is True   # still gets the free daily sessions
+        assert access['is_free'] is True
+        assert access['max_questions'] < 9999

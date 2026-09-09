@@ -22,7 +22,10 @@ from datetime import timedelta
 from django.utils import timezone
 
 from tests.conftest import AIFeatureFactory, SubscriptionPlanFactory, UserFactory, UserSubscriptionFactory
-from schools.tests.factories import SchoolFactory, SchoolFeatureAccessFactory, SchoolStaffFactory
+from schools.tests.factories import (
+    SchoolFactory, SchoolFeatureAccessFactory, SchoolStaffFactory,
+    AcademicTermFactory, CohortFactory, CohortEnrollmentFactory,
+)
 
 
 @pytest.fixture
@@ -133,5 +136,96 @@ class TestHasAIFeatureAccess:
         # Reload user fresh so cached attributes (active_subscription,
         # school_staff_profile) aren't already warm from setup above.
         fresh_user = type(staff.user).objects.get(pk=staff.user.pk)
+        with django_assert_num_queries(8):
+            has_ai_feature_access(fresh_user, feature.key)
+
+    # ── Student-side mirror of the staff cases above ──────────────────────
+    # SchoolStaff and CohortEnrollment are unrelated models -- the staff
+    # tests above never exercised this path at all before this change.
+
+    @staticmethod
+    def _enrolled_student(school_status='ACTIVE', is_active=True):
+        """
+        Builds a School Plan student: School -> AcademicTerm -> Cohort ->
+        CohortEnrollment, all consistently linked. Built in this order
+        (rather than passing school= directly into CohortFactory) because
+        Cohort.school is a SelfAttribute derived from academic_term.school
+        -- overriding it directly would leave the two out of sync.
+        """
+        school = SchoolFactory(status=school_status)
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=is_active)
+        return school, enrollment
+
+    def test_enrolled_student_with_active_trial_has_access(self, feature):
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student()
+        SchoolFeatureAccessFactory(
+            school=school, feature=feature, status='TRIAL',
+            trial_expires_at=timezone.now() + timedelta(days=7),
+        )
+        assert has_ai_feature_access(enrollment.student, feature.key) is True
+
+    def test_enrolled_student_with_expired_trial_has_no_access(self, feature):
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student()
+        SchoolFeatureAccessFactory(
+            school=school, feature=feature, status='TRIAL',
+            trial_expires_at=timezone.now() - timedelta(days=1),
+        )
+        assert has_ai_feature_access(enrollment.student, feature.key) is False
+
+    def test_enrolled_student_with_no_grant_has_no_access(self, feature):
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student()
+        assert has_ai_feature_access(enrollment.student, feature.key) is False
+
+    def test_inactive_enrollment_has_no_access(self, feature):
+        """A withdrawn/transferred student (is_active=False) must not inherit the school's grant."""
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student(is_active=False)
+        SchoolFeatureAccessFactory(school=school, feature=feature, status='PAID', paid_until=None)
+        assert has_ai_feature_access(enrollment.student, feature.key) is False
+
+    def test_student_at_suspended_school_has_no_access(self, feature):
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student(school_status='SUSPENDED')
+        SchoolFeatureAccessFactory(school=school, feature=feature, status='PAID', paid_until=None)
+        assert has_ai_feature_access(enrollment.student, feature.key) is False
+
+    def test_general_non_ai_feature_uses_the_same_grant_mechanism(self):
+        """
+        is_ai_powered=False features (Practice, Test Builder, Lesson Notes)
+        are gated identically to AI features -- same function, same
+        SchoolFeatureAccess model, just a different AIFeature row.
+        """
+        from catalog.subscription_access import has_ai_feature_access
+        general_feature = AIFeatureFactory(key='practice_access', is_ai_powered=False)
+        school, enrollment = self._enrolled_student()
+        SchoolFeatureAccessFactory(school=school, feature=general_feature, status='PAID', paid_until=None)
+        assert has_ai_feature_access(enrollment.student, general_feature.key) is True
+
+    def test_staff_branch_checked_before_enrollment_branch(self, feature):
+        """
+        A SchoolStaff user resolves via the staff branch regardless of
+        school_role -- role gating is a separate permission class's job
+        (see lesson_plans.permissions.HasLessonPlanAccess's docstring).
+        """
+        from catalog.subscription_access import has_ai_feature_access
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='ADMIN', is_active=True)
+        SchoolFeatureAccessFactory(school=school, feature=feature, status='PAID', paid_until=None)
+        assert has_ai_feature_access(staff.user, feature.key) is True
+
+    def test_query_count_is_bounded_for_student_path(self, feature, django_assert_num_queries):
+        """Student path stays bounded the same as the staff path above."""
+        from catalog.subscription_access import has_ai_feature_access
+        school, enrollment = self._enrolled_student()
+        SchoolFeatureAccessFactory(
+            school=school, feature=feature, status='TRIAL',
+            trial_expires_at=timezone.now() + timedelta(days=7),
+        )
+        fresh_user = type(enrollment.student).objects.get(pk=enrollment.student.pk)
         with django_assert_num_queries(8):
             has_ai_feature_access(fresh_user, feature.key)
