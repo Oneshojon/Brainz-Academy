@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { registerSchool } from '../api/schoolsApi';
-import { useApiMutation } from '../hooks/useApiResource';
-import { ApiError } from '../api/client';
+import { useApiMutation, ApiError } from '@brainz/shared-ui';
 import { FieldError } from '../components/FieldError';
 import { Spinner } from '../components/Spinner';
 

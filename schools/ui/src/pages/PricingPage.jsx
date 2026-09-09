@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { listPlans } from '../api/schoolsApi';
-import { useApiResource } from '../hooks/useApiResource';
+import { useApiResource } from '@brainz/shared-ui';
 import { PlanCard } from '../components/PlanCard';
 
 function PlanCardSkeleton() {

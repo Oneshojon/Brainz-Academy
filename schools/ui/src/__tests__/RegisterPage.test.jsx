@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { RegisterPage } from '../pages/RegisterPage';
 import * as schoolsApi from '../api/schoolsApi';
-import { ApiError } from '../api/client';
+import { ApiError } from '@brainz/shared-ui';
 
 vi.mock('../api/schoolsApi');
 

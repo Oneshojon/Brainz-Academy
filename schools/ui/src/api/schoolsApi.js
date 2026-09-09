@@ -1,4 +1,4 @@
-import schoolsApiClient from './client';
+import { createApiClient } from '@brainz/shared-ui';
 
 /**
  * School Plan API surface — one function per endpoint from the frontend
@@ -6,6 +6,20 @@ import schoolsApiClient from './client';
  * contract lives in one file, even though only the public + registration
  * flow is wired to UI this pass.
  */
+
+// Preserves the exact wording this app had before migrating onto the
+// shared client factory -- @brainz/shared-ui's own defaults were written
+// for an AI-feature context (frontend/ui's Lesson Plan Generator) and
+// would say things like "The AI service is temporarily unavailable",
+// which is wrong here: schools/ui's 502/503 case is Paystack, not AI.
+// Exported so schoolsApi.test.js can assert on it directly rather than
+// duplicating these strings in the test.
+export const SCHOOLS_ERROR_MESSAGES = {
+  forbidden: 'You need to be signed in with the right access for this.',
+  serviceUnavailable: 'The payment provider is temporarily unavailable. Please try again shortly.',
+};
+
+const schoolsApiClient = createApiClient('/schools/', { messages: SCHOOLS_ERROR_MESSAGES });
 
 /** GET /schools/plans/ — public plan list for the pricing page. */
 export function listPlans(signal) {

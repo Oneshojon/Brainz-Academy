@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { PricingPage } from '../pages/PricingPage';
 import * as schoolsApi from '../api/schoolsApi';
-import { invalidateResource } from '../hooks/useApiResource';
+import { invalidateResource } from '@brainz/shared-ui';
 
 vi.mock('../api/schoolsApi');
 
