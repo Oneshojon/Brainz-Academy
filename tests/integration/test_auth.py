@@ -235,3 +235,82 @@ class TestDashboardAccess:
         url = reverse('Users:dashboard')
         response = client.get(url)
         assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestSchoolPlanLoginRedirect:
+    """
+    verify_otp's post-login redirect now checks School Plan membership
+    before falling back to the individual TEACHER/STUDENT role split -- a
+    school teacher's base `role` can still read 'STUDENT' since
+    SchoolInviteRedeemView never syncs it (see schools/permissions.py's
+    module docstring, and SchoolStaffFactory's default below), so role
+    alone isn't a reliable signal for this population.
+    """
+
+    def _seed_otp_session(self, client, user, otp='543210'):
+        from django.utils import timezone
+        session = client.session
+        session['otp'] = otp
+        session['otp_email'] = user.email
+        session['otp_created_at'] = timezone.now().isoformat()
+        session.save()
+
+    def test_school_staff_redirects_to_school_portal(self, client):
+        """SchoolStaffFactory's underlying user defaults to role='STUDENT'
+        (never synced) -- this is the realistic case for an invited school
+        teacher, not an edge case being forced here."""
+        from schools.tests.factories import SchoolFactory, SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=True)
+        self._seed_otp_session(client, staff.user)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.status_code == 302
+        assert response.url == reverse('schools_frontend:index')
+
+    def test_inactive_staff_member_falls_back_to_role_based_redirect(self, client):
+        """A removed staff member (is_active=False) must not be routed to
+        the school portal they no longer belong to."""
+        from schools.tests.factories import SchoolFactory, SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=False)
+        self._seed_otp_session(client, staff.user)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.url == reverse('Users:dashboard')
+
+    def test_enrolled_student_redirects_to_school_portal(self, client):
+        from schools.tests.factories import (
+            SchoolFactory, AcademicTermFactory, CohortFactory, CohortEnrollmentFactory,
+        )
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=True)
+        self._seed_otp_session(client, enrollment.student)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.status_code == 302
+        assert response.url == reverse('schools_frontend:index')
+
+    def test_withdrawn_student_falls_back_to_role_based_redirect(self, client):
+        from schools.tests.factories import (
+            SchoolFactory, AcademicTermFactory, CohortFactory, CohortEnrollmentFactory,
+        )
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=False)
+        self._seed_otp_session(client, enrollment.student)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.url == reverse('Users:dashboard')
+
+    def test_non_school_teacher_still_redirects_to_teacher_dashboard(self, client, teacher):
+        """Regression guard: ordinary individual teacher behavior unchanged."""
+        self._seed_otp_session(client, teacher)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.url == reverse('teacher:dashboard')
+
+    def test_non_school_student_still_redirects_to_dashboard(self, client, student):
+        """Regression guard: ordinary individual student behavior unchanged."""
+        self._seed_otp_session(client, student)
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+        assert response.url == reverse('Users:dashboard')

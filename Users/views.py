@@ -214,7 +214,21 @@ def verify_otp(request):
 
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
-        # Redirect based on role
+        # Redirect based on role. School Plan members (staff or enrolled
+        # students) go to the school portal first, even if their base
+        # `role` field was never synced to reflect it -- SchoolInviteRedeemView
+        # never writes to CustomUser.role (see schools/permissions.py's
+        # module docstring), so a school teacher's `role` can still read
+        # 'STUDENT' at this point. Checking school membership before
+        # `role` is what makes that safe to ignore here.
+        staff = getattr(user, 'school_staff_profile', None)
+        is_school_plan_member = (
+            (staff is not None and staff.is_active)
+            or user.cohort_enrollments.filter(is_active=True).exists()
+        )
+        if is_school_plan_member:
+            return redirect('schools_frontend:index')
+
         if user.role == 'TEACHER':
             return redirect('teacher:dashboard')
         return redirect('Users:dashboard')
