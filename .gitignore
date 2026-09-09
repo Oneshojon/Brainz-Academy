@@ -34,6 +34,7 @@ staticfiles/
 *.sql.log
 *.dump
 .pgpass
+# db.sqlite3
 db.sqlite3
 
 # OS specific (especially for WSL/Windows users)

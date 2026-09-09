@@ -42,6 +42,7 @@ from .models import (
     AcademicTerm,
     ClassGroup,
     Cohort,
+    CohortEnrollment,
     School,
     SchoolInvite,
     SchoolPlan,
@@ -453,4 +454,63 @@ class ClassGroupDetailView(generics.RetrieveUpdateDestroyAPIView):
         return (
             ClassGroup.objects.filter(cohort__school=school)
             .select_related('teacher__user', 'subject', 'cohort')
+        )
+
+
+
+# ── Self-info (any authenticated user, staff or student) ──────────────────
+
+class SchoolMeView(APIView):
+    """
+    GET /schools/me/ — the single call the School Plan portal shell makes
+    on load to decide whether to render TeacherPortal or StudentPortal.
+
+    Deliberately NOT gated by IsSchoolAdmin/IsSchoolStaffMember — any
+    authenticated user can call this; the response itself is what tells
+    the caller whether they're staff, an enrolled student, or neither.
+
+    Staff is checked first (mirrors the same ordering already established
+    in catalog.subscription_access._school_feature_grant_active) via an
+    explicit select_related query rather than the school_staff_profile
+    reverse-descriptor, so the FK is fetched in the same query instead of
+    a second round trip. Bounded at 1 query on the staff path, 2 on the
+    student path (staff miss + enrollment lookup), 0 extra on neither.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        staff = (
+            SchoolStaff.objects
+            .select_related('school')
+            .filter(user=request.user, is_active=True)
+            .first()
+        )
+        if staff is not None:
+            return Response({
+                'school_name': staff.school.name,
+                'is_staff': True,
+                'is_student': False,
+                'school_role': staff.school_role,
+                'position': staff.position,
+            })
+
+        enrollment = (
+            CohortEnrollment.objects
+            .select_related('cohort__school')
+            .filter(student=request.user, is_active=True)
+            .first()
+        )
+        if enrollment is not None:
+            return Response({
+                'school_name': enrollment.cohort.school.name,
+                'is_staff': False,
+                'is_student': True,
+                'school_role': None,
+                'position': None,
+            })
+
+        return Response(
+            {'error': "You're not currently part of a School Plan school."},
+            status=404,
         )

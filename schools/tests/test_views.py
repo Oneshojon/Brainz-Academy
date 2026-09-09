@@ -356,3 +356,103 @@ class TestSchoolPaystackWebhook:
         }
         response = self._post_webhook(client, payload)
         assert response.status_code == 200
+
+
+
+# ---------------------------------------------------------------------------
+# SchoolMeView
+# ---------------------------------------------------------------------------
+
+class TestSchoolMeView:
+
+    def test_requires_authentication(self, client):
+        response = client.get(reverse('schools:me'))
+        assert response.status_code in (401, 403)
+
+    def test_active_staff_gets_school_and_role(self, client):
+        from schools.tests.factories import SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE', name='Bright Future Academy')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', position=None, is_active=True)
+        client.force_login(staff.user)
+        response = client.get(reverse('schools:me'))
+        assert response.status_code == 200
+        assert response.data == {
+            'school_name': 'Bright Future Academy',
+            'is_staff': True,
+            'is_student': False,
+            'school_role': 'TEACHER',
+            'position': None,
+        }
+
+    def test_admin_staff_reports_school_role_and_position(self, client):
+        from schools.tests.factories import SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='ADMIN', position='PRINCIPAL', is_active=True)
+        client.force_login(staff.user)
+        response = client.get(reverse('schools:me'))
+        assert response.data['school_role'] == 'ADMIN'
+        assert response.data['position'] == 'PRINCIPAL'
+
+    def test_inactive_staff_member_is_not_reported_as_staff(self, client):
+        """A removed staff member (is_active=False) must fall through to
+        the "not part of a school" case, not leak their old school."""
+        from schools.tests.factories import SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=False)
+        client.force_login(staff.user)
+        response = client.get(reverse('schools:me'))
+        assert response.status_code == 404
+
+    def test_enrolled_student_gets_school_and_is_student_true(self, client):
+        from schools.tests.factories import AcademicTermFactory, CohortFactory, CohortEnrollmentFactory
+        school = SchoolFactory(status='ACTIVE', name='Riverside Secondary')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=True)
+        client.force_login(enrollment.student)
+        response = client.get(reverse('schools:me'))
+        assert response.status_code == 200
+        assert response.data == {
+            'school_name': 'Riverside Secondary',
+            'is_staff': False,
+            'is_student': True,
+            'school_role': None,
+            'position': None,
+        }
+
+    def test_withdrawn_student_is_not_reported_as_a_student(self, client):
+        from schools.tests.factories import AcademicTermFactory, CohortFactory, CohortEnrollmentFactory
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=False)
+        client.force_login(enrollment.student)
+        response = client.get(reverse('schools:me'))
+        assert response.status_code == 404
+
+    def test_non_school_user_gets_404_with_error_message(self, client):
+        user = UserFactory(role='STUDENT')
+        client.force_login(user)
+        response = client.get(reverse('schools:me'))
+        assert response.status_code == 404
+        assert 'error' in response.data
+
+    def test_staff_checked_before_enrollment_no_n_plus_one(self, client):
+        """Bounded at 1 query on the staff path (select_related handles the FK)."""
+        from schools.tests.factories import SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=True)
+        client.force_login(staff.user)
+        with assert_max_queries(6):
+            client.get(reverse('schools:me'))
+
+    def test_student_path_no_n_plus_one(self, client):
+        """Staff miss (1) + enrollment select_related lookup (1), bounded."""
+        from schools.tests.factories import AcademicTermFactory, CohortFactory, CohortEnrollmentFactory
+        school = SchoolFactory(status='ACTIVE')
+        term = AcademicTermFactory(school=school)
+        cohort = CohortFactory(academic_term=term)
+        enrollment = CohortEnrollmentFactory(cohort=cohort, is_active=True)
+        client.force_login(enrollment.student)
+        with assert_max_queries(7):
+            client.get(reverse('schools:me'))

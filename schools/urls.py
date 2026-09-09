@@ -23,4 +23,7 @@ urlpatterns = [
 
     path('class-groups/', views.ClassGroupListCreateView.as_view(), name='classgroup-list'),
     path('class-groups/<int:pk>/', views.ClassGroupDetailView.as_view(), name='classgroup-detail'),
+
+    # ── Self-info (any authenticated user) ──────────────────────────────
+    path('me/', views.SchoolMeView.as_view(), name='me'),
 ]
