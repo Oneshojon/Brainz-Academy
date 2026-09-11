@@ -86,3 +86,7 @@ export function updateClassGroup(id, payload) {
 export function deleteClassGroup(id) {
   return schoolsApiClient.delete(`class-groups/${id}/`);
 }
+/** GET /schools/me/ — who's asking: staff, enrolled student, or neither (404). */
+export function getMe(signal) {
+  return schoolsApiClient.get('me/', { signal });
+}
