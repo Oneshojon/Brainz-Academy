@@ -43,4 +43,6 @@ Thumbs.db
 
 # Environment variables (Crucial for psycopg2)
 .env
-.env.local
+.env.localnode_modules/
+
+node_modules/
