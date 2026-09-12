@@ -19,6 +19,13 @@ describe('normalizeError', () => {
     expect(err.message).toBe('The Lesson Plan Generator is currently disabled by the admin.');
   });
 
+  it('surfaces a plain error message for 400 + error (non field-validation shape)', () => {
+    const err = normalizeError(fakeAxiosError(400, { error: 'This invite has expired or been fully used.' }));
+    expect(err.status).toBe(400);
+    expect(err.message).toBe('This invite has expired or been fully used.');
+    expect(err.fieldErrors).toBeNull();
+  });
+
   it('captures DRF field errors for 400 responses', () => {
     const err = normalizeError(fakeAxiosError(400, { duration_minutes: ['Duration must be between 1 and 300 minutes.'] }));
     expect(err.status).toBe(400);

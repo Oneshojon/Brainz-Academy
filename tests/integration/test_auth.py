@@ -266,7 +266,7 @@ class TestSchoolPlanLoginRedirect:
         self._seed_otp_session(client, staff.user)
         response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
         assert response.status_code == 302
-        assert response.url == reverse('schools_frontend:index')
+        assert response.url == '/school-plan/portal/'
 
     def test_inactive_staff_member_falls_back_to_role_based_redirect(self, client):
         """A removed staff member (is_active=False) must not be routed to
@@ -289,7 +289,7 @@ class TestSchoolPlanLoginRedirect:
         self._seed_otp_session(client, enrollment.student)
         response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
         assert response.status_code == 302
-        assert response.url == reverse('schools_frontend:index')
+        assert response.url == '/school-plan/portal/'
 
     def test_withdrawn_student_falls_back_to_role_based_redirect(self, client):
         from schools.tests.factories import (
@@ -314,3 +314,66 @@ class TestSchoolPlanLoginRedirect:
         self._seed_otp_session(client, student)
         response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
         assert response.url == reverse('Users:dashboard')
+
+
+@pytest.mark.django_db
+class TestNextUrlRedirect:
+    """
+    A ?next= destination (e.g. an invite-acceptance page, or RegisterPage's
+    login prompt) must survive the OTP round-trip and take priority over
+    the default role/school-plan redirect on success -- and must never be
+    followed if it's not a safe internal path.
+    """
+
+    def _seed_otp_session(self, client, user, otp='543210'):
+        from django.utils import timezone
+        session = client.session
+        session['otp'] = otp
+        session['otp_email'] = user.email
+        session['otp_created_at'] = timezone.now().isoformat()
+        session.save()
+
+    def test_request_otp_stores_a_safe_next_in_session(self, client, student):
+        client.post(reverse('Users:request_otp'), {
+            'email': student.email, 'next': '/school-plan/invite/abc123/',
+        })
+        assert client.session.get('next_url') == '/school-plan/invite/abc123/'
+
+    def test_request_otp_rejects_an_unsafe_next(self, client, student):
+        client.post(reverse('Users:request_otp'), {
+            'email': student.email, 'next': '//evil.com/phish',
+        })
+        assert 'next_url' not in client.session
+
+    def test_next_url_wins_for_an_ordinary_individual_login(self, client, student):
+        self._seed_otp_session(client, student)
+        session = client.session
+        session['next_url'] = '/school-plan/invite/abc123/'
+        session.save()
+
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+
+        assert response.url == '/school-plan/invite/abc123/'
+
+    def test_next_url_wins_over_the_school_plan_portal_redirect(self, client):
+        from schools.tests.factories import SchoolFactory, SchoolStaffFactory
+        school = SchoolFactory(status='ACTIVE')
+        staff = SchoolStaffFactory(school=school, school_role='TEACHER', is_active=True)
+        self._seed_otp_session(client, staff.user)
+        session = client.session
+        session['next_url'] = '/school-plan/invite/abc123/'
+        session.save()
+
+        response = client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+
+        assert response.url == '/school-plan/invite/abc123/'
+
+    def test_next_url_is_cleared_after_use(self, client, student):
+        self._seed_otp_session(client, student)
+        session = client.session
+        session['next_url'] = '/school-plan/invite/abc123/'
+        session.save()
+
+        client.post(reverse('Users:verify_otp'), {'otp': '543210'})
+
+        assert 'next_url' not in client.session

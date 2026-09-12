@@ -28,6 +28,9 @@
       {% if request.GET.ref %}
       <input type="hidden" name="ref" value="{{ request.GET.ref }}" />
       {% endif %}
+      {% if next %}
+      <input type="hidden" name="next" value="{{ next }}" />
+      {% endif %}
 
       <div class="form-group">
         <label class="form-label" for="email">Email Address</label>

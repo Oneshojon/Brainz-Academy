@@ -73,6 +73,10 @@ export function createInvite(payload) {
 export function redeemInvite(token) {
   return schoolsApiClient.post('invites/redeem/', { token });
 }
+/** GET /schools/invites/<token>/preview/ — AllowAny, no use consumed. */
+export function previewInvite(token, signal) {
+  return schoolsApiClient.get(`invites/${token}/preview/`, { signal });
+}
 
 export function listClassGroups(signal) {
   return schoolsApiClient.get('class-groups/', { signal });

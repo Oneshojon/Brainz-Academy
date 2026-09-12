@@ -373,6 +373,66 @@ class TestSchoolInviteRedeem:
         assert not SchoolStaff.objects.filter(user=user).exists()
 
 
+class TestSchoolInvitePreview:
+    """
+    GET /schools/invites/<token>/preview/ -- AllowAny, used by the
+    invite-acceptance page to show "You've been invited to join [School]
+    as a [Teacher]" before the visitor has logged in. Never spends a use.
+    """
+
+    def test_no_login_required(self, client):
+        school = SchoolFactory(name='Bright Future College')
+        invite = SchoolInviteFactory(school=school, role='TEACHER')
+
+        response = client.get(reverse('schools:invite-preview', args=[invite.token]))
+
+        assert response.status_code == 200
+        assert response.json() == {'school_name': 'Bright Future College', 'role': 'TEACHER'}
+
+    def test_does_not_consume_a_use(self, client):
+        invite = SchoolInviteFactory(role='TEACHER', max_uses=1)
+
+        client.get(reverse('schools:invite-preview', args=[invite.token]))
+        client.get(reverse('schools:invite-preview', args=[invite.token]))
+
+        invite.refresh_from_db()
+        assert invite.uses_count == 0
+
+    def test_unknown_token_returns_404(self, client):
+        response = client.get(reverse('schools:invite-preview', args=['not-a-real-token']))
+        assert response.status_code == 404
+        assert response.json()['error'] == 'Invalid invite link.'
+
+    def test_expired_invite_returns_400(self, client):
+        from django.utils import timezone
+        from datetime import timedelta
+        invite = SchoolInviteFactory(expires_at=timezone.now() - timedelta(days=1))
+
+        response = client.get(reverse('schools:invite-preview', args=[invite.token]))
+
+        assert response.status_code == 400
+        assert response.json()['error'] == 'This invite has expired or been fully used.'
+
+    def test_exhausted_invite_returns_400(self, client):
+        invite = SchoolInviteFactory(max_uses=1, uses_count=1)
+
+        response = client.get(reverse('schools:invite-preview', args=[invite.token]))
+
+        assert response.status_code == 400
+
+    def test_student_role_invite_still_previews(self, client):
+        """
+        The preview endpoint itself doesn't reject STUDENT invites -- that
+        rejection belongs to redeem (see TestSchoolInviteRedeem). The
+        frontend uses the returned role to show its own "not self-service
+        yet" message before ever attempting a login/redeem round-trip.
+        """
+        invite = SchoolInviteFactory(role='STUDENT')
+        response = client.get(reverse('schools:invite-preview', args=[invite.token]))
+        assert response.status_code == 200
+        assert response.json()['role'] == 'STUDENT'
+
+
 # ---------------------------------------------------------------------------
 # ClassGroup
 # ---------------------------------------------------------------------------

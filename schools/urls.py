@@ -20,6 +20,7 @@ urlpatterns = [
     path('staff/', views.SchoolStaffListView.as_view(), name='staff-list'),
     path('invites/', views.SchoolInviteCreateView.as_view(), name='invite-create'),
     path('invites/redeem/', views.SchoolInviteRedeemView.as_view(), name='invite-redeem'),
+    path('invites/<str:token>/preview/', views.SchoolInvitePreviewView.as_view(), name='invite-preview'),
 
     path('class-groups/', views.ClassGroupListCreateView.as_view(), name='classgroup-list'),
     path('class-groups/<int:pk>/', views.ClassGroupDetailView.as_view(), name='classgroup-detail'),

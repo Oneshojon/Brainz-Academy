@@ -139,6 +139,35 @@ class TestSchoolRegisterView:
         assert mock_init.call_args.kwargs['amount_kobo'] == 50000 * 100
         assert mock_init.call_args.kwargs['metadata']['school_id'] == school.id
 
+    @patch('schools.views.initialize_transaction', return_value='https://checkout.paystack.com/abc123')
+    def test_contact_email_is_forced_to_the_authenticated_users_email(
+        self, mock_init, client, school_plan_enabled,
+    ):
+        """
+        VALID_PAYLOAD's contact_email ('admin@brightfuture.example.com') is
+        deliberately different from TeacherUserFactory's generated email --
+        the school's contact_email must end up matching whoever is actually
+        logged in and becomes SchoolStaff(ADMIN), never the submitted value.
+        See SchoolRegistrationSerializer.validate() for why this matters:
+        without it, someone could register with another person's email
+        typed in, hand them the resulting Paystack link, and keep ADMIN
+        access for themselves once that person pays.
+        """
+        teacher = TeacherUserFactory()
+        client.force_login(teacher)
+        plan = SchoolPlanFactory()
+
+        response = client.post(
+            reverse('schools:register'),
+            data=json.dumps({**VALID_PAYLOAD, 'plan_id': plan.id}),
+            content_type='application/json',
+        )
+
+        assert response.status_code == 201
+        school = School.objects.get(name='Bright Future College')
+        assert school.contact_email == teacher.email
+        assert school.contact_email != VALID_PAYLOAD['contact_email']
+
     def test_user_already_on_a_school_cannot_register_another(self, client, school_plan_enabled):
         teacher = TeacherUserFactory()
         SchoolStaff.objects.create(user=teacher, school=SchoolFactory(), school_role='TEACHER')

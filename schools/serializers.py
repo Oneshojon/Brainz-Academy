@@ -57,6 +57,17 @@ class SchoolRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "You're already part of a school. Contact support if you need to register another."
             )
+
+        # contact_email is forced to the authenticated account's own email,
+        # regardless of what was submitted. SchoolStaff(ADMIN) is always
+        # created for request.user (see SchoolRegisterView), never for
+        # whoever contact_email names -- letting the two diverge lets one
+        # person type in someone else's email, hand them a real Paystack
+        # checkout link, and quietly keep the ADMIN access for themselves
+        # once payment goes through. The frontend also makes the field
+        # read-only for clarity, but this is the actual control: it holds
+        # even against a direct API call that bypasses the UI entirely.
+        attrs['contact_email'] = user.email
         return attrs
 
 
@@ -160,6 +171,18 @@ class SchoolInviteCreateSerializer(serializers.ModelSerializer):
 class SchoolInviteRedeemSerializer(serializers.Serializer):
     """Plain (non-model) serializer — redemption takes a token, nothing else."""
     token = serializers.CharField()
+
+
+class SchoolInvitePreviewSerializer(serializers.Serializer):
+    """
+    Output-only shape for GET /schools/invites/<token>/preview/ — enough
+    for the invite-acceptance page to say "You've been invited to join
+    [school_name] as a [role]" before the visitor has logged in. Deliberately
+    exposes nothing else about the school or the invite (no max_uses,
+    no created_by, no class_group) since this endpoint is AllowAny.
+    """
+    school_name = serializers.CharField()
+    role = serializers.CharField()
 
 
 class ClassGroupSerializer(serializers.ModelSerializer):

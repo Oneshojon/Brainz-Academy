@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from datetime import timedelta
 import hashlib
 import secrets
@@ -59,15 +60,34 @@ def test_builder_landing(request):
     boards = get_boards_with_question_counts()
     return render(request, 'Users/test_builder_landing.html', {'boards': boards})
 
+def _safe_next_url(request, raw):
+    """
+    Validates a candidate post-login redirect target the same way Django's
+    own LoginView does -- must be a same-host, non-scheme-relative internal
+    path (rejects things like //evil.com or http://evil.com). Returns the
+    cleaned value, or '' if it's missing/unsafe.
+    """
+    raw = (raw or '').strip()
+    if not raw:
+        return ''
+    if url_has_allowed_host_and_scheme(
+        url=raw, allowed_hosts={request.get_host()}, require_https=request.is_secure(),
+    ):
+        return raw
+    return ''
+
+
 def request_otp(request):
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
         ref   = request.POST.get('ref', '').strip()
+        next_url = _safe_next_url(request, request.POST.get('next', ''))
 
         if not email:
             return render(request, 'Users/login.html', {
                 'error': 'Please enter your email address.',
                 'ref':   ref,
+                'next':  next_url,
             })
 
         from django.core.validators import validate_email
@@ -78,6 +98,7 @@ def request_otp(request):
             return render(request, 'Users/login.html', {
                 'error': 'Please enter a valid email address.',
                 'ref':   ref,
+                'next':  next_url,
             })
 
         client_ip = get_client_ip(request)
@@ -85,6 +106,7 @@ def request_otp(request):
             return render(request, 'Users/login.html', {
                 'error': 'Too many login code requests. Please wait a while before trying again.',
                 'ref': ref,
+                'next': next_url,
             })
 
         # Generate OTP and store in session
@@ -94,6 +116,11 @@ def request_otp(request):
         request.session['otp_created_at'] = timezone.now().isoformat()
         if ref:
             request.session['ref_code'] = ref
+        # Only written when present -- same convention as ref_code above,
+        # so a resend (which posts only 'email', no 'next') doesn't wipe
+        # out the destination captured on the original request.
+        if next_url:
+            request.session['next_url'] = next_url
 
         # Send OTP via email service (circuit-breaker-protected)
         from services.email_service import send_otp_email
@@ -102,7 +129,7 @@ def request_otp(request):
         if not delivered:
             # Brevo circuit is OPEN or delivery failed — clear session and
             # show a clear message so the user knows to try again later.
-            for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
+            for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code', 'next_url'):
                 request.session.pop(key, None)
             return render(request, 'Users/login.html', {
                 'error': (
@@ -110,13 +137,15 @@ def request_otp(request):
                     'delivery issue. Please try again in a few minutes.'
                 ),
                 'ref': ref,
+                'next': next_url,
             })
 
         return redirect('Users:verify_otp')
 
-    # GET — pass ?ref= through to template
+    # GET — pass ?ref= and ?next= through to template
     ref = request.GET.get('ref', '')
-    return render(request, 'Users/login.html', {'ref': ref})
+    next_url = _safe_next_url(request, request.GET.get('next', ''))
+    return render(request, 'Users/login.html', {'ref': ref, 'next': next_url})
 
 def verify_otp(request):
     email = request.session.get('otp_email')
@@ -124,6 +153,7 @@ def verify_otp(request):
         return redirect('Users:request_otp')
 
     ref_code = request.session.get('ref_code', '')
+    next_url = request.session.get('next_url', '')
 
     if request.method == 'POST':
         entered_otp = request.POST.get('otp', '').strip()
@@ -145,7 +175,7 @@ def verify_otp(request):
                 # Too many wrong guesses against this email — force a
                 # fresh code rather than let guessing continue against
                 # the same one.
-                for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
+                for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code', 'next_url'):
                     request.session.pop(key, None)
                 return render(request, 'Users/verify_otp.html', {
                     'email': email, 'ref_code': ref_code,
@@ -209,10 +239,20 @@ def verify_otp(request):
             user.save()
 
         # Clear OTP session data
-        for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code'):
+        for key in ('otp', 'otp_email', 'otp_created_at', 'ref_code', 'next_url'):
             request.session.pop(key, None)
 
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+        # An explicit destination (e.g. arriving here mid-way through
+        # registering a school, or accepting a School Plan invite) wins
+        # over the default role/school-plan dispatch below -- re-validated
+        # here (not just when it was written into the session) as a
+        # cheap extra guard against an unsafe value ever being followed.
+        if next_url:
+            safe_next = _safe_next_url(request, next_url)
+            if safe_next:
+                return redirect(safe_next)
 
         # Redirect based on role. School Plan members (staff or enrolled
         # students) go to the school portal first, even if their base
@@ -227,7 +267,12 @@ def verify_otp(request):
             or user.cohort_enrollments.filter(is_active=True).exists()
         )
         if is_school_plan_member:
-            return redirect('schools_frontend:index')
+            # Straight to the portal, not the bare SPA root -- App.jsx's
+            # own root route unconditionally redirects '/' to '/pricing',
+            # so a returning school-plan member landing there on every
+            # login was being bounced to the public registration page
+            # instead of their portal. Found via live testing.
+            return redirect('/school-plan/portal/')
 
         if user.role == 'TEACHER':
             return redirect('teacher:dashboard')

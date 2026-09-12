@@ -61,6 +61,16 @@ export function normalizeError(error, overrides = {}) {
     return new ApiError(data.error, { status });
   }
 
+  // Plain generic error on a 400 — { "error": "..." } shape, e.g.
+  // "This invite has expired or been fully used." (schools) or
+  // "Generate this lesson plan before downloading it." (lesson_plans).
+  // Checked before the DRF field-errors branch below since a real DRF
+  // validation payload never carries a top-level "error" key (it uses
+  // field names or "non_field_errors" instead).
+  if (status === 400 && data?.error) {
+    return new ApiError(data.error, { status });
+  }
+
   // DRF validation error — { field: ["message"] } shape
   if (status === 400 && data && typeof data === 'object') {
     return new ApiError('Please fix the highlighted fields.', { status, fieldErrors: data });

@@ -14,6 +14,7 @@
 
     <script>
       window.USER_ROLE = "{{ request.user.role|default:'' }}";
+      window.USER_EMAIL = "{{ request.user.email|default:'' }}";
       window.LOGO_URL  = "{% static 'Users/images/brainz_logo.png' %}";
       window.IS_AUTHENTICATED = {{ request.user.is_authenticated|yesno:"true,false" }};
     </script>

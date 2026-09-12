@@ -9,9 +9,11 @@ import { ApiError } from '@brainz/shared-ui';
 vi.mock('../api/schoolsApi');
 
 async function fillForm() {
+  // contact_email is no longer typed into -- it's pre-filled read-only
+  // from window.USER_EMAIL (see beforeEach). Only the editable fields
+  // are filled here.
   await userEvent.type(screen.getByLabelText(/school name/i), 'Bright Future College');
   await userEvent.type(screen.getByLabelText(/state/i), 'Lagos');
-  await userEvent.type(screen.getByLabelText(/contact email/i), 'admin@school.com');
   await userEvent.type(screen.getByLabelText(/plan id/i), '1');
   await userEvent.click(screen.getByRole('button', { name: /continue to payment/i }));
 }
@@ -19,29 +21,41 @@ async function fillForm() {
 describe('RegisterPage', () => {
   beforeEach(() => {
     window.IS_AUTHENTICATED = true;
+    window.USER_EMAIL = 'principal@brightfuture.example.com';
     delete window.location;
     window.location = { href: '', pathname: '/school-plan/register', search: '' };
   });
 
-  it('shows a login prompt instead of the form when not authenticated', () => {
+  it('shows a login prompt pointed at the real login page when not authenticated', () => {
     window.IS_AUTHENTICATED = false;
     render(<RegisterPage />, { wrapper: MemoryRouter });
-    expect(screen.getByRole('link', { name: /go to login/i })).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /go to login/i });
+    expect(link).toBeInTheDocument();
+    // Regression guard: this used to point at "/" (the homepage), which
+    // has no OTP form and, at the time, didn't honor ?next= either.
+    expect(link.getAttribute('href')).toMatch(/^\/get-otp\/\?next=/);
     expect(screen.queryByLabelText(/school name/i)).not.toBeInTheDocument();
+  });
+
+  it('pre-fills contact_email from the logged-in account and does not allow editing it', () => {
+    render(<RegisterPage />, { wrapper: MemoryRouter });
+    const emailField = screen.getByLabelText(/contact email/i);
+    expect(emailField).toHaveValue('principal@brightfuture.example.com');
+    expect(emailField).toBeDisabled();
   });
 
   it('shows field-specific errors from a 400 response, not a generic banner', async () => {
     schoolsApi.registerSchool.mockRejectedValue(
       new ApiError('Please fix the highlighted fields.', {
         status: 400,
-        fieldErrors: { contact_email: ['Enter a valid email.'] },
+        fieldErrors: { name: ['This field is required.'] },
       }),
     );
 
     render(<RegisterPage />, { wrapper: MemoryRouter });
     await fillForm();
 
-    await waitFor(() => expect(screen.getByText('Enter a valid email.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('This field is required.')).toBeInTheDocument());
     expect(screen.queryByText(/please fix the highlighted fields/i)).not.toBeInTheDocument();
   });
 

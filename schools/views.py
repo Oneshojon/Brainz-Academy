@@ -55,6 +55,7 @@ from .serializers import (
     ClassGroupSerializer,
     CohortSerializer,
     SchoolInviteCreateSerializer,
+    SchoolInvitePreviewSerializer,
     SchoolInviteRedeemSerializer,
     SchoolPlanSerializer,
     SchoolRegistrationSerializer,
@@ -421,6 +422,39 @@ class SchoolInviteRedeemView(APIView):
         invite.redeem()
 
         return Response({'school_id': invite.school_id, 'role': invite.role}, status=200)
+
+
+class SchoolInvitePreviewView(APIView):
+    """
+    GET /schools/invites/<token>/preview/
+
+    AllowAny — lets the invite-acceptance page show "You've been invited
+    to join [School] as a [Teacher]" *before* the visitor has logged in,
+    without spending a use or requiring auth. Mirrors the same
+    lookup/validity checks as SchoolInviteRedeemView, but never calls
+    invite.redeem() and never touches SchoolStaff.
+
+    Deliberately returns only school_name + role (see
+    SchoolInvitePreviewSerializer) -- nothing else about the invite or
+    school is exposed to an unauthenticated caller.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        try:
+            invite = SchoolInvite.objects.select_related('school').get(token=token)
+        except SchoolInvite.DoesNotExist:
+            return Response({'error': 'Invalid invite link.'}, status=404)
+
+        if not invite.is_valid:
+            return Response({'error': 'This invite has expired or been fully used.'}, status=400)
+
+        serializer = SchoolInvitePreviewSerializer({
+            'school_name': invite.school.name,
+            'role': invite.role,
+        })
+        return Response(serializer.data, status=200)
 
 
 # ── ClassGroup ───────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ export function RegisterPage() {
   // here would never reflect a change to window.IS_AUTHENTICATED after
   // the bundle first loads.
   const isAuthenticated = typeof window !== 'undefined' ? window.IS_AUTHENTICATED !== false : true;
+  // Same reasoning — read live, not at import time.
+  const userEmail = typeof window !== 'undefined' ? window.USER_EMAIL ?? '' : '';
 
   const [searchParams] = useSearchParams();
   const initialPlanId = searchParams.get('plan') ?? '';
@@ -18,7 +20,11 @@ export function RegisterPage() {
   const [form, setForm] = useState({
     name: '',
     state: '',
-    contact_email: '',
+    // contact_email is no longer user-editable (see below) -- it always
+    // equals the logged-in account's own email. The backend enforces this
+    // independently too (SchoolRegistrationSerializer.validate() forces
+    // it server-side), so this is a clarity measure, not the real control.
+    contact_email: userEmail,
     plan_id: initialPlanId,
   });
   const [banner, setBanner] = useState(null);
@@ -34,8 +40,14 @@ export function RegisterPage() {
           <p className="mt-2 text-sm text-sp-navy/70">
             Registering a school needs a BrainzAcademy account first.
           </p>
-          <a
-            href={`/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+          
+            // Points at the actual login view (/get-otp/), not the
+            // homepage -- the homepage's own window.requireAuth() helper
+            // already builds links this same way (Users/index.html), so
+            // this now matches that existing, if previously-unhonored,
+            // convention. Users/views.py:request_otp/verify_otp carry
+            // ?next= through the OTP round-trip and land back here.
+            href={`/get-otp/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             className="mt-6 inline-block rounded-full bg-sp-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-sp-navy/90"
           >
             Go to login
@@ -117,12 +129,16 @@ export function RegisterPage() {
               id="contact_email"
               type="email"
               required
+              readOnly
+              disabled
               value={form.contact_email}
-              onChange={handleChange('contact_email')}
               aria-invalid={Boolean(fieldErrors?.contact_email)}
-              aria-describedby={fieldErrors?.contact_email ? 'contact_email-error' : undefined}
-              className="mt-1 w-full rounded-lg border border-sp-border px-3 py-2 text-sp-navy focus:border-sp-accent focus:outline-none"
+              aria-describedby={fieldErrors?.contact_email ? 'contact_email-error' : 'contact_email-hint'}
+              className="mt-1 w-full cursor-not-allowed rounded-lg border border-sp-border bg-sp-bg px-3 py-2 text-sp-navy/70"
             />
+            <p id="contact_email-hint" className="mt-1 text-xs text-sp-navy/50">
+              This is tied to your account and becomes the school's registered admin contact — it can't be changed here.
+            </p>
             <FieldError id="contact_email-error" errors={fieldErrors?.contact_email} />
           </div>
 
