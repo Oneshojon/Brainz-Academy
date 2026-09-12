@@ -46,3 +46,10 @@ Thumbs.db
 .env.localnode_modules/
 
 node_modules/
+
+# Vite build output for frontend/ui and schools/ui — the Dockerfile now
+# builds both fresh from source in every image build (see frontend-builder
+# stage), so committing the built assets here would just be a second,
+# driftable copy that can silently go stale relative to src/.
+frontend/static/frontend/
+schools/static/schools/
