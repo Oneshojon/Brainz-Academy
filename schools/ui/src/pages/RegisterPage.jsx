@@ -40,7 +40,7 @@ export function RegisterPage() {
           <p className="mt-2 text-sm text-sp-navy/70">
             Registering a school needs a BrainzAcademy account first.
           </p>
-          
+          <a
             // Points at the actual login view (/get-otp/), not the
             // homepage -- the homepage's own window.requireAuth() helper
             // already builds links this same way (Users/index.html), so

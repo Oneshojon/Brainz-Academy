@@ -56,8 +56,8 @@ export function InvitePage() {
     <main className="flex min-h-screen items-center justify-center bg-sp-bg px-4 py-12 sm:px-8">
       <div className="w-full max-w-sm rounded-2xl border border-sp-border bg-white p-8 text-center">
         {previewLoading && (
-          <div className="flex flex-col items-center gap-3 py-6">
-            <Spinner label="Checking your invite…" />
+          <div role="status" className="flex flex-col items-center gap-3 py-6">
+            <Spinner decorative />
             <p className="text-sm text-sp-navy/60">Checking your invite…</p>
           </div>
         )}
@@ -99,7 +99,7 @@ export function InvitePage() {
               <strong>{ROLE_LABELS[preview.role]}</strong>. Sign in (or create an account) to accept.
             </p>
             <a
-              href={`/get-otp/?next=${encodeURIComponent(window.location.pathname)}`}
+              href={`/get-otp/?next=${encodeURIComponent(`/school-plan/invite/${token}/`)}`}
               className="mt-6 inline-block rounded-full bg-sp-navy px-5 py-2.5 text-sm font-semibold text-white hover:bg-sp-navy/90"
             >
               Sign in to accept
@@ -108,8 +108,8 @@ export function InvitePage() {
         )}
 
         {!previewLoading && preview && isSupportedRole && isAuthenticated && redeeming && (
-          <div className="flex flex-col items-center gap-3 py-6">
-            <Spinner label={`Joining ${preview.school_name}…`} />
+          <div role="status" className="flex flex-col items-center gap-3 py-6">
+            <Spinner decorative />
             <p className="text-sm text-sp-navy/60">Joining {preview.school_name}…</p>
           </div>
         )}

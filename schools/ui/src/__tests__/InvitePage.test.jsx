@@ -69,7 +69,7 @@ describe('InvitePage', () => {
 
     const link = screen.getByRole('link', { name: /sign in to accept/i });
     expect(link.getAttribute('href')).toBe(
-      `/get-otp/?next=${encodeURIComponent('/invite/xyz789')}`,
+      `/get-otp/?next=${encodeURIComponent('/school-plan/invite/xyz789/')}`,
     );
     expect(schoolsApi.redeemInvite).not.toHaveBeenCalled();
   });
